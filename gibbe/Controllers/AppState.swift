@@ -603,7 +603,11 @@ extension AppState: EventVerifying, RelayDelegate {
     }
     
     private func didReceiveLiveActivitiesEvent(_ liveActivitiesEvent: LiveActivitiesEvent) {
-        guard let eventCoordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value else {
+        guard let eventCoordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value,
+              let startTimestamp = liveActivitiesEvent.startsAt,
+              startTimestamp <= liveActivitiesEvent.endsAt ?? startTimestamp,
+              startTimestamp.timeIntervalSince1970 > 0
+        else {
             return
         }
 
@@ -795,7 +799,7 @@ extension AppState: EventVerifying, RelayDelegate {
             _ = liveActivitiesTrie.insert(key: newTitle, value: eventCoordinates, options: [.includeCaseInsensitiveMatches, .includeDiacriticsInsensitiveMatches, .includeNonPrefixedMatches])
         }
         if let newSummary {
-            _ = liveActivitiesTrie.insert(key: newSummary, value: eventCoordinates, options: [.includeCaseInsensitiveMatches, .includeDiacriticsInsensitiveMatches, .includeNonPrefixedMatches])
+            _ = liveActivitiesTrie.insert(key: newSummary, value: eventCoordinates, options: [.includeCaseInsensitiveMatches, .includeDiacriticsInsensitiveMatches, /*.includeNonPrefixedMatches*/])
         }
     }
     
