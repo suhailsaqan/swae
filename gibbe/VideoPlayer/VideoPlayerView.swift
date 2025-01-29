@@ -12,43 +12,30 @@ struct VideoPlayerView: View {
     var size: CGSize
     var safeArea: EdgeInsets
     let url: URL
-    @State private var player: AVPlayer?
+    
+    @GestureState private var isDragging: Bool = false
+    
+    @StateObject private var viewModel: VideoPlayerModel
 
     init(size: CGSize, safeArea: EdgeInsets, url: URL) {
         self.size = size
         self.safeArea = safeArea
         self.url = url
-        _player = State(initialValue: AVPlayer(url: url))
+        _viewModel = StateObject(wrappedValue: VideoPlayerModel(url: url))
     }
-    
-    @State private var showPlayerControls: Bool = false
-    @State private var isPlaying: Bool = false
-    @State private var timeoutTask: DispatchWorkItem?
-    @State private var isFinishedPlaying: Bool = false
-    /// Video Seeker Properties
-    @GestureState private var isDragging: Bool = false
-    @State private var isSeeking: Bool = false
-    @State private var progress: CGFloat = 0
-    @State private var lastDraggedProgress: CGFloat = 0
-    @State private var isObserverAdded: Bool = false
-    @State private var thumbnailFrames: [UIImage] = []
-    @State private var draggingImage: UIImage?
-    @State private var playerStatusObserver: NSKeyValueObservation?
-    /// Rotation Properties
-    @State private var isRotated: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
-//            let videoPlayerSize: CGSize = .init(width: isRotated ? size.height: size.width, height: isRotated ? size.width : (size.height / 3.5))
-            let videoPlayerSize: CGSize = .init(width: isRotated ? size.height: size.width, height: isRotated ? size.width : (size.height))
+//            let videoPlayerSize: CGSize = .init(width: viewModel.isRotated ? size.height: size.width, height: viewModel.isRotated ? size.width : (size.height / 3.5))
+            let videoPlayerSize: CGSize = .init(width: viewModel.isRotated ? size.height : size.width, height: viewModel.isRotated ? size.width : size.height)
             
             ZStack {
-                if let player {
-                    CustomVideoPlayer(player: player)
+//                if let player = viewModel.player {
+                    CustomVideoPlayer(player: viewModel.player)
                         .overlay {
                             Rectangle()
                                 .fill(.black.opacity(0.4))
-                                .opacity(showPlayerControls || isDragging ? 1 : 0)
+                                .opacity(viewModel.showPlayerControls || isDragging ? 1 : 0)
                                 .animation(.easeInOut(duration: 0.35), value: isDragging)
                                 .overlay {
                                     PlayBackControls()
@@ -57,40 +44,39 @@ struct VideoPlayerView: View {
                         .overlay {
                             HStack(spacing: 60) {
                                 DoubleTapSeek {
-                                    let seconds = player.currentTime().seconds - 15
-                                    player.seek(to: .init(seconds: seconds, preferredTimescale: 600))
+                                    let seconds = viewModel.player.currentTime().seconds - 15
+                                    viewModel.player.seek(to: .init(seconds: seconds, preferredTimescale: 600))
                                 }
                                 
                                 DoubleTapSeek(isForward: true) {
-                                    let seconds = player.currentTime().seconds + 15
-                                    player.seek(to: .init(seconds: seconds, preferredTimescale: 600))
+                                    let seconds = viewModel.player.currentTime().seconds + 15
+                                    viewModel.player.seek(to: .init(seconds: seconds, preferredTimescale: 600))
                                 }
                             }
-                            
                         }
                         .onTapGesture {
                             withAnimation(.easeInOut(duration: 0.20)) {
-                                showPlayerControls.toggle()
+                                viewModel.showPlayerControls.toggle()
                             }
                             
-                            if isPlaying {
-                                timeoutControls()
+                            if viewModel.isPlaying {
+                                viewModel.timeoutControls()
                             }
                         }
                         .overlay(alignment: .bottomLeading) {
                             SeekerThumbnailView(videoPlayerSize)
-                                .offset(y: isRotated ? -85: -60)
+                                .offset(y: viewModel.isRotated ? -85 : -60)
                         }
                         .overlay(alignment: .bottom) {
                             VideoSeekerView(videoPlayerSize)
-                                .offset(y: isRotated ? -15: 0)
+                                .offset(y: viewModel.isRotated ? -15 : 0)
                         }
-                }
+//                }
             }
             .background {
                 Rectangle()
                     .fill(.black)
-                    .padding(.trailing, isRotated ? -safeArea.bottom : 0)
+                    .padding(.trailing, viewModel.isRotated ? -safeArea.bottom : 0)
             }
             .gesture(
                 DragGesture()
@@ -98,12 +84,12 @@ struct VideoPlayerView: View {
                         if -value.translation.height > 100 {
                             /// Rotate Player
                             withAnimation(.easeInOut(duration: 0.2)) {
-                                isRotated = true
+                                viewModel.isRotated = true
                             }
                         } else {
                             /// Go to Normal
                             withAnimation(.easeInOut(duration: 0.2)) {
-                                isRotated = false
+                                viewModel.isRotated = false
                             }
                         }
                     })
@@ -111,71 +97,71 @@ struct VideoPlayerView: View {
             .frame(width: videoPlayerSize.width, height: videoPlayerSize.height)
 //            .frame(width: size.width, height: size.height / 3.5, alignment: .bottomLeading) replacement ^
             .frame(width: size.width, height: size.height, alignment: .bottomLeading)
-            .offset(y: isRotated ? -((size.width / 2) + safeArea.bottom) : 0)
-            .rotationEffect(.init(degrees: isRotated ? 90 : 0), anchor: .topLeading)
+            .offset(y: viewModel.isRotated ? -((size.width / 2) + safeArea.bottom) : 0)
+            .rotationEffect(.init(degrees: viewModel.isRotated ? 90 : 0), anchor: .topLeading)
             .zIndex(10000)
         }
         .padding(.top, safeArea.top)
         .onAppear {
-            guard !isObserverAdded else { return }
-                    
-            player?.addPeriodicTimeObserver(forInterval: .init(seconds: 1, preferredTimescale: 600), queue: .main, using: { time in
-                
-                if let currentPlayerItem = player?.currentItem {
+            guard !viewModel.isObserverAdded else { return }
+            
+            viewModel.player.addPeriodicTimeObserver(forInterval: .init(seconds: 1, preferredTimescale: 600), queue: .main, using: { time in
+                if let currentPlayerItem = viewModel.player.currentItem {
                     let totalDuration = currentPlayerItem.duration.seconds
-                    guard let currentDuration = player?.currentTime().seconds else { return }
+//                    guard let currentDuration = viewModel.player.currentTime().seconds else { return }
+                    let currentDuration = viewModel.player.currentTime().seconds
                     
                     let calculatedProgress = currentDuration / totalDuration
                     
-                    if !isSeeking {
-                        progress = calculatedProgress
-                        lastDraggedProgress = progress
+                    if !viewModel.isSeeking {
+                        viewModel.progress = calculatedProgress
+                        viewModel.lastDraggedProgress = viewModel.progress
                     }
                     
                     if calculatedProgress == 1 {
-                        isFinishedPlaying = true
-                        isPlaying = false
+                        viewModel.isFinishedPlaying = true
+                        viewModel.isPlaying = false
                     }
                 }
             })
             
-            isObserverAdded = true
+            viewModel.isObserverAdded = true
             
-            playerStatusObserver = player?.observe(\.status, options: .new, changeHandler: {
-                player, _ in
+            viewModel.playerStatusObserver = viewModel.player.observe(\.status, options: .new, changeHandler: { player, _ in
                 if player.status == .readyToPlay {
-                    generateThumbnailFrames()
+                    viewModel.generateThumbnailFrames()
                 }
             })
             
-            player?.play()
-            togglePlayWithAnimation($isPlaying)
-            if let timeoutTask {
+            viewModel.player.play()
+            togglePlayWithAnimation($viewModel.isPlaying)
+            if let timeoutTask = viewModel.timeoutTask {
                 timeoutTask.cancel()
             }
         }
         .onDisappear {
-            playerStatusObserver?.invalidate()
+            viewModel.playerStatusObserver?.invalidate()
             
-            player?.pause()
-            togglePlayWithAnimation($isPlaying)
-            timeoutControls()
+            viewModel.player.pause()
+            togglePlayWithAnimation($viewModel.isPlaying)
+            viewModel.timeoutControls()
         }
     }
+
     
     @ViewBuilder
     func SeekerThumbnailView(_ videoSize: CGSize) -> some View {
         let thumbSize: CGSize = .init(width: 175, height: 100)
         ZStack {
-            if let draggingImage {
+            if let draggingImage = viewModel.draggingImage {
                 Image(uiImage: draggingImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: thumbSize.width, height: thumbSize.height)
                     .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                     .overlay(alignment: .bottom) {
-                        if let currentItem = player?.currentItem {
-                            Text(CMTime(seconds: progress * currentItem.duration.seconds, preferredTimescale: 600).toTimeString())
+                        if let currentItem = viewModel.player.currentItem {
+                            Text(CMTime(seconds: viewModel.progress * currentItem.duration.seconds, preferredTimescale: 600).toTimeString())
                                 .font(.callout)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.white)
@@ -198,7 +184,7 @@ struct VideoPlayerView: View {
         }
         .frame(width: thumbSize.width, height: thumbSize.height)
         .opacity(isDragging ? 1 : 0)
-        .offset(x: progress * (videoSize.width - thumbSize.width - 20))
+        .offset(x: viewModel.progress * (videoSize.width - thumbSize.width - 20))
         .offset(x: 10)
     }
     
@@ -211,7 +197,7 @@ struct VideoPlayerView: View {
             
             Rectangle()
                 .fill(.red)
-                .frame(width: max(videoSize.width * (progress.isFinite ? progress : 0), 0))
+                .frame(width: max(videoSize.width * (viewModel.progress.isFinite ? viewModel.progress : 0), 0))
         }
         .frame(height: 3)
         .overlay(alignment: .leading) {
@@ -219,52 +205,52 @@ struct VideoPlayerView: View {
                 .fill(.red)
                 .frame(width: 15, height: 15)
                 /// Showing Drag Knob Only When Dragging
-                .scaleEffect(showPlayerControls || isDragging ? 1 : 0.001, anchor: progress * videoSize.width > 15 ? .trailing : .leading)
+                .scaleEffect(viewModel.showPlayerControls || isDragging ? 1 : 0.001, anchor: viewModel.progress * videoSize.width > 15 ? .trailing : .leading)
                 /// For more Dragging Space
                 .frame(width: 50, height: 50)
                 .contentShape(Rectangle())
                 /// Moving Along Side With Gesture Progress
-                .offset(x: videoSize.width * progress)
+                .offset(x: videoSize.width * viewModel.progress)
                 .gesture(DragGesture()
                     .updating($isDragging, body: { _, out, _ in
                         out = true
                     })
                         .onChanged({value in
-                            if let timeoutTask {
+                            if let timeoutTask = viewModel.timeoutTask {
                                 timeoutTask.cancel()
                             }
                             
                             let translationX: CGFloat = value.translation.width
-                            let calculatedProgress = (translationX / videoSize.width) + lastDraggedProgress
+                            let calculatedProgress = (translationX / videoSize.width) + viewModel.lastDraggedProgress
                             
-                            progress = max(min(calculatedProgress, 1), 0)
-                            isSeeking = true
+                            viewModel.progress = max(min(calculatedProgress, 1), 0)
+                            viewModel.isSeeking = true
                             
-                            let dragIndex = Int(progress / 0.01)
-                            if thumbnailFrames.indices.contains(dragIndex) {
-                                draggingImage = thumbnailFrames[dragIndex]
+                            let dragIndex = Int(viewModel.progress / 0.01)
+                            if viewModel.thumbnailFrames.indices.contains(dragIndex) {
+                                viewModel.draggingImage = viewModel.thumbnailFrames[dragIndex]
                             }
                         })
                         .onEnded({value in
                             /// Storing Last Known Progress
-                            lastDraggedProgress = progress
+                            viewModel.lastDraggedProgress = viewModel.progress
                             /// Seeking Video To Dragged Time
-                            if let currentPlayerItem = player?.currentItem {
+                            if let currentPlayerItem = viewModel.player.currentItem {
                                 let totalDuration = currentPlayerItem.duration.seconds
                                 
-                                player?.seek(to: .init(seconds: totalDuration * progress, preferredTimescale: 600))
+                                viewModel.player.seek(to: .init(seconds: totalDuration * viewModel.progress, preferredTimescale: 600))
                                 
-                                if isPlaying {
-                                    timeoutControls()
+                                if viewModel.isPlaying {
+                                    viewModel.timeoutControls()
                                 }
                                 
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    isSeeking = false
+                                    viewModel.isSeeking = false
                                 }
                             }
                         })
                 )
-                .offset(x: progress * videoSize.width > 15 ? -15 : 0)
+                .offset(x: viewModel.progress * videoSize.width > 15 ? -15 : 0)
                 .frame(width: 15, height: 15)
         }
     }
@@ -292,25 +278,25 @@ struct VideoPlayerView: View {
 
             
             Button {
-                if isFinishedPlaying {
-                    isFinishedPlaying = false
-                    player?.seek(to: .zero)
-                    progress = .zero
-                    lastDraggedProgress = .zero
+                if viewModel.isFinishedPlaying {
+                    viewModel.isFinishedPlaying = false
+                    viewModel.player.seek(to: .zero)
+                    viewModel.progress = .zero
+                    viewModel.lastDraggedProgress = .zero
                 }
-                if isPlaying {
-                    player?.pause()
-                    if let timeoutTask {
-                        timeoutTask.cancel()
+                if viewModel.isPlaying {
+                    viewModel.player.pause()
+                    if let timeoutTask = viewModel.timeoutTask {
+                        viewModel.timeoutTask?.cancel()
                     }
                 } else {
-                    player?.play()
-                    timeoutControls()
+                    viewModel.player.play()
+                    viewModel.timeoutControls()
                 }
                 
-                togglePlayWithAnimation($isPlaying)
+                togglePlayWithAnimation($viewModel.isPlaying)
             } label: {
-                Image(systemName: isFinishedPlaying ? "arrow.clockwise" : (isPlaying ? "pause.fill" : "play.fill"))
+                Image(systemName: viewModel.isFinishedPlaying ? "arrow.clockwise" : (viewModel.isPlaying ? "pause.fill" : "play.fill"))
                     .font(.title)
 //                    .fontWeight(.ultraLight)
                     .foregroundColor(.white)
@@ -339,57 +325,13 @@ struct VideoPlayerView: View {
             .opacity(0.6)
             
         }
-        .opacity(showPlayerControls && !isDragging ? 1 : 0)
-        .animation(.easeIn(duration: 0.125), value: showPlayerControls && !isDragging)
+        .opacity(viewModel.showPlayerControls && !isDragging ? 1 : 0)
+        .animation(.easeIn(duration: 0.1), value: viewModel.showPlayerControls && !isDragging)
     }
     
     func togglePlayWithAnimation(_ isPlaying: Binding<Bool>, duration: Double = 0.15) {
         withAnimation(.easeInOut(duration: duration)) {
             isPlaying.wrappedValue.toggle()
-        }
-    }
-    
-    func timeoutControls() {
-        if let timeoutTask {
-            timeoutTask.cancel()
-        }
-        
-        timeoutTask = .init(block: {
-            withAnimation(.easeInOut(duration: 0.35)) {
-                showPlayerControls = false
-            }
-        })
-        
-        if let timeoutTask {
-            DispatchQueue.main.asyncAfter(deadline:  .now() + 3, execute: timeoutTask)
-        }
-    }
-    
-    func generateThumbnailFrames() {
-        Task {
-            guard let asset = player?.currentItem?.asset else { return }
-            let generator = AVAssetImageGenerator(asset: asset)
-            generator.appliesPreferredTrackTransform = true
-            generator.maximumSize = .init(width: 250, height: 250)
-
-            do {
-                let totalDuration = try await asset.load(.duration).seconds
-                var frameTimes: [CMTime] = []
-
-                for progress in stride(from: 0, to: 1, by: 0.01) {
-                    let time = CMTime(seconds: progress * totalDuration, preferredTimescale: 600)
-                    frameTimes.append(time)
-                }
-
-                for try await result in generator.images(for: frameTimes) {
-                    let cgImage = try result.image
-                    await MainActor.run {
-                        thumbnailFrames.append(UIImage(cgImage: cgImage))
-                    }
-                }
-            } catch {
-                print("Error generating thumbnail frames: \(error.localizedDescription)")
-            }
         }
     }
 }
