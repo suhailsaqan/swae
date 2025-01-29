@@ -302,24 +302,7 @@ struct VideoListView: View, MetadataCoding {
             alignment: .topLeading,
             content: {
                 Button {
-                    withAnimation(
-                        .interactiveSpring(
-                            response: 0.6, dampingFraction: 0.7,
-                            blendDuration: 0.7)
-                    ) {
-                        animateView = false
-                        animateContent = false
-                    }
-
-                    withAnimation(
-                        .interactiveSpring(
-                            response: 0.6, dampingFraction: 0.7,
-                            blendDuration: 0.7
-                        ).delay(0.05)
-                    ) {
-                        selectedEvent = nil
-                        showDetailPage = false
-                    }
+                    closeDetailView()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title)
@@ -462,6 +445,28 @@ struct VideoListView: View, MetadataCoding {
             self.isLoadingMore = false
         }
     }
+    
+    func closeDetailView() {
+        withAnimation(
+            .interactiveSpring(
+                response: 0.6, dampingFraction: 0.7,
+                blendDuration: 0.7)
+        ) {
+            animateView = false
+            animateContent = false
+        }
+
+        withAnimation(
+            .interactiveSpring(
+                response: 0.6, dampingFraction: 0.7,
+                blendDuration: 0.7
+            ).delay(0.05)
+        ) {
+            selectedEvent = nil
+            showDetailPage = false
+        }
+    }
+
 }
 
 struct CustomSegmentedPicker: View {
