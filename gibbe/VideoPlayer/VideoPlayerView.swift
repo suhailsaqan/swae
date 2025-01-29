@@ -114,26 +114,6 @@ struct VideoPlayerView: View {
             .offset(y: isRotated ? -((size.width / 2) + safeArea.bottom) : 0)
             .rotationEffect(.init(degrees: isRotated ? 90 : 0), anchor: .topLeading)
             .zIndex(10000)
-            
-//            ScrollView(.vertical, showsIndicators: false) {
-//                VStack(spacing: 10) {
-//                    ForEach(1...5, id: \.self) { index in
-//                        GeometryReader {
-//                            let size = $0.size
-//                            
-//                            Image("Thumb \(index)")
-//                                .resizable()
-//                                .aspectRatio(contentMode: .fill)
-//                                .frame(width: size.width, height: size.height)
-//                                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-//                        }
-//                        .frame(height: 220)
-//                    }
-//                }
-//                .padding(.horizontal, 15)
-//                .padding(.top, 30)
-//                .padding(.bottom, 15 + safeArea.bottom)
-//            }
         }
         .padding(.top, safeArea.top)
         .onAppear {
