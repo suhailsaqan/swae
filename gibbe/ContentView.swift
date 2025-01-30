@@ -61,26 +61,6 @@ struct ContentView: View {
                     VideoListView(eventListType: .all)
                         .navigationBarTitleDisplayMode(.inline)
                 case .live:
-//                    Text("live")
-//                    List {
-//                        NavigationLink("Simple video player") {
-//                            SimpleVideoPlayerView()
-//                        }
-//                        
-//                        NavigationLink("Observing player's status") {
-//                            BufferVideoPlayerView()
-//                        }
-//                        
-//                        NavigationLink("HLS manifest") {
-//                            ManifestVideoPlayerView()
-//                        }
-//                        
-//                        NavigationLink(destination: {
-//                            UIKitVideoPlayerView()
-//                        }, label: {
-//                            (Text("PiP ") + Text("UIViewControllerRepresentable").font(.caption))
-//                        })
-//                    }
                     GeometryReader {
                         let size = $0.size
                         let safeArea = $0.safeAreaInsets
