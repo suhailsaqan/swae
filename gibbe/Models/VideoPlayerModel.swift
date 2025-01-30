@@ -129,4 +129,12 @@ class VideoPlayerModel: ObservableObject {
             }
         }
     }
+    
+    @objc func videoDidFinishPlaying() {
+        // Handle video finish logic here
+        DispatchQueue.main.async {
+            self.isPlaying = false
+            self.isFinishedPlaying = true
+        }
+    }
 }

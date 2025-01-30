@@ -112,26 +112,6 @@ struct VideoPlayerView: View {
         .onAppear {
             guard !viewModel.isObserverAdded else { return }
             
-            viewModel.player.addPeriodicTimeObserver(forInterval: .init(seconds: 1, preferredTimescale: 600), queue: .main, using: { time in
-                if let currentPlayerItem = viewModel.player.currentItem {
-                    let totalDuration = currentPlayerItem.duration.seconds
-//                    guard let currentDuration = viewModel.player.currentTime().seconds else { return }
-                    let currentDuration = viewModel.player.currentTime().seconds
-                    
-                    let calculatedProgress = currentDuration / totalDuration
-                    
-                    if !viewModel.isSeeking {
-                        viewModel.progress = calculatedProgress
-                        viewModel.lastDraggedProgress = viewModel.progress
-                    }
-                    
-                    if calculatedProgress == 1 {
-                        viewModel.isFinishedPlaying = true
-                        viewModel.isPlaying = false
-                    }
-                }
-            })
-            
             viewModel.isObserverAdded = true
             
             viewModel.playerStatusObserver = viewModel.player.observe(\.status, options: .new, changeHandler: { player, _ in
@@ -139,6 +119,13 @@ struct VideoPlayerView: View {
                     viewModel.generateThumbnailFrames()
                 }
             })
+            
+            NotificationCenter.default.addObserver(
+                            viewModel,
+                            selector: #selector(viewModel.videoDidFinishPlaying),
+                            name: .AVPlayerItemDidPlayToEndTime,
+                            object: viewModel.player.currentItem
+            )
             
             viewModel.player.play()
             togglePlayWithAnimation($viewModel.isPlaying)
@@ -253,6 +240,7 @@ struct VideoPlayerView: View {
                                 
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                     viewModel.isSeeking = false
+                                    viewModel.isFinishedPlaying = false
                                 }
                             }
                         })
