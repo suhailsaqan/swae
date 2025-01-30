@@ -112,6 +112,20 @@ struct VideoPlayerView: View {
         .onAppear {
             guard !viewModel.isObserverAdded else { return }
             
+            viewModel.player.addPeriodicTimeObserver(forInterval: .init(seconds: 1, preferredTimescale: 600), queue: .main, using: { time in
+                if let currentPlayerItem = viewModel.player.currentItem {
+                    let totalDuration = currentPlayerItem.duration.seconds
+                    let currentDuration = viewModel.player.currentTime().seconds
+                    
+                    let calculatedProgress = currentDuration / totalDuration
+                    
+                    if !viewModel.isSeeking {
+                        viewModel.progress = calculatedProgress
+                        viewModel.lastDraggedProgress = viewModel.progress
+                    }
+                }
+            })
+            
             viewModel.isObserverAdded = true
             
             viewModel.playerStatusObserver = viewModel.player.observe(\.status, options: .new, changeHandler: { player, _ in
