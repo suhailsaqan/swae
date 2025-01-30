@@ -12,15 +12,17 @@ struct VideoPlayerView: View {
     var size: CGSize
     var safeArea: EdgeInsets
     let url: URL
+    let onDragDown: (() -> Void)?
     
     @GestureState private var isDragging: Bool = false
     
     @StateObject private var viewModel: VideoPlayerModel
 
-    init(size: CGSize, safeArea: EdgeInsets, url: URL) {
+    init(size: CGSize, safeArea: EdgeInsets, url: URL, onDragDown: (() -> Void)? = nil) {
         self.size = size
         self.safeArea = safeArea
         self.url = url
+        self.onDragDown = onDragDown
         _viewModel = StateObject(wrappedValue: VideoPlayerModel(url: url))
     }
     
@@ -80,8 +82,13 @@ struct VideoPlayerView: View {
             }
             .gesture(
                 DragGesture()
-                    .onEnded({ value in
-                        if -value.translation.height > 100 {
+                    .onChanged { value in
+                        if value.translation.height > 1 { // Trigger immediately when dragging down
+                            onDragDown?()
+                        }
+                    }
+                    .onEnded { value in
+                        if value.translation.height < -50 { // Drag Up
                             /// Rotate Player
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 viewModel.isRotated = true
@@ -92,7 +99,7 @@ struct VideoPlayerView: View {
                                 viewModel.isRotated = false
                             }
                         }
-                    })
+                    }
             )
             .frame(width: videoPlayerSize.width, height: videoPlayerSize.height)
 //            .frame(width: size.width, height: size.height / 3.5, alignment: .bottomLeading) replacement ^

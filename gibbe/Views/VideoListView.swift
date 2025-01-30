@@ -203,7 +203,7 @@ struct VideoListView: View, MetadataCoding {
                             let size = proxy.size
                             let safeArea = proxy.safeAreaInsets
                             
-                            VideoPlayerView(size: size, safeArea: safeArea, url: url)
+                            VideoPlayerView(size: size, safeArea: safeArea, url: url, onDragDown: closeDetailView)
                                 .ignoresSafeArea()
                         }
                         .frame(height: 250)
