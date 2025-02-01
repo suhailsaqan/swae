@@ -14,7 +14,7 @@ struct IngestView: View {
     @StateObject private var viewModel = IngestViewModel()
     @State private var videoBitrate: Float = Float(VideoCodecSettings.default.bitRate) / 1000
     @State private var audioBitrate: Float = Float(AudioCodecSettings.default.bitRate) / 1000
-    @State private var zoomFactor: Float = 1.0
+    @State private var zoomFactor: CGFloat = 1.0
     @State private var selectedEffect = 0
     @State private var selectedFPS = 1
     @State private var selectedAudioMode = 0
@@ -52,7 +52,7 @@ struct ControlPanelView: View {
     @ObservedObject var viewModel: IngestViewModel
     @Binding var videoBitrate: Float
     @Binding var audioBitrate: Float
-    @Binding var zoomFactor: Float
+    @Binding var zoomFactor: CGFloat
     @Binding var selectedEffect: Int
     @Binding var selectedFPS: Int
     @Binding var selectedAudioMode: Int
@@ -103,6 +103,9 @@ struct ControlPanelView: View {
         .padding()
         .onChange(of: selectedFPS) { _ in
             viewModel.updateFPS()
+        }
+        .onChange(of: zoomFactor) { zoom in
+            viewModel.updateZoom(zoom)
         }
         .sheet(isPresented: $sheetPresented) {
             VStack {
@@ -309,8 +312,9 @@ final class IngestViewModel: ObservableObject {
 
     func toggleTorch() {
         Task {
-            isTorchEnabled = await mixer.isTorchEnabled
-            await mixer.setTorchEnabled(!isTorchEnabled)
+            let newState = !(await mixer.isTorchEnabled)
+            await mixer.setTorchEnabled(newState)
+            isTorchEnabled = newState
         }
     }
 
