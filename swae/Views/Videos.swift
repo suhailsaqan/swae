@@ -1,6 +1,6 @@
 //
 //  Videos.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 11/21/24.
 //
@@ -192,7 +192,7 @@ struct Videos: View {
             VStack {
                 CardView(item: item)
                     .scaleEffect(animateView ? 1 : 0.93)
-                
+
                 VStack(spacing: 15) {
                     Text(item.appDescription)
                 }

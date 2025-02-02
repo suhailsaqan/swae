@@ -1,6 +1,6 @@
 //
 //  TimeZonePreference.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 7/6/24.
 //
@@ -18,10 +18,10 @@ enum TimeZonePreference: CaseIterable, Codable {
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .event:
-//                .localizable.eventTimeZonePreference
+            //                .localizable.eventTimeZonePreference
             "hello"
         case .system:
-//                .localizable.systemTimeZonePreference
+            //                .localizable.systemTimeZonePreference
             "hello1"
         }
     }

@@ -1,6 +1,6 @@
 //
 //  DoubleTapSeek.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 1/25/25.
 //
@@ -9,12 +9,12 @@ import SwiftUI
 
 struct DoubleTapSeek: View {
     var isForward: Bool = false
-    var onTap: () -> ()
-   
+    var onTap: () -> Void
+
     @State private var isTapped: Bool = false
     @State private var showArrows: [Bool] = [false, false, false]
     var body: some View {
-            Rectangle()
+        Rectangle()
             .foregroundColor(.clear)
             .overlay {
                 Circle()
@@ -33,7 +33,7 @@ struct DoubleTapSeek: View {
                     }
                     .font(.title)
                     .rotationEffect(.init(degrees: isForward ? 180 : 0))
-                    
+
                     Text("15 Seconds")
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -46,22 +46,22 @@ struct DoubleTapSeek: View {
                     isTapped = true
                     showArrows[0] = true
                 }
-                
+
                 withAnimation(.easeInOut(duration: 0.2).delay(0.2)) {
                     showArrows[0] = false
                     showArrows[1] = true
                 }
-                
+
                 withAnimation(.easeInOut(duration: 0.2).delay(0.35)) {
                     showArrows[1] = false
                     showArrows[2] = true
                 }
-                
+
                 withAnimation(.easeInOut(duration: 0.2).delay(0.5)) {
                     showArrows[2] = false
                     isTapped = false
                 }
-                
+
                 onTap()
             }
     }

@@ -1,13 +1,13 @@
 //
-//  gibbeUITestsLaunchTests.swift
-//  gibbeUITests
+//  swaeUITestsLaunchTests.swift
+//  swaeUITests
 //
 //  Created by Suhail Saqan on 1/25/25.
 //
 
 import XCTest
 
-final class gibbeUITestsLaunchTests: XCTestCase {
+final class swaeUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

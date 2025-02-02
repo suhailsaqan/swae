@@ -1,6 +1,6 @@
 //
 //  LiveActivitiesEvent+Extensions.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 12/7/24.
 //
@@ -10,7 +10,7 @@ import NostrSDK
 
 extension LiveActivitiesEvent {
     var isUpcoming: Bool {
-//        print("checking upcoming \(startsAt) \(endsAt)")
+        //        print("checking upcoming \(startsAt) \(endsAt)")
         guard let startsAt else {
             return false
         }
@@ -23,7 +23,7 @@ extension LiveActivitiesEvent {
     }
 
     var isPast: Bool {
-//        print("checking past \(startsAt) \(endsAt)")
+        //        print("checking past \(startsAt) \(endsAt)")
         guard let startsAt else {
             return false
         }

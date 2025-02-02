@@ -8,9 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		BA8A05062D45609500B35D04 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A05052D45609500B35D04 /* NostrSDK */; };
-		BA8A05092D4560BA00B35D04 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A05082D4560BA00B35D04 /* Kingfisher */; };
 		BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050B2D4560CA00B35D04 /* SwiftTrie */; };
 		BA8A050F2D45618000B35D04 /* Logboard in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050E2D45618000B35D04 /* Logboard */; };
+		BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = BABEA7CC2D4F164B0062668E /* Kingfisher */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -19,50 +19,50 @@
 			containerPortal = BA8A034C2D455F8400B35D04 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = BA8A03532D455F8400B35D04;
-			remoteInfo = gibbe;
+			remoteInfo = swae;
 		};
 		BA8A03712D455F8900B35D04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA8A034C2D455F8400B35D04 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = BA8A03532D455F8400B35D04;
-			remoteInfo = gibbe;
+			remoteInfo = swae;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		BA8A03542D455F8400B35D04 /* gibbe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = gibbe.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		BA8A03662D455F8800B35D04 /* gibbeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = gibbeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		BA8A03702D455F8900B35D04 /* gibbeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = gibbeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA8A03542D455F8400B35D04 /* swae.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = swae.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA8A03662D455F8800B35D04 /* swaeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swaeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA8A03702D455F8900B35D04 /* swaeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swaeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		BABED9782D4F058B0043ED34 /* Exceptions for "gibbe" folder in "gibbe" target */ = {
+		BABED9782D4F058B0043ED34 /* Exceptions for "swae" folder in "swae" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = BA8A03532D455F8400B35D04 /* gibbe */;
+			target = BA8A03532D455F8400B35D04 /* swae */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		BA8A03562D455F8400B35D04 /* gibbe */ = {
+		BA8A03562D455F8400B35D04 /* swae */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				BABED9782D4F058B0043ED34 /* Exceptions for "gibbe" folder in "gibbe" target */,
+				BABED9782D4F058B0043ED34 /* Exceptions for "swae" folder in "swae" target */,
 			);
-			path = gibbe;
+			path = swae;
 			sourceTree = "<group>";
 		};
-		BA8A03692D455F8800B35D04 /* gibbeTests */ = {
+		BA8A03692D455F8800B35D04 /* swaeTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = gibbeTests;
+			path = swaeTests;
 			sourceTree = "<group>";
 		};
-		BA8A03732D455F8900B35D04 /* gibbeUITests */ = {
+		BA8A03732D455F8900B35D04 /* swaeUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = gibbeUITests;
+			path = swaeUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -72,7 +72,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BA8A05092D4560BA00B35D04 /* Kingfisher in Frameworks */,
+				BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */,
 				BA8A05062D45609500B35D04 /* NostrSDK in Frameworks */,
 				BA8A050F2D45618000B35D04 /* Logboard in Frameworks */,
 				BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */,
@@ -99,9 +99,9 @@
 		BA8A034B2D455F8400B35D04 = {
 			isa = PBXGroup;
 			children = (
-				BA8A03562D455F8400B35D04 /* gibbe */,
-				BA8A03692D455F8800B35D04 /* gibbeTests */,
-				BA8A03732D455F8900B35D04 /* gibbeUITests */,
+				BA8A03562D455F8400B35D04 /* swae */,
+				BA8A03692D455F8800B35D04 /* swaeTests */,
+				BA8A03732D455F8900B35D04 /* swaeUITests */,
 				BA8A03552D455F8400B35D04 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -109,9 +109,9 @@
 		BA8A03552D455F8400B35D04 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BA8A03542D455F8400B35D04 /* gibbe.app */,
-				BA8A03662D455F8800B35D04 /* gibbeTests.xctest */,
-				BA8A03702D455F8900B35D04 /* gibbeUITests.xctest */,
+				BA8A03542D455F8400B35D04 /* swae.app */,
+				BA8A03662D455F8800B35D04 /* swaeTests.xctest */,
+				BA8A03702D455F8900B35D04 /* swaeUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -119,9 +119,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		BA8A03532D455F8400B35D04 /* gibbe */ = {
+		BA8A03532D455F8400B35D04 /* swae */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BA8A037A2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "gibbe" */;
+			buildConfigurationList = BA8A037A2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swae" */;
 			buildPhases = (
 				BA8A03502D455F8400B35D04 /* Sources */,
 				BA8A03512D455F8400B35D04 /* Frameworks */,
@@ -132,22 +132,22 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				BA8A03562D455F8400B35D04 /* gibbe */,
+				BA8A03562D455F8400B35D04 /* swae */,
 			);
-			name = gibbe;
+			name = swae;
 			packageProductDependencies = (
 				BA8A05052D45609500B35D04 /* NostrSDK */,
-				BA8A05082D4560BA00B35D04 /* Kingfisher */,
 				BA8A050B2D4560CA00B35D04 /* SwiftTrie */,
 				BA8A050E2D45618000B35D04 /* Logboard */,
+				BABEA7CC2D4F164B0062668E /* Kingfisher */,
 			);
-			productName = gibbe;
-			productReference = BA8A03542D455F8400B35D04 /* gibbe.app */;
+			productName = swae;
+			productReference = BA8A03542D455F8400B35D04 /* swae.app */;
 			productType = "com.apple.product-type.application";
 		};
-		BA8A03652D455F8800B35D04 /* gibbeTests */ = {
+		BA8A03652D455F8800B35D04 /* swaeTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BA8A037D2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "gibbeTests" */;
+			buildConfigurationList = BA8A037D2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swaeTests" */;
 			buildPhases = (
 				BA8A03622D455F8800B35D04 /* Sources */,
 				BA8A03632D455F8800B35D04 /* Frameworks */,
@@ -159,18 +159,18 @@
 				BA8A03682D455F8800B35D04 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				BA8A03692D455F8800B35D04 /* gibbeTests */,
+				BA8A03692D455F8800B35D04 /* swaeTests */,
 			);
-			name = gibbeTests;
+			name = swaeTests;
 			packageProductDependencies = (
 			);
-			productName = gibbeTests;
-			productReference = BA8A03662D455F8800B35D04 /* gibbeTests.xctest */;
+			productName = swaeTests;
+			productReference = BA8A03662D455F8800B35D04 /* swaeTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		BA8A036F2D455F8900B35D04 /* gibbeUITests */ = {
+		BA8A036F2D455F8900B35D04 /* swaeUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BA8A03802D455F8900B35D04 /* Build configuration list for PBXNativeTarget "gibbeUITests" */;
+			buildConfigurationList = BA8A03802D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swaeUITests" */;
 			buildPhases = (
 				BA8A036C2D455F8900B35D04 /* Sources */,
 				BA8A036D2D455F8900B35D04 /* Frameworks */,
@@ -182,13 +182,13 @@
 				BA8A03722D455F8900B35D04 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				BA8A03732D455F8900B35D04 /* gibbeUITests */,
+				BA8A03732D455F8900B35D04 /* swaeUITests */,
 			);
-			name = gibbeUITests;
+			name = swaeUITests;
 			packageProductDependencies = (
 			);
-			productName = gibbeUITests;
-			productReference = BA8A03702D455F8900B35D04 /* gibbeUITests.xctest */;
+			productName = swaeUITests;
+			productReference = BA8A03702D455F8900B35D04 /* swaeUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -214,7 +214,7 @@
 					};
 				};
 			};
-			buildConfigurationList = BA8A034F2D455F8400B35D04 /* Build configuration list for PBXProject "gibbe" */;
+			buildConfigurationList = BA8A034F2D455F8400B35D04 /* Build configuration list for PBXProject "swae" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -225,18 +225,18 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				BA8A05042D45609500B35D04 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */,
-				BA8A05072D4560BA00B35D04 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				BA8A050A2D4560CA00B35D04 /* XCRemoteSwiftPackageReference "swift-trie" */,
 				BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */,
+				BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA8A03552D455F8400B35D04 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				BA8A03532D455F8400B35D04 /* gibbe */,
-				BA8A03652D455F8800B35D04 /* gibbeTests */,
-				BA8A036F2D455F8900B35D04 /* gibbeUITests */,
+				BA8A03532D455F8400B35D04 /* swae */,
+				BA8A03652D455F8800B35D04 /* swaeTests */,
+				BA8A036F2D455F8900B35D04 /* swaeUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -292,12 +292,12 @@
 /* Begin PBXTargetDependency section */
 		BA8A03682D455F8800B35D04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = BA8A03532D455F8400B35D04 /* gibbe */;
+			target = BA8A03532D455F8400B35D04 /* swae */;
 			targetProxy = BA8A03672D455F8800B35D04 /* PBXContainerItemProxy */;
 		};
 		BA8A03722D455F8900B35D04 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = BA8A03532D455F8400B35D04 /* gibbe */;
+			target = BA8A03532D455F8400B35D04 /* swae */;
 			targetProxy = BA8A03712D455F8900B35D04 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -430,11 +430,11 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"gibbe/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"swae/Preview Content\"";
 				DEVELOPMENT_TEAM = 57S869M9UN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = gibbe/Info.plist;
+				INFOPLIST_FILE = swae/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "For live streaming";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "For live streaming";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -447,7 +447,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.gibbe;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swae;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -467,11 +467,11 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"gibbe/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"swae/Preview Content\"";
 				DEVELOPMENT_TEAM = 57S869M9UN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = gibbe/Info.plist;
+				INFOPLIST_FILE = swae/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "For live streaming";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "For live streaming";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -484,7 +484,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.gibbe;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swae;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -506,12 +506,12 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.gibbeTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swaeTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/gibbe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/gibbe";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/swae.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/swae";
 			};
 			name = Debug;
 		};
@@ -525,12 +525,12 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.gibbeTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swaeTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/gibbe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/gibbe";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/swae.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/swae";
 			};
 			name = Release;
 		};
@@ -542,12 +542,12 @@
 				DEVELOPMENT_TEAM = 57S869M9UN;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.gibbeUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swaeUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = gibbe;
+				TEST_TARGET_NAME = swae;
 			};
 			name = Debug;
 		};
@@ -559,19 +559,19 @@
 				DEVELOPMENT_TEAM = 57S869M9UN;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.gibbeUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swaeUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = gibbe;
+				TEST_TARGET_NAME = swae;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		BA8A034F2D455F8400B35D04 /* Build configuration list for PBXProject "gibbe" */ = {
+		BA8A034F2D455F8400B35D04 /* Build configuration list for PBXProject "swae" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BA8A03782D455F8900B35D04 /* Debug */,
@@ -580,7 +580,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BA8A037A2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "gibbe" */ = {
+		BA8A037A2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swae" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BA8A037B2D455F8900B35D04 /* Debug */,
@@ -589,7 +589,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BA8A037D2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "gibbeTests" */ = {
+		BA8A037D2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swaeTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BA8A037E2D455F8900B35D04 /* Debug */,
@@ -598,7 +598,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BA8A03802D455F8900B35D04 /* Build configuration list for PBXNativeTarget "gibbeUITests" */ = {
+		BA8A03802D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swaeUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BA8A03812D455F8900B35D04 /* Debug */,
@@ -617,14 +617,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		BA8A05072D4560BA00B35D04 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 8.1.3;
-			};
-		};
 		BA8A050A2D4560CA00B35D04 /* XCRemoteSwiftPackageReference "swift-trie" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tyiu/swift-trie.git";
@@ -641,17 +633,20 @@
 				minimumVersion = 2.5.0;
 			};
 		};
+		BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.1.4;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		BA8A05052D45609500B35D04 /* NostrSDK */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = NostrSDK;
-		};
-		BA8A05082D4560BA00B35D04 /* Kingfisher */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BA8A05072D4560BA00B35D04 /* XCRemoteSwiftPackageReference "Kingfisher" */;
-			productName = Kingfisher;
 		};
 		BA8A050B2D4560CA00B35D04 /* SwiftTrie */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -662,6 +657,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */;
 			productName = Logboard;
+		};
+		BABEA7CC2D4F164B0062668E /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

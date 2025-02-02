@@ -1,6 +1,6 @@
 //
 //  MetadataEvent+Extensions.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 6/29/24.
 //
@@ -13,11 +13,15 @@ extension MetadataEvent {
             return Utilities.shared.abbreviatedPublicKey(pubkey)
         }
 
-        if let trimmedDisplayName = userMetadata.displayName?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmedDisplayName.isEmpty {
+        if let trimmedDisplayName = userMetadata.displayName?.trimmingCharacters(
+            in: .whitespacesAndNewlines), !trimmedDisplayName.isEmpty
+        {
             return trimmedDisplayName
         }
 
-        if let trimmedName = userMetadata.name?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmedName.isEmpty {
+        if let trimmedName = userMetadata.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !trimmedName.isEmpty
+        {
             return trimmedName
         }
 

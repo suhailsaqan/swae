@@ -1,6 +1,6 @@
 //
 //  Home.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 8/23/24.
 //
@@ -10,48 +10,51 @@ import SwiftData
 import SwiftUI
 
 struct HomeView: View {
-    
+
     //    @State private var privateKeyNsec: String = ""
-    
+
     //    @State private var validPrivateKey: Bool = false
-    
+
     //    @State private var incorrectPrivateKeyAlertPresented: Bool = false
-    
+
     @State private var hasCopiedPublicKey: Bool = false
-    
+
     @State private var viewModel: ViewModel
-    
+
     @State private var inputKey: String = ""
     @State private var statusMessage: String = ""
     @EnvironmentObject var keychainHelper: KeychainHelper
-    
+
     init(appState: AppState) {
         let viewModel = ViewModel(appState: appState)
         _viewModel = State(initialValue: viewModel)
     }
-    
+
     var body: some View {
         ScrollViewReader { scrollViewProxy in
             let publicKeyHex = viewModel.publicKeyHex
             if let publicKeyHex, let publicKey = PublicKey(hex: publicKeyHex) {
                 HStack {
-                    Button(action: {
-                        UIPasteboard.general.string = publicKey.npub
-                        hasCopiedPublicKey = true
-                    }, label: {
-                        HStack {
-                            Text(publicKey.npub)
-                                .textContentType(.username)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.1)
-                            
-                            if hasCopiedPublicKey {
-                                Image(systemName: "doc.on.doc.fill")
-                            } else {
-                                Image(systemName: "doc.on.doc")
+                    Button(
+                        action: {
+                            UIPasteboard.general.string = publicKey.npub
+                            hasCopiedPublicKey = true
+                        },
+                        label: {
+                            HStack {
+                                Text(publicKey.npub)
+                                    .textContentType(.username)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.1)
+
+                                if hasCopiedPublicKey {
+                                    Image(systemName: "doc.on.doc.fill")
+                                } else {
+                                    Image(systemName: "doc.on.doc")
+                                }
                             }
                         }
-                    })
+                    )
                     .foregroundStyle(.primary)
                 }
             } else {
@@ -109,7 +112,9 @@ extension HomeView {
         }
 
         func isSignedInWithPrivateKey(_ profile: Profile) -> Bool {
-            guard let publicKeyHex = profile.publicKeyHex, let publicKey = PublicKey(hex: publicKeyHex) else {
+            guard let publicKeyHex = profile.publicKeyHex,
+                let publicKey = PublicKey(hex: publicKeyHex)
+            else {
                 return false
             }
             return PrivateKeySecureStorage.shared.keypair(for: publicKey) != nil

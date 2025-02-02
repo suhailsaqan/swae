@@ -1,6 +1,6 @@
 //
 //  NostrEventValueTransformer.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 8/22/24.
 //
@@ -40,7 +40,8 @@ class NostrEventValueTransformer: ValueTransformer {
     }
 
     static func register() {
-        ValueTransformer.setValueTransformer(NostrEventValueTransformer(), forName: .init("NostrEventValueTransformer"))
+        ValueTransformer.setValueTransformer(
+            NostrEventValueTransformer(), forName: .init("NostrEventValueTransformer"))
     }
 }
 

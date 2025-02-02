@@ -1,6 +1,6 @@
 //
 //  PublicKeySortComparator.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 11/25/24.
 //
@@ -70,6 +70,7 @@ struct PublicKeySortComparator: SortComparator {
             }
         }
 
-        return lhsMetadataEvent.resolvedName.localizedCaseInsensitiveCompare(rhsMetadataEvent.resolvedName)
+        return lhsMetadataEvent.resolvedName.localizedCaseInsensitiveCompare(
+            rhsMetadataEvent.resolvedName)
     }
 }

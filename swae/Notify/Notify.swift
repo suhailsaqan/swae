@@ -1,12 +1,12 @@
 //
 //  Notify.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 10/5/24.
 //
 
-import Foundation
 import Combine
+import Foundation
 
 protocol Notify {
     associatedtype Payload
@@ -29,7 +29,7 @@ struct Notifications<T: Notify> {
     }
 }
 
-struct NotifyHandler<T> { }
+struct NotifyHandler<T> {}
 
 func notify<T: Notify>(_ notify: Notifications<T>) {
     let notify = notify.notify

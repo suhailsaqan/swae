@@ -1,6 +1,6 @@
 //
 //  ProfilePictureView.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 2/1/25.
 //
@@ -17,7 +17,9 @@ struct ProfilePictureView: View {
 
     var body: some View {
         if let publicKeyHex,
-           let pictureURL = appState.metadataEvents[publicKeyHex]?.userMetadata?.pictureURL ?? roboHashURL {
+            let pictureURL = appState.metadataEvents[publicKeyHex]?.userMetadata?.pictureURL
+                ?? roboHashURL
+        {
             KFImage.url(pictureURL)
                 .resizable()
                 .placeholder { ProgressView() }

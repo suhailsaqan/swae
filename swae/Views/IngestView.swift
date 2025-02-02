@@ -1,6 +1,6 @@
 //
 //  IngestView.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 1/30/25.
 //
@@ -134,15 +134,15 @@ struct ControlPanelView: View {
                         Slider(value: $zoomFactor, in: 1...5)
                     }
 
-//                    Picker("FPS", selection: $selectedFPS) {
-//                        ForEach(fpsList, id: \.self) {
-//                            Text($0)
-//                        }
-//                    }
-//                    .pickerStyle(SegmentedPickerStyle())
-//                    .onChange(of: selectedFPS) { _ in
-//                        viewModel.updateFPS()
-//                    }
+                    //                    Picker("FPS", selection: $selectedFPS) {
+                    //                        ForEach(fpsList, id: \.self) {
+                    //                            Text($0)
+                    //                        }
+                    //                    }
+                    //                    .pickerStyle(SegmentedPickerStyle())
+                    //                    .onChange(of: selectedFPS) { _ in
+                    //                        viewModel.updateFPS()
+                    //                    }
                 }
                 .padding(.horizontal)
             }

@@ -1,12 +1,12 @@
 //
 //  CustomVideoPlayer.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 1/25/25.
 //
 
-import SwiftUI
 import AVKit
+import SwiftUI
 
 struct CustomVideoPlayer: UIViewControllerRepresentable {
     var player: AVPlayer
@@ -14,11 +14,11 @@ struct CustomVideoPlayer: UIViewControllerRepresentable {
         let controller = AVPlayerViewController()
         controller.player = player
         controller.showsPlaybackControls = false
-        
+
         return controller
     }
-    
+
     func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {
-        
+
     }
 }

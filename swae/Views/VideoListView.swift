@@ -1,6 +1,6 @@
 //
 //  VideoListView.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 11/24/24.
 //
@@ -11,14 +11,14 @@ import SwiftData
 import SwiftUI
 
 struct VideoListView: View, MetadataCoding {
-    
+
     @State var eventListType: EventListType
     @EnvironmentObject var appState: AppState
     @State private var timeTabFilter: TimeTabs = .past
     @State private var showAllEvents: Bool = true
     @ObservedObject private var searchViewModel = SearchViewModel()
     @State private var isProfilesSectionExpanded: Bool = false
-    
+
     @State var selectedEvent: LiveActivitiesEvent?
     @State var showDetailPage: Bool = false
 
@@ -27,7 +27,7 @@ struct VideoListView: View, MetadataCoding {
     @State var animateView: Bool = false
     @State var animateContent: Bool = false
     @State var scrollOffset: CGFloat = 0
-    
+
     // Pagination states
     @State private var currentPage: Int = 0
     @State private var isLoadingMore: Bool = false
@@ -36,7 +36,7 @@ struct VideoListView: View, MetadataCoding {
     var body: some View {
         ScrollViewReader { scrollViewProxy in
             vidListView(scrollViewProxy: scrollViewProxy)
-//                .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
+            //                .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
         }
         .overlay {
             if let currentItem = selectedEvent, showDetailPage {
@@ -53,7 +53,7 @@ struct VideoListView: View, MetadataCoding {
                 .ignoresSafeArea()
         }
     }
-    
+
     private func vidListView(scrollViewProxy: ScrollViewProxy) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 0) {
@@ -66,35 +66,38 @@ struct VideoListView: View, MetadataCoding {
                 .padding(.horizontal)
                 .padding(.bottom)
                 .opacity(showDetailPage ? 0 : 1)
-                
+
                 CustomSegmentedPicker(selectedTimeTab: $timeTabFilter) {
                     withAnimation {
                         scrollViewProxy.scrollTo("event-list-view-top")
                     }
                 }
                 .padding([.leading, .trailing], 16)
-                
+
                 if eventListType == .all && appState.publicKey != nil {
-                    Button(action: {
-                        showAllEvents.toggle()
-                    }, label: {
-                        Image(systemName: "figure.stand.line.dotted.figure.stand")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 30)
-                            .foregroundStyle(showAllEvents ? .secondary : .primary)
-                    })
+                    Button(
+                        action: {
+                            showAllEvents.toggle()
+                        },
+                        label: {
+                            Image(systemName: "figure.stand.line.dotted.figure.stand")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 30)
+                                .foregroundStyle(showAllEvents ? .secondary : .primary)
+                        }
+                    )
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding([.leading, .trailing], 16)
                 }
-                
+
                 let filteredEvents = events(timeTabFilter)
                 if filteredEvents.isEmpty {
                     Text("no events")
                     Text("here \(filteredEvents)")
                 } else {
                     EmptyView().id("event-list-view-top")
-                    
+
                     ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
                         Button {
                             withAnimation(
@@ -127,7 +130,7 @@ struct VideoListView: View, MetadataCoding {
                             showDetailPage
                                 ? (selectedEvent?.id == event.id ? 1 : 0) : 1)
                     }
-                    
+
                     // Loading more indicator
                     if isLoadingMore {
                         ProgressView()
@@ -136,13 +139,13 @@ struct VideoListView: View, MetadataCoding {
                         GeometryReader { proxy -> Color in
                             let minY = proxy.frame(in: .global).minY
                             let height = UIScreen.main.bounds.height
-                            
+
                             if !filteredEvents.isEmpty && minY < height && hasMoreData {
                                 DispatchQueue.main.async {
                                     loadMoreEvents()
                                 }
                             }
-                            
+
                             return Color.clear
                         }
                         .frame(height: 0)
@@ -155,7 +158,7 @@ struct VideoListView: View, MetadataCoding {
             .padding(.vertical)
         }
     }
-    
+
     @ViewBuilder
     private func CardView(item: LiveActivitiesEvent, isDetailPage: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 15) {
@@ -178,14 +181,14 @@ struct VideoListView: View, MetadataCoding {
                                     ], radius: 15))
                     }
                     .frame(height: 250)
-                    
-//                    LinearGradient(
-//                        colors: [
-//                            .black.opacity(0.5),
-//                            .black.opacity(0.2),
-//                            .clear,
-//                        ], startPoint: .top, endPoint: .bottom)
-                    
+
+                    //                    LinearGradient(
+                    //                        colors: [
+                    //                            .black.opacity(0.5),
+                    //                            .black.opacity(0.2),
+                    //                            .clear,
+                    //                        ], startPoint: .top, endPoint: .bottom)
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text(item.title ?? "no title")
                             .font(.callout)
@@ -196,21 +199,24 @@ struct VideoListView: View, MetadataCoding {
                     .padding()
                     .offset(y: selectedEvent?.id == item.id && animateView ? safeArea().top : 0)
                 }
-            } else if (showDetailPage && (selectedEvent?.id == item.id) && isDetailPage) {
+            } else if showDetailPage && (selectedEvent?.id == item.id) && isDetailPage {
                 HStack {
                     if let url = item.recording ?? item.streaming {
                         GeometryReader { proxy in
                             let size = proxy.size
                             let safeArea = proxy.safeAreaInsets
-                            
-                            VideoPlayerView(size: size, safeArea: safeArea, url: url, onDragDown: closeDetailView)
-                                .ignoresSafeArea()
+
+                            VideoPlayerView(
+                                size: size, safeArea: safeArea, url: url,
+                                onDragDown: closeDetailView
+                            )
+                            .ignoresSafeArea()
                         }
                         .frame(height: 250)
                     }
                 }
                 .frame(height: 250)
-//                .background(Color.blue)
+                //                .background(Color.blue)
             } else {
                 HStack {
                 }
@@ -237,7 +243,7 @@ struct VideoListView: View, MetadataCoding {
                         .font(.caption)
                         .foregroundColor(.gray)
                         .lineLimit(2)
-                    
+
                     Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
                         .font(.caption)
                         .foregroundColor(.gray)
@@ -246,19 +252,19 @@ struct VideoListView: View, MetadataCoding {
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-//                Button {
-//
-//                } label: {
-//                    Text("GET")
-//                        .fontWeight(.bold)
-//                        .foregroundColor(.blue)
-//                        .padding(.vertical, 8)
-//                        .padding(.horizontal, 20)
-//                        .background {
-//                            Capsule()
-//                                .fill(.ultraThinMaterial)
-//                        }
-//                }
+                //                Button {
+                //
+                //                } label: {
+                //                    Text("GET")
+                //                        .fontWeight(.bold)
+                //                        .foregroundColor(.blue)
+                //                        .padding(.vertical, 8)
+                //                        .padding(.horizontal, 20)
+                //                        .background {
+                //                            Capsule()
+                //                                .fill(.ultraThinMaterial)
+                //                        }
+                //                }
             }
             .padding([.horizontal, .bottom])
         }
@@ -280,11 +286,11 @@ struct VideoListView: View, MetadataCoding {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 15) {
                         Text(item.summary ?? "No summary")
-                        
+
                         Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
-                        
+
                         Text(item.streaming?.absoluteString ?? "No stream available")
-                        
+
                         Text(item.recording?.absoluteString ?? "No recording available")
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -309,8 +315,8 @@ struct VideoListView: View, MetadataCoding {
                         .foregroundColor(.gray)
                 }
                 .padding()
-//                .padding(.top, safeArea().top)
-//                .offset(y: -10)
+                //                .padding(.top, safeArea().top)
+                //                .offset(y: -10)
                 .opacity(animateView ? 1 : 0)
             }
         )
@@ -332,9 +338,11 @@ struct VideoListView: View, MetadataCoding {
         .transition(.identity)
         //        .matchedGeometryEffect(id: item.id, in: animation, isSource: false)
     }
-    
+
     func events(_ timeTabFilter: TimeTabs) -> [LiveActivitiesEvent] {
-        if eventListType == .all, let searchText = searchViewModel.debouncedSearchText.trimmedOrNilIfEmpty {
+        if eventListType == .all,
+            let searchText = searchViewModel.debouncedSearchText.trimmedOrNilIfEmpty
+        {
             // Search by npub.
             if let authorPublicKey = PublicKey(npub: searchText) {
                 switch timeTabFilter {
@@ -344,12 +352,18 @@ struct VideoListView: View, MetadataCoding {
                     return appState.pastProfileEvents(authorPublicKey.hex)
                 }
             }
-            if let metadata = try? decodedMetadata(from: searchText), let kind = metadata.kind, let pubkey = metadata.pubkey, let publicKey = PublicKey(hex: pubkey) {
+            if let metadata = try? decodedMetadata(from: searchText), let kind = metadata.kind,
+                let pubkey = metadata.pubkey, let publicKey = PublicKey(hex: pubkey)
+            {
                 if kind == EventKind.liveActivities.rawValue {
                     // Search by naddr.
                     if let identifier = metadata.identifier,
-                       let eventCoordinates = try? EventCoordinates(kind: EventKind(rawValue: Int(kind)), pubkey: publicKey, identifier: identifier),
-                       let liveActivitiesEvent = appState.liveActivitiesEvents[eventCoordinates.tag.value] {
+                        let eventCoordinates = try? EventCoordinates(
+                            kind: EventKind(rawValue: Int(kind)), pubkey: publicKey,
+                            identifier: identifier),
+                        let liveActivitiesEvent = appState.liveActivitiesEvents[
+                            eventCoordinates.tag.value]
+                    {
                         if timeTabFilter == .upcoming && !liveActivitiesEvent.isUpcoming {
                             self.timeTabFilter = .past
                         } else if timeTabFilter == .past && !liveActivitiesEvent.isPast {
@@ -359,7 +373,9 @@ struct VideoListView: View, MetadataCoding {
                         // Search by nevent.
                     } else if let eventId = metadata.eventId {
                         let results = Set(appState.eventsTrie.find(key: eventId))
-                        let events = appState.liveActivitiesEvents.filter { results.contains($0.key) }.map { $0.value }
+                        let events = appState.liveActivitiesEvents.filter {
+                            results.contains($0.key)
+                        }.map { $0.value }
                         switch timeTabFilter {
                         case .upcoming:
                             return appState.upcomingEvents(events)
@@ -380,11 +396,13 @@ struct VideoListView: View, MetadataCoding {
                 //                        }
                 //                    }
             }
-            
+
             // Search by event tags and content.
             let results = appState.eventsTrie.find(key: searchText.localizedLowercase)
-            let events = appState.liveActivitiesEvents.filter { results.contains($0.key) }.map { $0.value }
-//            print("this one:", events)
+            let events = appState.liveActivitiesEvents.filter { results.contains($0.key) }.map {
+                $0.value
+            }
+            //            print("this one:", events)
             switch timeTabFilter {
             case .upcoming:
                 return appState.upcomingEvents(events)
@@ -392,7 +410,7 @@ struct VideoListView: View, MetadataCoding {
                 return appState.pastEvents(events)
             }
         }
-        
+
         if !showAllEvents && eventListType == .all && appState.publicKey != nil {
             switch timeTabFilter {
             case .upcoming:
@@ -401,22 +419,23 @@ struct VideoListView: View, MetadataCoding {
                 return appState.pastFollowedEvents
             }
         }
-        
-        let events = switch eventListType {
-        case .all:
-            switch timeTabFilter {
-            case .upcoming:
-                appState.allUpcomingEvents
-            case .past:
-                appState.allPastEvents
-            }
-        case .profile(let publicKeyHex):
-            switch timeTabFilter {
-            case .upcoming:
-                appState.upcomingProfileEvents(publicKeyHex)
-            case .past:
-                appState.pastProfileEvents(publicKeyHex)
-            }
+
+        let events =
+            switch eventListType {
+            case .all:
+                switch timeTabFilter {
+                case .upcoming:
+                    appState.allUpcomingEvents
+                case .past:
+                    appState.allPastEvents
+                }
+            case .profile(let publicKeyHex):
+                switch timeTabFilter {
+                case .upcoming:
+                    appState.upcomingProfileEvents(publicKeyHex)
+                case .past:
+                    appState.pastProfileEvents(publicKeyHex)
+                }
             //            case .calendar(let calendarCoordinates):
             //                switch timeTabFilter {
             //                case .upcoming:
@@ -424,28 +443,28 @@ struct VideoListView: View, MetadataCoding {
             //                case .past:
             //                    appState.pastEventsOnCalendarList(calendarCoordinates)
             //                }
-        }
+            }
         print("events \(events)")
         return events
     }
-    
+
     private func loadMoreEvents() {
         guard !isLoadingMore else { return }
-        
+
         isLoadingMore = true
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            let newEvents = self.events(self.timeTabFilter) // Fetch more events from the data source
+            let newEvents = self.events(self.timeTabFilter)  // Fetch more events from the data source
             if newEvents.count > self.currentPage * 10 {
                 self.currentPage += 1
             } else {
                 self.hasMoreData = false
             }
-            
+
             self.isLoadingMore = false
         }
     }
-    
+
     func closeDetailView() {
         withAnimation(
             .interactiveSpring(
@@ -477,7 +496,9 @@ struct CustomSegmentedPicker: View {
     var body: some View {
         HStack {
             ForEach(TimeTabs.allCases, id: \.self) { timeTab in
-                CustomSegmentedPickerItem(title: timeTab.localizedStringResource, timeTab: timeTab, selectedTimeTab: $selectedTimeTab, onTapAction: onTapAction)
+                CustomSegmentedPickerItem(
+                    title: timeTab.localizedStringResource, timeTab: timeTab,
+                    selectedTimeTab: $selectedTimeTab, onTapAction: onTapAction)
             }
         }
         .background(Color.gray.opacity(0.2))
@@ -518,7 +539,7 @@ extension Date {
 enum EventListType: Equatable {
     case all
     case profile(String)
-//    case liveActivity(String)
+    //    case liveActivity(String)
 }
 
 enum TimeTabs: CaseIterable {
@@ -528,9 +549,9 @@ enum TimeTabs: CaseIterable {
     var localizedStringResource: LocalizedStringResource {
         switch self {
         case .upcoming:
-                "upcoming"
+            "upcoming"
         case .past:
-                "past"
+            "past"
         }
     }
 }

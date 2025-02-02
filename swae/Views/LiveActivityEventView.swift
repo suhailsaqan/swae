@@ -1,6 +1,6 @@
 //
 //  LiveActivityListEventView.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 11/24/24.
 //
@@ -26,13 +26,16 @@ struct LiveActivityEventView: View {
     private var naddr: String? {
         if let liveActivityEvent {
             let relays = appState.persistentNostrEvent(liveActivityEvent.id)?.relays ?? []
-            return try? liveActivityEvent.shareableEventCoordinates(relayURLStrings: relays.map { $0.absoluteString })
+            return try? liveActivityEvent.shareableEventCoordinates(
+                relayURLStrings: relays.map { $0.absoluteString })
         }
         return nil
     }
 
     private var liveActivityURL: URL? {
-        if let naddr, let njumpURL = URL(string: "https://njump.me/\(naddr)"), UIApplication.shared.canOpenURL(njumpURL) {
+        if let naddr, let njumpURL = URL(string: "https://njump.me/\(naddr)"),
+            UIApplication.shared.canOpenURL(njumpURL)
+        {
             return njumpURL
         }
         return nil
@@ -50,8 +53,8 @@ struct LiveActivityEventView: View {
                         .clipShape(.circle)
                 }
 
-//                Text(liveActivityEvent.title ?? liveActivityEvent.firstValueForRawTagName("name") ?? "No title")
-//                    .font(.headline)
+                //                Text(liveActivityEvent.title ?? liveActivityEvent.firstValueForRawTagName("name") ?? "No title")
+                //                    .font(.headline)
 
                 if let description = liveActivityEvent.content.trimmedOrNilIfEmpty {
                     VStack(alignment: .leading) {
@@ -64,46 +67,48 @@ struct LiveActivityEventView: View {
                         }
 
                         if description.count > maxDescriptionLength {
-                            Button(action: {
-                                isDescriptionExpanded.toggle()
-                            }, label: {
-                                if isDescriptionExpanded {
-                                    Text("show less")
-                                        .font(.subheadline)
-                                } else {
-                                    Text("show more")
-                                        .font(.subheadline)
-                                }
-                            })
+                            Button(
+                                action: {
+                                    isDescriptionExpanded.toggle()
+                                },
+                                label: {
+                                    if isDescriptionExpanded {
+                                        Text("show less")
+                                            .font(.subheadline)
+                                    } else {
+                                        Text("show more")
+                                            .font(.subheadline)
+                                    }
+                                })
                         }
                     }
                 }
 
-//                VideoListView(eventListType: .all)
-//                    .navigationBarTitleDisplayMode(.inline)
+                //                VideoListView(eventListType: .all)
+                //                    .navigationBarTitleDisplayMode(.inline)
             }
             .navigationBarTitleDisplayMode(.inline)
-//            .toolbar {
-//                ToolbarItem(placement: .navigationBarTrailing) {
-//                    Menu {
-//                        Button(action: {
-//                            UIPasteboard.general.string = naddr
-//                        }, label: {
-//                            Text("Copy id")
-//                        })
-//                        
-//                        if let liveActivityURL = liveActivityURL {
-//                            Button(action: {
-//                                UIPasteboard.general.string = liveActivityURL.absoluteString
-//                            }, label: {
-//                                Text("Copy URL")
-//                            })
-//                        }
-//                    } label: {
-//                        Label("Menu", systemImage: "ellipsis.circle")
-//                    }
-//                }
-//            }
+            //            .toolbar {
+            //                ToolbarItem(placement: .navigationBarTrailing) {
+            //                    Menu {
+            //                        Button(action: {
+            //                            UIPasteboard.general.string = naddr
+            //                        }, label: {
+            //                            Text("Copy id")
+            //                        })
+            //
+            //                        if let liveActivityURL = liveActivityURL {
+            //                            Button(action: {
+            //                                UIPasteboard.general.string = liveActivityURL.absoluteString
+            //                            }, label: {
+            //                                Text("Copy URL")
+            //                            })
+            //                        }
+            //                    } label: {
+            //                        Label("Menu", systemImage: "ellipsis.circle")
+            //                    }
+            //                }
+            //            }
         } else {
             EmptyView()
         }

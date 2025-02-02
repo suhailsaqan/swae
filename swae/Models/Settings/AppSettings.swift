@@ -1,6 +1,6 @@
 //
 //  AppSettings.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail on 10/08/24.
 //

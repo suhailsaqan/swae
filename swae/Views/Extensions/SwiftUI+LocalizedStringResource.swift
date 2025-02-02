@@ -1,6 +1,6 @@
 //
 //  SwiftUI+LocalizedStringResource.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 1/6/24.
 //
@@ -68,7 +68,10 @@ extension Picker where Label == Text {
     ///     - content: A view that contains the set of options.
     ///
     /// This initializer creates a ``Text`` view on your behalf.
-    init(_ title: LocalizedStringResource, selection: Binding<SelectionValue>, @ViewBuilder content: () -> Content) {
+    init(
+        _ title: LocalizedStringResource, selection: Binding<SelectionValue>,
+        @ViewBuilder content: () -> Content
+    ) {
         self.init(String(localized: title), selection: selection, content: content)
     }
 }
@@ -148,7 +151,12 @@ extension View {
         navigationTitle(String(localized: title))
     }
 
-    func confirmationDialog<A>(_ title: LocalizedStringResource, isPresented: Binding<Bool>, titleVisibility: Visibility = .automatic, @ViewBuilder actions: () -> A) -> some View where A: View {
-        confirmationDialog(String(localized: title), isPresented: isPresented, titleVisibility: titleVisibility, actions: actions)
+    func confirmationDialog<A>(
+        _ title: LocalizedStringResource, isPresented: Binding<Bool>,
+        titleVisibility: Visibility = .automatic, @ViewBuilder actions: () -> A
+    ) -> some View where A: View {
+        confirmationDialog(
+            String(localized: title), isPresented: isPresented, titleVisibility: titleVisibility,
+            actions: actions)
     }
 }

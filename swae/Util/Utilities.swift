@@ -1,6 +1,6 @@
 //
 //  Utilities.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 7/9/24.
 //
@@ -20,7 +20,7 @@ class Utilities {
                 return abbreviatedPublicKey(publicKeyHex)
             }
         } else {
-//            return String(localized: .localizable.guest)
+            //            return String(localized: .localizable.guest)
             return String("guest")
         }
     }
@@ -41,7 +41,9 @@ class Utilities {
         if let nostrURL = URL(string: "nostr:\(npub)"), UIApplication.shared.canOpenURL(nostrURL) {
             return nostrURL
         }
-        if let njumpURL = URL(string: "https://njump.me/\(npub)"), UIApplication.shared.canOpenURL(njumpURL) {
+        if let njumpURL = URL(string: "https://njump.me/\(npub)"),
+            UIApplication.shared.canOpenURL(njumpURL)
+        {
             return njumpURL
         }
         return nil

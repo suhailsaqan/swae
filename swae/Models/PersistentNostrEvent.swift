@@ -1,6 +1,6 @@
 //
 //  PersistentNostrEvent.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 7/23/24.
 //

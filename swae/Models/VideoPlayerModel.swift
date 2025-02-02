@@ -1,14 +1,13 @@
 //
 //  VideoPlayerModel.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 1/28/25.
 //
 
-
 import AVKit
-import UIKit
 import SwiftUI
+import UIKit
 
 // The model that holds video-related properties and controls
 class VideoPlayerModel: ObservableObject {
@@ -25,11 +24,11 @@ class VideoPlayerModel: ObservableObject {
     @Published var timeoutTask: DispatchWorkItem?
     @Published var isObserverAdded: Bool = false
     @Published var playerStatusObserver: NSKeyValueObservation?
-    
+
     init(url: URL) {
         self.player = AVPlayer(url: url)
     }
-    
+
     // Handle video play/pause
     func togglePlay() {
         if isFinishedPlaying {
@@ -38,7 +37,7 @@ class VideoPlayerModel: ObservableObject {
             progress = 0
             lastDraggedProgress = 0
         }
-        
+
         if isPlaying {
             player.pause()
             timeoutControls()
@@ -46,53 +45,55 @@ class VideoPlayerModel: ObservableObject {
             player.play()
             timeoutControls()
         }
-        
+
         withAnimation(.easeInOut(duration: 0.15)) {
             isPlaying.toggle()
         }
     }
-    
+
     // Handles timeout for controls visibility
     func timeoutControls() {
         if let timeoutTask {
             timeoutTask.cancel()
         }
-        
+
         timeoutTask = .init(block: {
             withAnimation(.easeInOut(duration: 0.35)) {
                 self.showPlayerControls = false
             }
         })
-        
+
         if let timeoutTask {
-            DispatchQueue.main.asyncAfter(deadline:  .now() + 3, execute: timeoutTask)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: timeoutTask)
         }
     }
-    
+
     // Video player time observer setup
     func addTimeObserver() {
         guard !isObserverAdded else { return }
-        
-        player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 1, preferredTimescale: 600), queue: .main) { time in
+
+        player.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 1, preferredTimescale: 600), queue: .main
+        ) { time in
             guard let currentPlayerItem = self.player.currentItem else { return }
             let totalDuration = currentPlayerItem.duration.seconds
             let currentDuration = self.player.currentTime().seconds
-            
+
             let calculatedProgress = currentDuration / totalDuration
             if !self.isSeeking {
                 self.progress = calculatedProgress
                 self.lastDraggedProgress = self.progress
             }
-            
+
             if calculatedProgress == 1 {
                 self.isFinishedPlaying = true
                 self.isPlaying = false
             }
         }
-        
+
         isObserverAdded = true
     }
-    
+
     // Seek functionality with thumbnails
     func seek(to progress: CGFloat) {
         guard let currentPlayerItem = player.currentItem else { return }
@@ -100,7 +101,7 @@ class VideoPlayerModel: ObservableObject {
         player.seek(to: .init(seconds: totalDuration * Double(progress), preferredTimescale: 600))
         lastDraggedProgress = progress
     }
-    
+
     // Generate thumbnail frames for seeking
     func generateThumbnailFrames() {
         Task {
@@ -129,7 +130,7 @@ class VideoPlayerModel: ObservableObject {
             }
         }
     }
-    
+
     @objc func videoDidFinishPlaying() {
         // Handle video finish logic here
         DispatchQueue.main.async {

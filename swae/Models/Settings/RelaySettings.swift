@@ -1,6 +1,6 @@
 //
 //  RelaySettings.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 7/14/24.
 //

@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 8/11/24.
 //
@@ -32,9 +32,9 @@ struct ContentView: View {
                     MainContent(appState: appState)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-//                .navigationDestination(for: Route.self) { route in
-//                    route.view(navigationCoordinator: navigationCoordinator, appState: appState)
-//                }
+                //                .navigationDestination(for: Route.self) { route in
+                //                    route.view(navigationCoordinator: navigationCoordinator, appState: appState)
+                //                }
                 .onReceive(handle_notify(.switched_tab)) { _ in
                     navigationCoordinator.popToRoot()
                 }
@@ -103,7 +103,7 @@ struct ContentView: View {
                     CustomTabBarItem(
                         iconName: "camera", title: "tab2", tab: HomeTabs.live,
                         selectedTab: $selectedTab, onTapAction: onTapAction)
-                    
+
                     CustomTabBarItem(
                         iconName: "person", title: "tab3", tab: HomeTabs.profile,
                         selectedTab: $selectedTab, onTapAction: onTapAction)

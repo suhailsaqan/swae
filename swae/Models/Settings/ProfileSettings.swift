@@ -1,6 +1,6 @@
 //
 //  ProfileSettings.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 7/6/24.
 //

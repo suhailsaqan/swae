@@ -1,6 +1,6 @@
 //
 //  LiveActivitiesEventSortComparator.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 12/7/24.
 //
@@ -28,7 +28,9 @@ struct LiveActivitiesEventSortComparator: SortComparator {
         }
     }
 
-    private func compareForward(_ lhs: LiveActivitiesEvent, _ rhs: LiveActivitiesEvent) -> ComparisonResult {
+    private func compareForward(_ lhs: LiveActivitiesEvent, _ rhs: LiveActivitiesEvent)
+        -> ComparisonResult
+    {
         if lhs == rhs {
             return .orderedSame
         }

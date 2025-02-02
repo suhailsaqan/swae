@@ -1,10 +1,9 @@
 //
 //  HKStreamSwitcher.swift
-//  gibbe
+//  swae
 //
 //  Created by Suhail Saqan on 1/30/25.
 //
-
 
 import AVFoundation
 import Foundation
@@ -31,10 +30,10 @@ final actor HKStreamSwitcher {
     func setPreference(_ preference: Preference) async {
         self.preference = preference
         if preference.uri?.contains("srt://") == true {
-//            let connection = SRTConnection()
-//            self.connection = connection
-//            stream = SRTStream(connection: connection)
-//            mode = .srt
+            //            let connection = SRTConnection()
+            //            self.connection = connection
+            //            stream = SRTStream(connection: connection)
+            //            mode = .srt
         } else {
             let connection = RTMPConnection()
             self.connection = connection
@@ -52,7 +51,8 @@ final actor HKStreamSwitcher {
         case .rtmp:
             guard
                 let connection = connection as? RTMPConnection,
-                let stream = stream as? RTMPStream else {
+                let stream = stream as? RTMPStream
+            else {
                 return
             }
             do {
@@ -75,20 +75,20 @@ final actor HKStreamSwitcher {
             }
         case .srt:
             break
-//            guard let connection = connection as? SRTConnection, let stream = stream as? SRTStream else {
-//                return
-//            }
-//            do {
-//                try await connection.open(URL(string: preference.uri ?? ""))
-//                switch method {
-//                case .playback:
-//                    await stream.play()
-//                case .ingest:
-//                    await stream.publish()
-//                }
-//            } catch {
-//                logger.warn(error)
-//            }
+        //            guard let connection = connection as? SRTConnection, let stream = stream as? SRTStream else {
+        //                return
+        //            }
+        //            do {
+        //                try await connection.open(URL(string: preference.uri ?? ""))
+        //                switch method {
+        //                case .playback:
+        //                    await stream.play()
+        //                case .ingest:
+        //                    await stream.publish()
+        //                }
+        //            } catch {
+        //                logger.warn(error)
+        //            }
         }
     }
 
@@ -102,11 +102,11 @@ final actor HKStreamSwitcher {
             logger.info("conneciton.close")
         case .srt:
             break
-//            guard let connection = connection as? SRTConnection else {
-//                return
-//            }
-//            try? await connection.close()
-//            logger.info("conneciton.close")
+        //            guard let connection = connection as? SRTConnection else {
+        //                return
+        //            }
+        //            try? await connection.close()
+        //            logger.info("conneciton.close")
         }
     }
 }
