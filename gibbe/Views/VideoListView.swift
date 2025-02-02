@@ -535,11 +535,64 @@ enum TimeTabs: CaseIterable {
     }
 }
 
-//struct EventListView_Previews: PreviewProvider {
-//
-//    @State static var appState = AppState()
-//
-//    static var previews: some View {
-//        EventListView(eventListType: .all)
-//    }
-//}
+struct CustomCorner: Shape {
+    var corners: UIRectCorner
+    var radius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect, byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius))
+
+        return Path(path.cgPath)
+    }
+}
+
+struct SafeArea: EnvironmentKey {
+    static var defaultValue: UIEdgeInsets = .zero
+}
+
+extension EnvironmentValues {
+    var safeArea: UIEdgeInsets {
+        self[SafeArea.self]
+    }
+}
+
+extension View {
+    func safeArea() -> UIEdgeInsets {
+        if let screen = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            if let safeArea = screen.windows.first?.safeAreaInsets {
+                return safeArea
+            }
+        }
+        return .zero
+    }
+
+    func offset(offset: Binding<CGFloat>) -> some View {
+        self
+            .overlay {
+                GeometryReader { proxy in
+                    let minY = proxy.frame(in: .named("SCROLL")).minY
+                    Color.clear
+                        .preference(key: OffsetKey.self, value: minY)
+                }
+            }
+            .onPreferenceChange(OffsetKey.self) { value in
+                offset.wrappedValue = value
+            }
+    }
+}
+
+struct OffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {}
+}
+
+struct ScaledButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(
+                .spring(response: 0.3, dampingFraction: 0.6, blendDuration: 0.7),
+                value: configuration.isPressed)
+    }
+}
