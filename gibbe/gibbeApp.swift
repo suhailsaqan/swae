@@ -42,7 +42,7 @@ struct gibbeApp: App {
 
     @MainActor
     private func updateActiveTab() {
-        appState.activeTab = .events
+        appState.activeTab = .home
     }
 
     @MainActor

@@ -20,39 +20,37 @@ struct ContentView: View {
     @State private var isSideBarOpened = false
     @StateObject var navigationCoordinator: NavigationCoordinator = NavigationCoordinator()
     @State var hide_bar: Bool = false
-    //    var home: LiveViewModel = LiveViewModel()
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
 
     var body: some View {
-        return VStack(alignment: .leading, spacing: 0) {
-            NavigationStack(path: $navigationCoordinator.path) {
+        return NavigationStack(path: $navigationCoordinator.path) {
+            VStack(alignment: .leading, spacing: 0) {
                 TabView {
                     MainContent(appState: appState)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .navigationDestination(for: Route.self) { route in
-                    route.view(navigationCoordinator: navigationCoordinator, appState: appState)
-                }
+//                .navigationDestination(for: Route.self) { route in
+//                    route.view(navigationCoordinator: navigationCoordinator, appState: appState)
+//                }
                 .onReceive(handle_notify(.switched_tab)) { _ in
                     navigationCoordinator.popToRoot()
                 }
-            }
-            .navigationViewStyle(.stack)
-
-            if !hide_bar {
-                TabBar(
-                    selected: $selected_tab, settings: appState.appSettings,
-                    action: switch_selected_tab
-                )
-                .padding([.bottom], 8)
-                .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-            } else {
-                Text("")
+                if !hide_bar {
+                    TabBar(
+                        selected: $selected_tab, settings: appState.appSettings,
+                        action: switch_selected_tab
+                    )
+                    .padding([.bottom], 8)
+                    .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                } else {
+                    Text("")
+                }
             }
         }
+        .navigationViewStyle(.stack)
         .ignoresSafeArea(.keyboard)
         .edgesIgnoringSafeArea(hide_bar ? [.bottom] : [])
 
@@ -64,6 +62,8 @@ struct ContentView: View {
                         .navigationBarTitleDisplayMode(.inline)
                 case .live:
                     IngestView()
+                case .profile:
+                    Text("yoo")
                 }
             }
         }
@@ -97,11 +97,15 @@ struct ContentView: View {
             var body: some View {
                 HStack {
                     CustomTabBarItem(
-                        iconName: "house.fill", title: "home", tab: HomeTabs.events,
+                        iconName: "house.fill", title: "home", tab: HomeTabs.home,
                         selectedTab: $selectedTab, onTapAction: onTapAction)
 
                     CustomTabBarItem(
-                        iconName: "camera", title: "tab2", tab: HomeTabs.calendars,
+                        iconName: "camera", title: "tab2", tab: HomeTabs.live,
+                        selectedTab: $selectedTab, onTapAction: onTapAction)
+                    
+                    CustomTabBarItem(
+                        iconName: "person", title: "tab3", tab: HomeTabs.profile,
                         selectedTab: $selectedTab, onTapAction: onTapAction)
                 }
                 .frame(height: 50)
@@ -162,7 +166,13 @@ struct ContentView: View {
             return NSLocalizedString(
                 "Live",
                 comment:
-                    "Navigation bar title for Live view where notes and replies appear from those who the user is following."
+                    "Navigation bar title for Live view."
+            )
+        case .profile:
+            return NSLocalizedString(
+                "Profile",
+                comment:
+                    "Navigation bar title for profile view."
             )
         }
     }
