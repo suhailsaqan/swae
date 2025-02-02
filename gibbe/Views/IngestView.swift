@@ -185,7 +185,7 @@ struct VideoPreviewView: UIViewRepresentable {
     let mixer: MediaMixer
 
     func makeUIView(context: Context) -> some UIView {
-        let view = MTHKView(frame: UIScreen.main.bounds)
+        let view = MTHKView(frame: .zero)
         view.videoGravity = .resizeAspectFill
         Task {
             await mixer.addOutput(view)
