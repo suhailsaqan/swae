@@ -251,20 +251,6 @@ struct VideoListView: View, MetadataCoding {
                 }
                 .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-
-                //                Button {
-                //
-                //                } label: {
-                //                    Text("GET")
-                //                        .fontWeight(.bold)
-                //                        .foregroundColor(.blue)
-                //                        .padding(.vertical, 8)
-                //                        .padding(.horizontal, 20)
-                //                        .background {
-                //                            Capsule()
-                //                                .fill(.ultraThinMaterial)
-                //                        }
-                //                }
             }
             .padding([.horizontal, .bottom])
         }
