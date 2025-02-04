@@ -211,56 +211,60 @@ struct VideoListView: View, MetadataCoding {
                         GeometryReader { proxy in
                             let size = proxy.size
                             let safeArea = proxy.safeAreaInsets
-
+                            
                             VideoPlayerView(
                                 size: size, safeArea: safeArea, url: url,
                                 onDragDown: closeDetailView,
                                 onDragUp: fullScreen
                             )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)  // Allow full height when needed
-                            .ignoresSafeArea()
-                            .background(Color.black)  // Add black background for fullscreen
+                            .background(Color.clear)
                         }
-                        .frame(height: 250)
+                    } else {
+                        HStack {}
+                            .frame(height: 250)
+                            .background(Color.clear)
                     }
                 }
-//                .frame(height: 250)
+                .frame(maxWidth: .infinity, maxHeight: isVideoFullScreen ? .infinity : 250)
+                .ignoresSafeArea(isVideoFullScreen ? .all : [])
+//                .background(isVideoFullScreen ? Color.green : Color.blue) // Use appropriate background
             } else {
-                HStack {
-                }
-                .frame(height: 250)
-                .background(Color.clear)
+                HStack {}
+                    .frame(height: 250)
+                    .background(Color.clear)
             }
 
-            HStack(spacing: 12) {
-                KFImage.url(item.image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 60)
-                    .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: 15, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.title?.uppercased() ?? "no title")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .lineLimit(2)
-
-                    Text(item.summary ?? "no summary")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .lineLimit(2)
-
-                    Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .lineLimit(2)
+            if !isVideoFullScreen {
+                HStack(spacing: 12) {
+                    KFImage.url(item.image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 60, height: 60)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: 15, style: .continuous))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title?.uppercased() ?? "no title")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .lineLimit(2)
+                        
+                        Text(item.summary ?? "no summary")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .lineLimit(2)
+                        
+                        Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .lineLimit(2)
+                    }
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding([.horizontal, .bottom])
             }
-            .padding([.horizontal, .bottom])
         }
         .background {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
@@ -276,22 +280,24 @@ struct VideoListView: View, MetadataCoding {
             VStack {
                 CardView(item: item, isDetailPage: true)
                     .scaleEffect(animateView ? 1 : 0.93)
-
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 15) {
-                        Text(item.summary ?? "No summary")
-
-                        Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
-
-                        Text(item.streaming?.absoluteString ?? "No stream available")
-
-                        Text(item.recording?.absoluteString ?? "No recording available")
+                
+                if !isVideoFullScreen {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 15) {
+                            Text(item.summary ?? "No summary")
+                            
+                            Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
+                            
+                            Text(item.streaming?.absoluteString ?? "No stream available")
+                            
+                            Text(item.recording?.absoluteString ?? "No recording available")
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding()
+                        .offset(y: scrollOffset > 0 ? scrollOffset : 0)
+                        .opacity(animateContent ? 1 : 0)
+                        .scaleEffect(animateView ? 1 : 0, anchor: .top)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
-                    .offset(y: scrollOffset > 0 ? scrollOffset : 0)
-                    .opacity(animateContent ? 1 : 0)
-                    .scaleEffect(animateView ? 1 : 0, anchor: .top)
                 }
             }
             .offset(y: scrollOffset > 0 ? -scrollOffset : 0)
@@ -476,8 +482,8 @@ struct VideoListView: View, MetadataCoding {
     
     func fullScreen() {
         isVideoFullScreen.toggle()
+        notify(.display_tabbar(!isVideoFullScreen))
     }
-
 }
 
 struct CustomSegmentedPicker: View {

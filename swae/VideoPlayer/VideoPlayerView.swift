@@ -32,8 +32,7 @@ struct VideoPlayerView: View {
         VStack(spacing: 0) {
             //            let videoPlayerSize: CGSize = .init(width: viewModel.isRotated ? size.height: size.width, height: viewModel.isRotated ? size.width : (size.height / 3.5))
             let videoPlayerSize: CGSize = .init(
-                width: viewModel.isRotated ? size.height : size.width,
-                height: viewModel.isRotated ? size.width : size.height)
+                width: viewModel.isRotated ? UIScreen.main.bounds.height : UIScreen.main.bounds.width, height: viewModel.isRotated ? UIScreen.main.bounds.width : 250)
 
             ZStack {
                 //                if let player = viewModel.player {
@@ -98,25 +97,28 @@ struct VideoPlayerView: View {
                             /// Rotate Player
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 viewModel.isRotated = true
+                                notify(.display_tabbar(false))
                                 onDragUp?()
                             }
                         } else {
                             /// Go to Normal
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 viewModel.isRotated = false
+                                notify(.display_tabbar(true))
                                 onDragUp?()
                             }
                         }
                     }
             )
-            .frame(width: videoPlayerSize.width, height: videoPlayerSize.height)
-            //            .frame(width: size.width, height: size.height / 3.5, alignment: .bottomLeading) replacement ^
-            .frame(width: size.width, height: size.height, alignment: .bottomLeading)
-            .offset(y: viewModel.isRotated ? -((size.width / 2) + safeArea.bottom) : 0)
-            .rotationEffect(.init(degrees: viewModel.isRotated ? 90 : 0), anchor: .topLeading)
+            .rotationEffect(.degrees(viewModel.isRotated ? 90 : 0), anchor: .topLeading)
+            .frame(
+                width: viewModel.isRotated ? size.height : size.width,
+                height: viewModel.isRotated ? size.width : 250
+            )
+            .offset(x: viewModel.isRotated ? size.width : 0)
             .zIndex(10000)
         }
-        .padding(.top, safeArea.top)
+//        .padding(.top, safeArea.top)
         .onAppear {
             guard !viewModel.isObserverAdded else { return }
 

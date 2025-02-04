@@ -53,6 +53,10 @@ struct ContentView: View {
         .navigationViewStyle(.stack)
         .ignoresSafeArea(.keyboard)
         .edgesIgnoringSafeArea(hide_bar ? [.bottom] : [])
+        .onReceive(handle_notify(.display_tabbar)) { display in
+            let show = display
+            self.hide_bar = !show
+        }
 
         func MainContent(appState: AppState) -> some View {
             return ZStack {
