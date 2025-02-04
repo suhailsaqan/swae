@@ -473,7 +473,7 @@ struct VideoListView: View, MetadataCoding {
             .interactiveSpring(
                 response: 0.6, dampingFraction: 0.7,
                 blendDuration: 0.7
-            ).delay(0.05)
+            ).delay(0.1)
         ) {
             selectedEvent = nil
             showDetailPage = false
