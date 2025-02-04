@@ -76,22 +76,22 @@ extension Picker where Label == Text {
     }
 }
 
-extension SecureField where Label == Text {
-
-    /// Creates a secure field with a prompt generated from a `Text`.
-    ///
-    /// Use the ``View/onSubmit(of:_:)`` modifier to invoke an action
-    /// whenever someone submits this secure field --- for example, by
-    /// pressing the Return key.
-    ///
-    /// - Parameters:
-    ///   - title: A localized string resource for the title. The title
-    ///     describes the purpose of the field.
-    ///   - text: A binding to the text that the field displays and edits.
-    init(_ title: LocalizedStringResource, text: Binding<String>) {
-        self.init(String(localized: title), text: text)
-    }
-}
+//extension SecureField where Label == Text {
+//
+//    /// Creates a secure field with a prompt generated from a `Text`.
+//    ///
+//    /// Use the ``View/onSubmit(of:_:)`` modifier to invoke an action
+//    /// whenever someone submits this secure field --- for example, by
+//    /// pressing the Return key.
+//    ///
+//    /// - Parameters:
+//    ///   - title: A localized string resource for the title. The title
+//    ///     describes the purpose of the field.
+//    ///   - text: A binding to the text that the field displays and edits.
+//    init(_ title: LocalizedStringResource, text: Binding<String>) {
+//        self.init(String(localized: title), text: text)
+//    }
+//}
 
 extension TextField where Label == Text {
 

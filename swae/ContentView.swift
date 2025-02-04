@@ -63,7 +63,7 @@ struct ContentView: View {
                 case .live:
                     IngestView()
                 case .profile:
-                    Text("yoo")
+                    SignInView()
                 }
             }
         }

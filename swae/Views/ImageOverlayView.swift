@@ -5,13 +5,6 @@
 //  Created by Suhail Saqan on 2/1/25.
 //
 
-//
-//  ImageOverlayView.swift
-//  Comingle
-//
-//  Created by Terry Yiu on 7/25/24.
-//
-
 import SwiftUI
 
 struct ImageOverlayView<BackgroundView: View>: View {
