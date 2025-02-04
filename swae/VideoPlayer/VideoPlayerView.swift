@@ -88,7 +88,7 @@ struct VideoPlayerView: View {
             .gesture(
                 DragGesture()
                     .onChanged { value in
-                        if value.translation.height > 1 {  // Trigger immediately when dragging down
+                        if value.translation.height > 1 && !viewModel.isRotated {  // Trigger immediately when dragging down
                             onDragDown?()
                         }
                     }
