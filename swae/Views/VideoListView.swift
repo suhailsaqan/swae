@@ -67,7 +67,7 @@ struct VideoListView: View, MetadataCoding {
     }
 
     private func vidListView(scrollViewProxy: ScrollViewProxy) -> some View {
-        ScrollView(.vertical, showsIndicators: false) {
+        VStack {
             CustomSegmentedPicker(selectedTimeTab: $timeTabFilter) {
                 withAnimation {
                     scrollViewProxy.scrollTo("event-list-view-top")
@@ -94,72 +94,73 @@ struct VideoListView: View, MetadataCoding {
             
             if filteredEvents.isEmpty {
                 VStack {
+                    Spacer()
                     Text("its boring here")
                         .font(.title)
                         .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Spacer()
                 }
-                .frame(maxWidth: .infinity, minHeight: UIScreen.main.bounds.height)
-                .alignmentGuide(.top) { _ in UIScreen.main.bounds.height / 2 }
             } else {
-                EmptyView().id("event-list-view-top")
-                
-                ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
-                    Button {
-                        withAnimation(
-                            .interactiveSpring(
-                                response: 0.6, dampingFraction: 0.7,
-                                blendDuration: 0.7)
-                        ) {
-                            selectedEvent = event
-                            showDetailPage = true
-                            animateView = true
-                        }
-                        
-                        withAnimation(
-                            .interactiveSpring(
-                                response: 0.6, dampingFraction: 0.7,
-                                blendDuration: 0.7
-                            ).delay(0.1)
-                        ) {
-                            animateContent = true
-                        }
-                    } label: {
-                        CardView(item: event)
-                            .scaleEffect(
-                                selectedEvent?.id == event.id
-                                && showDetailPage ? 1 : 0.93
-                            )
-                    }
-                    .buttonStyle(ScaledButtonStyle())
-                    .opacity(
-                        showDetailPage
-                        ? (selectedEvent?.id == event.id ? 1 : 0) : 1)
-                }
-                
-                // Loading more indicator
-                if isLoadingMore {
-                    ProgressView()
-                        .padding()
-                } else {
-                    GeometryReader { proxy -> Color in
-                        let minY = proxy.frame(in: .global).minY
-                        let height = UIScreen.main.bounds.height
-                        
-                        if !filteredEvents.isEmpty && minY < height && hasMoreData {
-                            DispatchQueue.main.async {
-                                loadMoreEvents()
+                ScrollView(.vertical, showsIndicators: false) {
+                    EmptyView().id("event-list-view-top")
+                    
+                    ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
+                        Button {
+                            withAnimation(
+                                .interactiveSpring(
+                                    response: 0.6, dampingFraction: 0.7,
+                                    blendDuration: 0.7)
+                            ) {
+                                selectedEvent = event
+                                showDetailPage = true
+                                animateView = true
                             }
+                            
+                            withAnimation(
+                                .interactiveSpring(
+                                    response: 0.6, dampingFraction: 0.7,
+                                    blendDuration: 0.7
+                                ).delay(0.1)
+                            ) {
+                                animateContent = true
+                            }
+                        } label: {
+                            CardView(item: event)
+                                .scaleEffect(
+                                    selectedEvent?.id == event.id
+                                    && showDetailPage ? 1 : 0.93
+                                )
                         }
-                        
-                        return Color.clear
+                        .buttonStyle(ScaledButtonStyle())
+                        .opacity(
+                            showDetailPage
+                            ? (selectedEvent?.id == event.id ? 1 : 0) : 1)
                     }
-                    .frame(height: 0)
+                    
+                    // Loading more indicator
+                    if isLoadingMore {
+                        ProgressView()
+                            .padding()
+                    } else {
+                        GeometryReader { proxy -> Color in
+                            let minY = proxy.frame(in: .global).minY
+                            let height = UIScreen.main.bounds.height
+                            
+                            if !filteredEvents.isEmpty && minY < height && hasMoreData {
+                                DispatchQueue.main.async {
+                                    loadMoreEvents()
+                                }
+                            }
+                            
+                            return Color.clear
+                        }
+                        .frame(height: 0)
+                    }
+                }
+                .refreshable {
+                    appState.refresh(hardRefresh: true)
                 }
             }
-        }
-        .refreshable {
-            appState.refresh(hardRefresh: true)
         }
         .padding(.vertical)
     }
