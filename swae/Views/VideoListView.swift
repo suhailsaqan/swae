@@ -16,6 +16,7 @@ struct VideoListView: View, MetadataCoding {
     @EnvironmentObject var appState: AppState
     @State private var timeTabFilter: TimeTabs = .past
     @State private var showAllEvents: Bool = true
+    @State private var filteredEvents: [LiveActivitiesEvent] = []
     @ObservedObject private var searchViewModel = SearchViewModel()
     @State private var isProfilesSectionExpanded: Bool = false
 
@@ -32,11 +33,22 @@ struct VideoListView: View, MetadataCoding {
     @State private var currentPage: Int = 0
     @State private var isLoadingMore: Bool = false
     @State private var hasMoreData: Bool = true
+    
+    @State private var isVideoFullScreen = false
 
     var body: some View {
         ScrollViewReader { scrollViewProxy in
             vidListView(scrollViewProxy: scrollViewProxy)
-            //                .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
+                .onAppear {
+                    filteredEvents = events(timeTabFilter)
+                }
+                .onChange(of: appState.liveActivitiesEvents) { _, newValue in
+                    filteredEvents = events(timeTabFilter)
+                }
+                .onChange(of: timeTabFilter) { _, newValue in
+                    filteredEvents = events(newValue)
+                }
+//                .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
         }
         .overlay {
             if let currentItem = selectedEvent, showDetailPage {
@@ -56,107 +68,100 @@ struct VideoListView: View, MetadataCoding {
 
     private func vidListView(scrollViewProxy: ScrollViewProxy) -> some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 0) {
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Today")
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            CustomSegmentedPicker(selectedTimeTab: $timeTabFilter) {
+                withAnimation {
+                    scrollViewProxy.scrollTo("event-list-view-top")
                 }
-                .padding(.horizontal)
-                .padding(.bottom)
-                .opacity(showDetailPage ? 0 : 1)
-
-                CustomSegmentedPicker(selectedTimeTab: $timeTabFilter) {
-                    withAnimation {
-                        scrollViewProxy.scrollTo("event-list-view-top")
+            }
+            .padding([.leading, .trailing], 16)
+            
+            if eventListType == .all && appState.publicKey != nil {
+                Button(
+                    action: {
+                        showAllEvents.toggle()
+                    },
+                    label: {
+                        Image(systemName: "figure.stand.line.dotted.figure.stand")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 30)
+                            .foregroundStyle(showAllEvents ? .secondary : .primary)
                     }
-                }
+                )
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding([.leading, .trailing], 16)
-
-                if eventListType == .all && appState.publicKey != nil {
-                    Button(
-                        action: {
-                            showAllEvents.toggle()
-                        },
-                        label: {
-                            Image(systemName: "figure.stand.line.dotted.figure.stand")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 30)
-                                .foregroundStyle(showAllEvents ? .secondary : .primary)
-                        }
-                    )
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding([.leading, .trailing], 16)
+            }
+            
+            if filteredEvents.isEmpty {
+                VStack {
+                    Text("its boring here")
+                        .font(.title)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-
-                let filteredEvents = events(timeTabFilter)
-                if filteredEvents.isEmpty {
-                    Text("no events")
-                    Text("here \(filteredEvents)")
+                .frame(maxWidth: .infinity, minHeight: UIScreen.main.bounds.height)
+                .alignmentGuide(.top) { _ in UIScreen.main.bounds.height / 2 }
+            } else {
+                EmptyView().id("event-list-view-top")
+                
+                ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
+                    Button {
+                        withAnimation(
+                            .interactiveSpring(
+                                response: 0.6, dampingFraction: 0.7,
+                                blendDuration: 0.7)
+                        ) {
+                            selectedEvent = event
+                            showDetailPage = true
+                            animateView = true
+                        }
+                        
+                        withAnimation(
+                            .interactiveSpring(
+                                response: 0.6, dampingFraction: 0.7,
+                                blendDuration: 0.7
+                            ).delay(0.1)
+                        ) {
+                            animateContent = true
+                        }
+                    } label: {
+                        CardView(item: event)
+                            .scaleEffect(
+                                selectedEvent?.id == event.id
+                                && showDetailPage ? 1 : 0.93
+                            )
+                    }
+                    .buttonStyle(ScaledButtonStyle())
+                    .opacity(
+                        showDetailPage
+                        ? (selectedEvent?.id == event.id ? 1 : 0) : 1)
+                }
+                
+                // Loading more indicator
+                if isLoadingMore {
+                    ProgressView()
+                        .padding()
                 } else {
-                    EmptyView().id("event-list-view-top")
-
-                    ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
-                        Button {
-                            withAnimation(
-                                .interactiveSpring(
-                                    response: 0.6, dampingFraction: 0.7,
-                                    blendDuration: 0.7)
-                            ) {
-                                selectedEvent = event
-                                showDetailPage = true
-                                animateView = true
+                    GeometryReader { proxy -> Color in
+                        let minY = proxy.frame(in: .global).minY
+                        let height = UIScreen.main.bounds.height
+                        
+                        if !filteredEvents.isEmpty && minY < height && hasMoreData {
+                            DispatchQueue.main.async {
+                                loadMoreEvents()
                             }
-
-                            withAnimation(
-                                .interactiveSpring(
-                                    response: 0.6, dampingFraction: 0.7,
-                                    blendDuration: 0.7
-                                ).delay(0.1)
-                            ) {
-                                animateContent = true
-                            }
-                        } label: {
-                            CardView(item: event)
-                                .scaleEffect(
-                                    selectedEvent?.id == event.id
-                                        && showDetailPage ? 1 : 0.93
-                                )
                         }
-                        .buttonStyle(ScaledButtonStyle())
-                        .opacity(
-                            showDetailPage
-                                ? (selectedEvent?.id == event.id ? 1 : 0) : 1)
+                        
+                        return Color.clear
                     }
-
-                    // Loading more indicator
-                    if isLoadingMore {
-                        ProgressView()
-                            .padding()
-                    } else {
-                        GeometryReader { proxy -> Color in
-                            let minY = proxy.frame(in: .global).minY
-                            let height = UIScreen.main.bounds.height
-
-                            if !filteredEvents.isEmpty && minY < height && hasMoreData {
-                                DispatchQueue.main.async {
-                                    loadMoreEvents()
-                                }
-                            }
-
-                            return Color.clear
-                        }
-                        .frame(height: 0)
-                    }
+                    .frame(height: 0)
                 }
             }
-            .refreshable {
-                appState.refresh(hardRefresh: true)
-            }
-            .padding(.vertical)
         }
+        .refreshable {
+            appState.refresh(hardRefresh: true)
+        }
+        .padding(.vertical)
     }
 
     @ViewBuilder
@@ -208,15 +213,17 @@ struct VideoListView: View, MetadataCoding {
 
                             VideoPlayerView(
                                 size: size, safeArea: safeArea, url: url,
-                                onDragDown: closeDetailView
+                                onDragDown: closeDetailView,
+                                onDragUp: fullScreen
                             )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)  // Allow full height when needed
                             .ignoresSafeArea()
+                            .background(Color.black)  // Add black background for fullscreen
                         }
                         .frame(height: 250)
                     }
                 }
-                .frame(height: 250)
-                //                .background(Color.blue)
+//                .frame(height: 250)
             } else {
                 HStack {
                 }
@@ -436,15 +443,8 @@ struct VideoListView: View, MetadataCoding {
                 case .past:
                     appState.pastProfileEvents(publicKeyHex)
                 }
-            //            case .calendar(let calendarCoordinates):
-            //                switch timeTabFilter {
-            //                case .upcoming:
-            //                    appState.upcomingEventsOnCalendarList(calendarCoordinates)
-            //                case .past:
-            //                    appState.pastEventsOnCalendarList(calendarCoordinates)
-            //                }
             }
-        print("events \(events)")
+//        print("events \(events)")
         return events
     }
 
@@ -454,7 +454,7 @@ struct VideoListView: View, MetadataCoding {
         isLoadingMore = true
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            let newEvents = self.events(self.timeTabFilter)  // Fetch more events from the data source
+            let newEvents = self.events(self.timeTabFilter)
             if newEvents.count > self.currentPage * 10 {
                 self.currentPage += 1
             } else {
@@ -471,6 +471,7 @@ struct VideoListView: View, MetadataCoding {
                 response: 0.6, dampingFraction: 0.7,
                 blendDuration: 0.7)
         ) {
+            isVideoFullScreen = false
             animateView = false
             animateContent = false
         }
@@ -484,6 +485,10 @@ struct VideoListView: View, MetadataCoding {
             selectedEvent = nil
             showDetailPage = false
         }
+    }
+    
+    func fullScreen() {
+        isVideoFullScreen.toggle()
     }
 
 }
