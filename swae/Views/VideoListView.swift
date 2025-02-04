@@ -114,6 +114,7 @@ struct VideoListView: View, MetadataCoding {
                                 selectedEvent = event
                                 showDetailPage = true
                                 animateView = true
+                                notify(.display_tabbar(false))
                             }
                             
                             withAnimation(
@@ -477,6 +478,7 @@ struct VideoListView: View, MetadataCoding {
         ) {
             selectedEvent = nil
             showDetailPage = false
+            notify(.display_tabbar(true))
         }
     }
     
