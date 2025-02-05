@@ -9,6 +9,7 @@ import Kingfisher
 import NostrSDK
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct VideoListView: View, MetadataCoding {
 
@@ -34,7 +35,7 @@ struct VideoListView: View, MetadataCoding {
     @State private var isLoadingMore: Bool = false
     @State private var hasMoreData: Bool = true
     
-    @State private var isVideoFullScreen = false
+    @EnvironmentObject var orientationMonitor: OrientationMonitor
 
     var body: some View {
         ScrollViewReader { scrollViewProxy in
@@ -114,6 +115,7 @@ struct VideoListView: View, MetadataCoding {
                                 selectedEvent = event
                                 showDetailPage = true
                                 animateView = true
+                                notify(.display_tabbar(false))
                             }
                             
                             withAnimation(
@@ -211,56 +213,59 @@ struct VideoListView: View, MetadataCoding {
                         GeometryReader { proxy in
                             let size = proxy.size
                             let safeArea = proxy.safeAreaInsets
-
+                            
                             VideoPlayerView(
                                 size: size, safeArea: safeArea, url: url,
                                 onDragDown: closeDetailView,
                                 onDragUp: fullScreen
                             )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)  // Allow full height when needed
-                            .ignoresSafeArea()
-                            .background(Color.black)  // Add black background for fullscreen
+                            .background(Color.clear)
                         }
-                        .frame(height: 250)
+                    } else {
+                        HStack {}
+                            .frame(height: 250)
+                            .background(Color.clear)
                     }
                 }
-//                .frame(height: 250)
+                .frame(maxWidth: .infinity, maxHeight: orientationMonitor.isLandscape ? .infinity : 250)
+                .ignoresSafeArea(orientationMonitor.isLandscape ? .all : [])
             } else {
-                HStack {
-                }
-                .frame(height: 250)
-                .background(Color.clear)
+                HStack {}
+                    .frame(height: 250)
+                    .background(Color.clear)
             }
 
-            HStack(spacing: 12) {
-                KFImage.url(item.image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 60)
-                    .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: 15, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.title?.uppercased() ?? "no title")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .lineLimit(2)
-
-                    Text(item.summary ?? "no summary")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .lineLimit(2)
-
-                    Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .lineLimit(2)
+            if !orientationMonitor.isLandscape {
+                HStack(spacing: 12) {
+                    KFImage.url(item.image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 60, height: 60)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: 15, style: .continuous))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title?.uppercased() ?? "no title")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .lineLimit(2)
+                        
+                        Text(item.summary ?? "no summary")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .lineLimit(2)
+                        
+                        Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .lineLimit(2)
+                    }
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding([.horizontal, .bottom])
             }
-            .padding([.horizontal, .bottom])
         }
         .background {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
@@ -276,22 +281,24 @@ struct VideoListView: View, MetadataCoding {
             VStack {
                 CardView(item: item, isDetailPage: true)
                     .scaleEffect(animateView ? 1 : 0.93)
-
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 15) {
-                        Text(item.summary ?? "No summary")
-
-                        Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
-
-                        Text(item.streaming?.absoluteString ?? "No stream available")
-
-                        Text(item.recording?.absoluteString ?? "No recording available")
+                
+                if !orientationMonitor.isLandscape {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 15) {
+                            Text(item.summary ?? "No summary")
+                            
+                            Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
+                            
+                            Text(item.streaming?.absoluteString ?? "No stream available")
+                            
+                            Text(item.recording?.absoluteString ?? "No recording available")
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding()
+                        .offset(y: scrollOffset > 0 ? scrollOffset : 0)
+                        .opacity(animateContent ? 1 : 0)
+                        .scaleEffect(animateView ? 1 : 0, anchor: .top)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
-                    .offset(y: scrollOffset > 0 ? scrollOffset : 0)
-                    .opacity(animateContent ? 1 : 0)
-                    .scaleEffect(animateView ? 1 : 0, anchor: .top)
                 }
             }
             .offset(y: scrollOffset > 0 ? -scrollOffset : 0)
@@ -330,7 +337,6 @@ struct VideoListView: View, MetadataCoding {
             }
         }
         .transition(.identity)
-        //        .matchedGeometryEffect(id: item.id, in: animation, isSource: false)
     }
 
     func events(_ timeTabFilter: TimeTabs) -> [LiveActivitiesEvent] {
@@ -458,7 +464,9 @@ struct VideoListView: View, MetadataCoding {
                 response: 0.6, dampingFraction: 0.7,
                 blendDuration: 0.7)
         ) {
-            isVideoFullScreen = false
+            if orientationMonitor.isLandscape {
+                orientationMonitor.setOrientation(to: .portrait)
+            }
             animateView = false
             animateContent = false
         }
@@ -467,17 +475,21 @@ struct VideoListView: View, MetadataCoding {
             .interactiveSpring(
                 response: 0.6, dampingFraction: 0.7,
                 blendDuration: 0.7
-            ).delay(0.05)
+            ).delay(0.1)
         ) {
             selectedEvent = nil
             showDetailPage = false
+            notify(.display_tabbar(true))
         }
     }
     
     func fullScreen() {
-        isVideoFullScreen.toggle()
+        let orientationIsLandscape = orientationMonitor.isLandscape
+        withAnimation(.easeInOut(duration: 0.2)) {
+            orientationMonitor.setOrientation(to: orientationIsLandscape ? .portrait : .landscape)
+        }
+        notify(.display_tabbar(orientationIsLandscape))
     }
-
 }
 
 struct CustomSegmentedPicker: View {

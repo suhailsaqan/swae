@@ -14,6 +14,8 @@ struct swaeApp: App {
     let container: ModelContainer
 
     @State private var appState: AppState
+    
+    @StateObject private var orientationMonitor = OrientationMonitor()
 
     init() {
         NostrEventValueTransformer.register()
@@ -36,6 +38,7 @@ struct swaeApp: App {
             ContentView(modelContext: container.mainContext)
                 .environmentObject(appState)
                 .environmentObject(KeychainHelper.shared)
+                .environmentObject(orientationMonitor)
         }
         .modelContainer(container)
     }

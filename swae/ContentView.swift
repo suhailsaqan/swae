@@ -11,9 +11,10 @@ import SwiftData
 import SwiftUI
 
 struct ContentView: View {
-
     let modelContext: ModelContext
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var orientationMonitor: OrientationMonitor
+
     @SceneStorage("ContentView.selected_tab") var selected_tab: ScreenTabs = .home
 
     @State var isShowingCreationConfirmation: Bool = false
@@ -53,6 +54,10 @@ struct ContentView: View {
         .navigationViewStyle(.stack)
         .ignoresSafeArea(.keyboard)
         .edgesIgnoringSafeArea(hide_bar ? [.bottom] : [])
+        .onReceive(handle_notify(.display_tabbar)) { display in
+            let show = display
+            self.hide_bar = !show
+        }
 
         func MainContent(appState: AppState) -> some View {
             return ZStack {
