@@ -11,9 +11,10 @@ import SwiftData
 import SwiftUI
 
 struct ContentView: View {
-
     let modelContext: ModelContext
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var orientationMonitor: OrientationMonitor
+
     @SceneStorage("ContentView.selected_tab") var selected_tab: ScreenTabs = .home
 
     @State var isShowingCreationConfirmation: Bool = false

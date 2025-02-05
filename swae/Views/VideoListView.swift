@@ -9,6 +9,7 @@ import Kingfisher
 import NostrSDK
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct VideoListView: View, MetadataCoding {
 
@@ -34,7 +35,7 @@ struct VideoListView: View, MetadataCoding {
     @State private var isLoadingMore: Bool = false
     @State private var hasMoreData: Bool = true
     
-    @State private var isVideoFullScreen = false
+    @EnvironmentObject var orientationMonitor: OrientationMonitor
 
     var body: some View {
         ScrollViewReader { scrollViewProxy in
@@ -226,16 +227,15 @@ struct VideoListView: View, MetadataCoding {
                             .background(Color.clear)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: isVideoFullScreen ? .infinity : 250)
-                .ignoresSafeArea(isVideoFullScreen ? .all : [])
-//                .background(isVideoFullScreen ? Color.green : Color.blue) // Use appropriate background
+                .frame(maxWidth: .infinity, maxHeight: orientationMonitor.isLandscape ? .infinity : 250)
+                .ignoresSafeArea(orientationMonitor.isLandscape ? .all : [])
             } else {
                 HStack {}
                     .frame(height: 250)
                     .background(Color.clear)
             }
 
-            if !isVideoFullScreen {
+            if !orientationMonitor.isLandscape {
                 HStack(spacing: 12) {
                     KFImage.url(item.image)
                         .resizable()
@@ -282,7 +282,7 @@ struct VideoListView: View, MetadataCoding {
                 CardView(item: item, isDetailPage: true)
                     .scaleEffect(animateView ? 1 : 0.93)
                 
-                if !isVideoFullScreen {
+                if !orientationMonitor.isLandscape {
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 15) {
                             Text(item.summary ?? "No summary")
@@ -337,7 +337,6 @@ struct VideoListView: View, MetadataCoding {
             }
         }
         .transition(.identity)
-        //        .matchedGeometryEffect(id: item.id, in: animation, isSource: false)
     }
 
     func events(_ timeTabFilter: TimeTabs) -> [LiveActivitiesEvent] {
@@ -465,7 +464,9 @@ struct VideoListView: View, MetadataCoding {
                 response: 0.6, dampingFraction: 0.7,
                 blendDuration: 0.7)
         ) {
-            isVideoFullScreen = false
+            if orientationMonitor.isLandscape {
+                orientationMonitor.setOrientation(to: .portrait)
+            }
             animateView = false
             animateContent = false
         }
@@ -483,8 +484,11 @@ struct VideoListView: View, MetadataCoding {
     }
     
     func fullScreen() {
-        isVideoFullScreen.toggle()
-        notify(.display_tabbar(!isVideoFullScreen))
+        let orientationIsLandscape = orientationMonitor.isLandscape
+        withAnimation(.easeInOut(duration: 0.2)) {
+            orientationMonitor.setOrientation(to: orientationIsLandscape ? .portrait : .landscape)
+        }
+        notify(.display_tabbar(orientationIsLandscape))
     }
 }
 

@@ -18,6 +18,8 @@ struct VideoPlayerView: View {
     @GestureState private var isDragging: Bool = false
 
     @StateObject private var viewModel: VideoPlayerModel
+    
+    @EnvironmentObject var orientationMonitor: OrientationMonitor
 
     init(size: CGSize, safeArea: EdgeInsets, url: URL, onDragDown: (() -> Void)? = nil, onDragUp: (() -> Void)? = nil) {
         self.size = size
@@ -30,12 +32,10 @@ struct VideoPlayerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            //            let videoPlayerSize: CGSize = .init(width: viewModel.isRotated ? size.height: size.width, height: viewModel.isRotated ? size.width : (size.height / 3.5))
             let videoPlayerSize: CGSize = .init(
-                width: viewModel.isRotated ? UIScreen.main.bounds.height : UIScreen.main.bounds.width, height: viewModel.isRotated ? UIScreen.main.bounds.width : 250)
+                width: orientationMonitor.isLandscape ? UIScreen.main.bounds.height : UIScreen.main.bounds.width, height: orientationMonitor.isLandscape ? UIScreen.main.bounds.width : 250)
 
             ZStack {
-                //                if let player = viewModel.player {
                 CustomVideoPlayer(player: viewModel.player)
                     .overlay {
                         Rectangle()
@@ -72,23 +72,22 @@ struct VideoPlayerView: View {
                     }
                     .overlay(alignment: .bottomLeading) {
                         SeekerThumbnailView(videoPlayerSize)
-                            .offset(y: viewModel.isRotated ? -85 : -60)
+                            .offset(y: orientationMonitor.isLandscape ? -85 : -60)
                     }
                     .overlay(alignment: .bottom) {
                         VideoSeekerView(videoPlayerSize)
-                            .offset(y: viewModel.isRotated ? -15 : 0)
+                            .offset(y: orientationMonitor.isLandscape ? -15 : 0)
                     }
-                //                }
             }
             .background {
                 Rectangle()
                     .fill(.black)
-                    .padding(.trailing, viewModel.isRotated ? -safeArea.bottom : 0)
+                    .padding(.trailing, orientationMonitor.isLandscape ? -safeArea.bottom : 0)
             }
             .gesture(
                 DragGesture()
                     .onChanged { value in
-                        if value.translation.height > 1 && !viewModel.isRotated {  // Trigger immediately when dragging down
+                        if value.translation.height > 1 && !orientationMonitor.isLandscape {  // Trigger immediately when dragging down
                             onDragDown?()
                         }
                     }
@@ -96,26 +95,21 @@ struct VideoPlayerView: View {
                         if value.translation.height < -50 {  // Drag Up
                             /// Rotate Player
                             withAnimation(.easeInOut(duration: 0.2)) {
-                                viewModel.isRotated = true
+                                orientationMonitor.setOrientation(to: .landscape)
                                 notify(.display_tabbar(false))
                                 onDragUp?()
                             }
                         } else {
                             /// Go to Normal
                             withAnimation(.easeInOut(duration: 0.2)) {
-                                viewModel.isRotated = false
+                                orientationMonitor.setOrientation(to: .portrait)
                                 notify(.display_tabbar(true))
                                 onDragUp?()
                             }
                         }
                     }
             )
-            .rotationEffect(.degrees(viewModel.isRotated ? 90 : 0), anchor: .topLeading)
-            .frame(
-                width: viewModel.isRotated ? size.height : size.width,
-                height: viewModel.isRotated ? size.width : 250
-            )
-            .offset(x: viewModel.isRotated ? size.width : 0)
+            .frame(width: size.width, height: orientationMonitor.isLandscape ? size.height : 250)
             .zIndex(10000)
         }
 //        .padding(.top, safeArea.top)
