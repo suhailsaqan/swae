@@ -488,7 +488,6 @@ struct VideoListView: View, MetadataCoding {
         withAnimation(.easeInOut(duration: 0.2)) {
             orientationMonitor.setOrientation(to: orientationIsLandscape ? .portrait : .landscape)
         }
-        notify(.display_tabbar(orientationIsLandscape))
     }
 }
 

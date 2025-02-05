@@ -96,14 +96,12 @@ struct VideoPlayerView: View {
                             /// Rotate Player
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 orientationMonitor.setOrientation(to: .landscape)
-                                notify(.display_tabbar(false))
                                 onDragUp?()
                             }
                         } else {
                             /// Go to Normal
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 orientationMonitor.setOrientation(to: .portrait)
-                                notify(.display_tabbar(true))
                                 onDragUp?()
                             }
                         }
