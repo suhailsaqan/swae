@@ -41,7 +41,7 @@ struct VideoPlayerView: View {
                         Rectangle()
                             .fill(.black.opacity(0.4))
                             .opacity(viewModel.showPlayerControls || isDragging ? 1 : 0)
-                            .animation(.easeInOut(duration: 0.35), value: isDragging)
+                            .animation(.easeInOut(duration: 0.2), value: isDragging)
                             .overlay {
                                 PlayBackControls()
                             }
@@ -62,7 +62,7 @@ struct VideoPlayerView: View {
                         }
                     }
                     .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.20)) {
+                        withAnimation(.easeInOut(duration: 0.15)) {
                             viewModel.showPlayerControls.toggle()
                         }
 
@@ -77,6 +77,7 @@ struct VideoPlayerView: View {
                     .overlay(alignment: .bottom) {
                         VideoSeekerView(videoPlayerSize)
                             .offset(y: orientationMonitor.isLandscape ? -15 : 0)
+                            .opacity(viewModel.showPlayerControls ? 1 : 0)
                     }
             }
             .background {
@@ -94,13 +95,13 @@ struct VideoPlayerView: View {
                     .onEnded { value in
                         if value.translation.height < -50 {  // Drag Up
                             /// Rotate Player
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            withAnimation(.easeInOut(duration: 0.15)) {
                                 orientationMonitor.setOrientation(to: .landscape)
                                 onDragUp?()
                             }
                         } else {
                             /// Go to Normal
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            withAnimation(.easeInOut(duration: 0.15)) {
                                 orientationMonitor.setOrientation(to: .portrait)
                                 onDragUp?()
                             }
