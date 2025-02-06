@@ -33,7 +33,7 @@ struct VideoPlayerView: View {
     var body: some View {
         VStack(spacing: 0) {
             let videoPlayerSize: CGSize = .init(
-                width: orientationMonitor.isLandscape ? UIScreen.main.bounds.height : UIScreen.main.bounds.width, height: orientationMonitor.isLandscape ? UIScreen.main.bounds.width : 250)
+                width: orientationMonitor.isLandscape ? size.height : size.width, height: orientationMonitor.isLandscape ? size.width : 250)
 
             ZStack {
                 CustomVideoPlayer(player: viewModel.player)
@@ -71,11 +71,11 @@ struct VideoPlayerView: View {
                         }
                     }
                     .overlay(alignment: .bottomLeading) {
-                        SeekerThumbnailView(videoPlayerSize)
+                        SeekerThumbnailView(size)
                             .offset(y: orientationMonitor.isLandscape ? -85 : -60)
                     }
                     .overlay(alignment: .bottom) {
-                        VideoSeekerView(videoPlayerSize)
+                        VideoSeekerView(size)
                             .offset(y: orientationMonitor.isLandscape ? -15 : 0)
                             .opacity(viewModel.showPlayerControls ? 1 : 0)
                     }
