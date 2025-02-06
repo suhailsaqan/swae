@@ -47,7 +47,7 @@ struct LiveActivityEventView: View {
                 if let imageURL = liveActivityEvent.image {
                     KFImage.url(imageURL)
                         .resizable()
-                        .placeholder { ProgressView() }
+                        .placeholder { LoadingCircleView(showBackground: false) }
                         .scaledToFit()
                         .frame(width: 40)
                         .clipShape(.circle)

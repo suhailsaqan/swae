@@ -22,7 +22,7 @@ struct ProfilePictureView: View {
         {
             KFImage.url(pictureURL)
                 .resizable()
-                .placeholder { ProgressView() }
+                .placeholder { LoadingCircleView(showBackground: false) }
                 .scaledToFit()
                 .frame(width: size)
                 .clipShape(.circle)

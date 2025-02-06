@@ -141,8 +141,7 @@ struct VideoListView: View, MetadataCoding {
                     
                     // Loading more indicator
                     if isLoadingMore {
-                        ProgressView()
-                            .padding()
+                        LoadingCircleView(showBackground: false)
                     } else {
                         GeometryReader { proxy -> Color in
                             let minY = proxy.frame(in: .global).minY

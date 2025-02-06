@@ -332,7 +332,7 @@ struct VideoPlayerView: View {
             } label: {
                 ZStack {
                     if viewModel.isLoading {
-                        LoadingCircleView()
+                        LoadingCircleView(strokeColor: .white)
                             .transition(.opacity)
                     } else {
                         Image(
@@ -378,34 +378,6 @@ struct VideoPlayerView: View {
     func togglePlayWithAnimation(_ isPlaying: Binding<Bool>, duration: Double = 0.15) {
         withAnimation(.easeInOut(duration: duration)) {
             isPlaying.wrappedValue.toggle()
-        }
-    }
-    
-    struct LoadingCircleView: View {
-        @State private var isAnimating = false
-
-        var body: some View {
-            Circle()
-                .trim(from: 0.0, to: 0.7)
-                .stroke(
-                    Color.white,
-                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
-                )
-                .frame(width: 25, height: 25)
-                .padding(10)
-                .background {
-                    Circle()
-                        .fill(.black.opacity(0.35))
-                }
-                .rotationEffect(Angle(degrees: isAnimating ? 360 : 0))
-                .animation(
-                    Animation.linear(duration: 1.2)
-                        .repeatForever(autoreverses: false),
-                    value: isAnimating
-                )
-                .onAppear {
-                    isAnimating = true
-                }
         }
     }
 }
