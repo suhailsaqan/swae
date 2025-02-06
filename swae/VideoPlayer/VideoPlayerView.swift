@@ -297,10 +297,10 @@ struct VideoPlayerView: View {
 
             } label: {
                 Image(systemName: "backward.end.fill")
-                    .font(.title2)
+                    .frame(width: 25, height: 25)
                     .fontWeight(.ultraLight)
                     .foregroundColor(.white)
-                    .padding(15)
+                    .padding(10)
                     .background {
                         Circle()
                             .fill(.black.opacity(0.35))
@@ -310,36 +310,47 @@ struct VideoPlayerView: View {
             .opacity(0.6)
 
             Button {
-                if viewModel.isFinishedPlaying {
-                    viewModel.isFinishedPlaying = false
-                    viewModel.player.seek(to: .zero)
-                    viewModel.progress = .zero
-                    viewModel.lastDraggedProgress = .zero
-                }
-                if viewModel.isPlaying {
-                    viewModel.player.pause()
-                    if let timeoutTask = viewModel.timeoutTask {
-                        viewModel.timeoutTask?.cancel()
+                if !viewModel.isLoading {
+                    if viewModel.isFinishedPlaying {
+                        viewModel.isFinishedPlaying = false
+                        viewModel.player.seek(to: .zero)
+                        viewModel.progress = .zero
+                        viewModel.lastDraggedProgress = .zero
                     }
-                } else {
-                    viewModel.player.play()
-                    viewModel.timeoutControls()
+                    if viewModel.isPlaying {
+                        viewModel.player.pause()
+                        if viewModel.timeoutTask != nil {
+                            viewModel.timeoutTask?.cancel()
+                        }
+                    } else {
+                        viewModel.player.play()
+                        viewModel.timeoutControls()
+                    }
+                    
+                    togglePlayWithAnimation($viewModel.isPlaying)
                 }
-
-                togglePlayWithAnimation($viewModel.isPlaying)
             } label: {
-                Image(
-                    systemName: viewModel.isFinishedPlaying
-                        ? "arrow.clockwise" : (viewModel.isPlaying ? "pause.fill" : "play.fill")
-                )
-                .font(.title)
-                //                    .fontWeight(.ultraLight)
-                .foregroundColor(.white)
-                .padding(15)
-                .background {
-                    Circle()
-                        .fill(.black.opacity(0.35))
+                ZStack {
+                    if viewModel.isLoading {
+                        LoadingCircleView()
+                            .transition(.opacity)
+                    } else {
+                        Image(
+                            systemName: viewModel.isFinishedPlaying
+                            ? "arrow.clockwise"
+                            : (viewModel.isPlaying ? "pause.fill" : "play.fill")
+                        )
+                        .frame(width: 25, height: 25)
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background {
+                            Circle()
+                                .fill(.black.opacity(0.35))
+                        }
+                        .transition(.opacity)
+                    }
                 }
+                .animation(.easeInOut(duration: 0.3), value: viewModel.isLoading)
             }
             .scaleEffect(1.1)
 
@@ -347,10 +358,10 @@ struct VideoPlayerView: View {
 
             } label: {
                 Image(systemName: "forward.end.fill")
-                    .font(.title2)
+                    .frame(width: 25, height: 25)
                     .fontWeight(.ultraLight)
                     .foregroundColor(.white)
-                    .padding(15)
+                    .padding(10)
                     .background {
                         Circle()
                             .fill(.black.opacity(0.35))
@@ -367,6 +378,34 @@ struct VideoPlayerView: View {
     func togglePlayWithAnimation(_ isPlaying: Binding<Bool>, duration: Double = 0.15) {
         withAnimation(.easeInOut(duration: duration)) {
             isPlaying.wrappedValue.toggle()
+        }
+    }
+    
+    struct LoadingCircleView: View {
+        @State private var isAnimating = false
+
+        var body: some View {
+            Circle()
+                .trim(from: 0.0, to: 0.7)
+                .stroke(
+                    Color.white,
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                )
+                .frame(width: 25, height: 25)
+                .padding(10)
+                .background {
+                    Circle()
+                        .fill(.black.opacity(0.35))
+                }
+                .rotationEffect(Angle(degrees: isAnimating ? 360 : 0))
+                .animation(
+                    Animation.linear(duration: 1.2)
+                        .repeatForever(autoreverses: false),
+                    value: isAnimating
+                )
+                .onAppear {
+                    isAnimating = true
+                }
         }
     }
 }

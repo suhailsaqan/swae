@@ -8,6 +8,7 @@
 import AVKit
 import SwiftUI
 import UIKit
+import Combine
 
 // The model that holds video-related properties and controls
 class VideoPlayerModel: ObservableObject {
@@ -17,6 +18,7 @@ class VideoPlayerModel: ObservableObject {
     @Published var progress: CGFloat = 0
     @Published var isFinishedPlaying: Bool = false
     @Published var isSeeking: Bool = false
+    @Published var isLoading: Bool = false
     @Published var thumbnailFrames: [UIImage] = []
     @Published var draggingImage: UIImage?
     @Published var isRotated: Bool = false
@@ -24,9 +26,12 @@ class VideoPlayerModel: ObservableObject {
     @Published var timeoutTask: DispatchWorkItem?
     @Published var isObserverAdded: Bool = false
     @Published var playerStatusObserver: NSKeyValueObservation?
+    
+    private var cancellables = Set<AnyCancellable>()
 
     init(url: URL) {
         self.player = AVPlayer(url: url)
+        observeTimeControlStatus()
     }
 
     // Handle video play/pause
@@ -137,5 +142,15 @@ class VideoPlayerModel: ObservableObject {
             self.isPlaying = false
             self.isFinishedPlaying = true
         }
+    }
+    
+    private func observeTimeControlStatus() {
+        player.publisher(for: \.timeControlStatus)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                // .waitingToPlayAtSpecifiedRate indicates buffering/loading
+                self?.isLoading = (status == .waitingToPlayAtSpecifiedRate)
+            }
+            .store(in: &cancellables)
     }
 }
