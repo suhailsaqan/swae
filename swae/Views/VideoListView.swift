@@ -60,7 +60,7 @@ struct VideoListView: View, MetadataCoding {
         .background(alignment: .top) {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .fill(Color(UIColor.systemBackground))
-                .frame(height: animateView ? nil : 350, alignment: .top)
+                .frame(height: animateView ? nil : 250, alignment: .top)
                 .scaleEffect(animateView ? 1 : 0.93)
                 .opacity(animateView ? 1 : 0)
                 .ignoresSafeArea()
@@ -239,18 +239,13 @@ struct VideoListView: View, MetadataCoding {
                     KFImage.url(item.image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: 60, height: 60)
+                        .frame(width: 30, height: 30)
                         .clipShape(
                             RoundedRectangle(
-                                cornerRadius: 15, style: .continuous))
+                                cornerRadius: 10, style: .continuous))
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.title?.uppercased() ?? "no title")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .lineLimit(2)
-                        
-                        Text(item.summary ?? "no summary")
                             .font(.caption)
                             .foregroundColor(.gray)
                             .lineLimit(2)
@@ -263,7 +258,7 @@ struct VideoListView: View, MetadataCoding {
                     .foregroundColor(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding([.horizontal, .bottom])
+                .padding([.horizontal])
             }
         }
         .background {
@@ -342,15 +337,15 @@ struct VideoListView: View, MetadataCoding {
         if eventListType == .all,
             let searchText = searchViewModel.debouncedSearchText.trimmedOrNilIfEmpty
         {
-            // Search by npub.
-            if let authorPublicKey = PublicKey(npub: searchText) {
-                switch timeTabFilter {
-                case .upcoming:
-                    return appState.upcomingProfileEvents(authorPublicKey.hex)
-                case .past:
-                    return appState.pastProfileEvents(authorPublicKey.hex)
-                }
-            }
+//            // Search by npub.
+//            if let authorPublicKey = PublicKey(npub: searchText) {
+//                switch timeTabFilter {
+//                case .upcoming:
+//                    return appState.upcomingProfileEvents(authorPublicKey.hex)
+//                case .past:
+//                    return appState.pastProfileEvents(authorPublicKey.hex)
+//                }
+//            }
             if let metadata = try? decodedMetadata(from: searchText), let kind = metadata.kind,
                 let pubkey = metadata.pubkey, let publicKey = PublicKey(hex: pubkey)
             {
