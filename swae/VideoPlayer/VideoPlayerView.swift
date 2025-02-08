@@ -39,9 +39,9 @@ struct VideoPlayerView: View {
                 CustomVideoPlayer(player: viewModel.player)
                     .overlay {
                         Rectangle()
-                            .fill(.black.opacity(0.4))
+                            .fill(.black.opacity(0.3))
                             .opacity(viewModel.showPlayerControls || isDragging ? 1 : 0)
-                            .animation(.easeInOut(duration: 0.2), value: isDragging)
+                            .animation(.spring(response: 0.4, dampingFraction: 0.5), value: viewModel.showPlayerControls)
                             .overlay {
                                 PlayBackControls()
                             }
@@ -62,7 +62,7 @@ struct VideoPlayerView: View {
                         }
                     }
                     .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.15)) {
+                        withAnimation(.easeOut(duration: 0.05)) {
                             viewModel.showPlayerControls.toggle()
                         }
 
@@ -83,7 +83,7 @@ struct VideoPlayerView: View {
             .background {
                 Rectangle()
                     .fill(.black)
-                    .padding(.trailing, orientationMonitor.isLandscape ? -safeArea.bottom : 0)
+//                    .padding(/*.trailing,*/ orientationMonitor.isLandscape ? -safeArea.bottom : 0)
             }
             .gesture(
                 DragGesture()
