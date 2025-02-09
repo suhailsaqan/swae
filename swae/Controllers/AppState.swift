@@ -20,7 +20,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         hasher.combine(id)
     }
 
-    static let defaultRelayURLString = "wss://relay.snort.social"
+    static let defaultRelayURLString = "wss://relay.damus.io"
 
     let id = UUID()
 
