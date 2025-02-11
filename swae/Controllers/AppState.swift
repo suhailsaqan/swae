@@ -36,6 +36,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     @Published var followListEvents: [String: FollowListEvent] = [:]
     @Published var metadataEvents: [String: MetadataEvent] = [:]
     @Published var liveActivitiesEvents: [String: LiveActivitiesEvent] = [:]
+    @Published var liveChatMessagesEvents: [String: [LiveChatMessageEvent]] = [:]
     @Published var deletedEventIds = Set<String>()
     @Published var deletedEventCoordinates = [String: Date]()
 
@@ -49,6 +50,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     var metadataSubscriptionCounts = [String: Int]()
     var bootstrapSubscriptionCounts = [String: Int]()
     var liveActivityEventSubscriptionCounts = [String: Int]()
+    var liveChatSubscriptionCounts: [String: String] = [:]
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -100,7 +102,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         }
     }
 
-    /// Events that were created or RSVP'd by follow list.
+    /// Events that were created by follow list.
     private var followedEvents: [LiveActivitiesEvent] {
         guard publicKey != nil else {
             return []
@@ -124,7 +126,6 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         pastEvents(followedEvents)
     }
 
-    /// Events that were created or RSVP'd by the active profile.
     private func profileEvents(_ publicKeyHex: String) -> [LiveActivitiesEvent] {
         return liveActivitiesEvents.values.filter { event in
             guard let coordinates = event.replaceableEventCoordinates() else {
@@ -382,9 +383,9 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
 }
 
 extension AppState: EventVerifying, RelayDelegate {
-    func relay(_ relay: NostrSDK.Relay, didReceive response: NostrSDK.RelayResponse) {
-        return
-    }
+//    func relay(_ relay: NostrSDK.Relay, didReceive response: NostrSDK.RelayResponse) {
+//        return
+//    }
 
     func relayStateDidChange(_ relay: Relay, state: Relay.State) {
         guard relayReadPool.relays.contains(relay) || relayWritePool.relays.contains(relay) else {
@@ -423,7 +424,10 @@ extension AppState: EventVerifying, RelayDelegate {
                 let missingMetadataFilter = Filter(
                     authors: Array(pubkeysToFetchMetadata),
                     kinds: [
-                        EventKind.metadata.rawValue, EventKind.liveActivities.rawValue,
+                        EventKind.metadata.rawValue,
+                        EventKind.followList.rawValue,
+                        EventKind.liveActivities.rawValue,
+//                        EventKind.liveChatMessage.rawValue,
                         EventKind.deletion.rawValue,
                     ],
                     until: Int(until.timeIntervalSince1970)
@@ -455,7 +459,10 @@ extension AppState: EventVerifying, RelayDelegate {
             let metadataRefreshFilter = Filter(
                 authors: Array(pubkeysToRefresh),
                 kinds: [
-                    EventKind.metadata.rawValue, EventKind.liveActivities.rawValue,
+                    EventKind.metadata.rawValue,
+                    EventKind.followList.rawValue,
+                    EventKind.liveActivities.rawValue,
+//                    EventKind.liveChatMessage.rawValue,
                     EventKind.deletion.rawValue,
                 ],
                 since: since,
@@ -523,8 +530,11 @@ extension AppState: EventVerifying, RelayDelegate {
                     let bootstrapFilter = Filter(
                         authors: authors,
                         kinds: [
-                            EventKind.metadata.rawValue, EventKind.followList.rawValue,
-                            EventKind.liveActivities.rawValue, EventKind.deletion.rawValue,
+                            EventKind.metadata.rawValue,
+                            EventKind.followList.rawValue,
+                            EventKind.liveActivities.rawValue,
+//                            EventKind.liveChatMessage.rawValue,
+                            EventKind.deletion.rawValue,
                         ],
                         since: since,
                         until: Int(until.timeIntervalSince1970)
@@ -708,6 +718,73 @@ extension AppState: EventVerifying, RelayDelegate {
 
         updateLiveActivitiesTrie(oldEvent: existingLiveActivity, newEvent: liveActivitiesEvent)
     }
+    
+    func subscribeToLiveChat(for event: LiveActivitiesEvent) {
+        guard let eventCoordinate = event.replaceableEventCoordinates()?.tag.value,
+              !liveChatSubscriptionCounts.values.contains(eventCoordinate) else { return }
+        
+        // Create proper a tag structure for filter
+        //        let aTagValues = [
+        //            eventCoordinate,  // The full a tag value "30311:pubkey:d"
+        //            "",               // Relay hint
+        //            "root"            // Marker
+        //        ]
+        
+        // Create filter with proper tag structure
+        guard let filter = Filter(
+            kinds: [EventKind.liveChatMessage.rawValue],
+            tags: ["a": [eventCoordinate]],  // Note the array of arrays
+            since: 0
+        ) else {
+            print("Failed to create live chat filter")
+            return
+        }
+        
+        // Add time constraints to get historical messages
+        //        if let liveEventStart = event.startsAt {
+        //            filter.since = Int(liveEventStart.timeIntervalSince1970)
+        //        }
+        
+        let subscriptionId = relayReadPool.subscribe(with: filter)
+        liveChatSubscriptionCounts[subscriptionId] = eventCoordinate
+        print("Subscribed to live chat \(eventCoordinate) with ID: \(subscriptionId)")
+    }
+
+    func unsubscribeFromLiveChat(for event: LiveActivitiesEvent) {
+        guard let eventCoordinate = event.replaceableEventCoordinates()?.tag.value else { return }
+        
+        liveChatSubscriptionCounts
+            .filter { $0.value == eventCoordinate }
+            .keys
+            .forEach { subscriptionId in
+                relayReadPool.closeSubscription(with: subscriptionId)
+                liveChatSubscriptionCounts.removeValue(forKey: subscriptionId)
+                liveChatMessagesEvents.removeValue(forKey: eventCoordinate)
+            }
+    }
+    
+    private func didReceiveLiveChatMessage(_ message: LiveChatMessageEvent) {
+        print("received live chat message", self.liveChatMessagesEvents.count)
+        guard let eventReference = message.liveEventReference else { return }
+        let eventCoordinate = "\(eventReference.liveEventKind):\(eventReference.pubkey):\(eventReference.d)"
+        
+        DispatchQueue.main.async {
+            if self.liveChatMessagesEvents[eventCoordinate] == nil {
+                self.liveChatMessagesEvents[eventCoordinate] = []
+            }
+            
+            // Prevent duplicates using event ID
+            if !self.liveChatMessagesEvents[eventCoordinate]!.contains(where: { $0.id == message.id }) {
+                self.liveChatMessagesEvents[eventCoordinate]!.append(message)
+                
+                // Auto-remove if associated live event is ended
+                //                    if let liveEvent = self.liveActivitiesEvents[eventCoordinate],
+                //                       liveEvent.status == "ended" {
+                //                        self.unsubscribeFromLiveChat(for: liveEvent)
+                //                    }
+            }
+        }
+    }
 
     func delete(events: [NostrEvent]) {
         guard let keypair else {
@@ -758,6 +835,8 @@ extension AppState: EventVerifying, RelayDelegate {
             self.didReceiveMetadataEvent(metadataEvent)
         case let liveActivitiesEvent as LiveActivitiesEvent:
             self.didReceiveLiveActivitiesEvent(liveActivitiesEvent)
+        case let liveChatMessageEvent as LiveChatMessageEvent:
+            self.didReceiveLiveChatMessage(liveChatMessageEvent)
         case let deletionEvent as DeletionEvent:
             self.didReceiveDeletionEvent(deletionEvent)
         default:
@@ -807,29 +886,34 @@ extension AppState: EventVerifying, RelayDelegate {
         }
     }
 
-    //    func relay(_ relay: Relay, didReceive response: RelayResponse) {
-    //        DispatchQueue.main.async {
-    //            switch response {
-    //            case let .eose(subscriptionId):
-    //                // Live new events are not strictly needed for this app for now.
-    //                // In the future, we could keep subscriptions open for updates.
-    //                try? relay.closeSubscription(with: subscriptionId)
-    //                self.updateRelaySubscriptionCounts(closedSubscriptionId: subscriptionId)
-    //            case let .closed(subscriptionId, _):
-    //                self.updateRelaySubscriptionCounts(closedSubscriptionId: subscriptionId)
-    //            case let .ok(eventId, success, message):
-    //                if success {
-    //                    if let persistentNostrEvent = self.persistentNostrEvent(eventId), !persistentNostrEvent.relays.contains(relay.url) {
-    //                        persistentNostrEvent.relays.append(relay.url)
-    //                    }
-    //                } else if message.prefix == .rateLimited {
-    //                    // TODO retry with exponential backoff.
-    //                }
-    //            default:
-    //                break
-    //            }
-    //        }
-    //    }
+    func relay(_ relay: Relay, didReceive response: RelayResponse) {
+        DispatchQueue.main.async {
+            switch response {
+            case let .eose(subscriptionId):
+                if self.liveChatSubscriptionCounts.keys.contains(subscriptionId) {
+                    // Maintain live chat subscription for real-time updates
+                    print("Maintaining live chat subscription: \(subscriptionId)")
+                } else {
+                    try? relay.closeSubscription(with: subscriptionId)
+                    self.updateRelaySubscriptionCounts(closedSubscriptionId: subscriptionId)
+                }
+                
+            case let .closed(subscriptionId, _):
+                self.liveChatSubscriptionCounts.removeValue(forKey: subscriptionId)
+                self.updateRelaySubscriptionCounts(closedSubscriptionId: subscriptionId)
+            case let .ok(eventId, success, message):
+                if success {
+                    if let persistentNostrEvent = self.persistentNostrEvent(eventId), !persistentNostrEvent.relays.contains(relay.url) {
+                        persistentNostrEvent.relays.append(relay.url)
+                    }
+                } else if message.prefix == .rateLimited {
+                    // TODO retry with exponential backoff.
+                }
+            default:
+                break
+            }
+        }
+    }
 
     func updateRelaySubscriptionCounts(closedSubscriptionId: String) {
         if let metadataSubscriptionCount = metadataSubscriptionCounts[closedSubscriptionId] {

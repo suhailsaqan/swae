@@ -277,22 +277,14 @@ struct VideoListView: View, MetadataCoding {
                     .scaleEffect(animateView ? 1 : 0.93)
                 
                 if !orientationMonitor.isLandscape {
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(spacing: 15) {
-                            Text(item.summary ?? "No summary")
-                            
-                            Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
-                            
-                            Text(item.streaming?.absoluteString ?? "No stream available")
-                            
-                            Text(item.recording?.absoluteString ?? "No recording available")
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding()
-                        .offset(y: scrollOffset > 0 ? scrollOffset : 0)
-                        .opacity(animateContent ? 1 : 0)
-                        .scaleEffect(animateView ? 1 : 0, anchor: .top)
+                    VStack {
+                        LiveChatView(liveActivitiesEvent: item)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
+                    .offset(y: scrollOffset > 0 ? scrollOffset : 0)
+                    .opacity(animateContent ? 1 : 0)
+                    .scaleEffect(animateView ? 1 : 0, anchor: .top)
                 }
             }
             .offset(y: scrollOffset > 0 ? -scrollOffset : 0)

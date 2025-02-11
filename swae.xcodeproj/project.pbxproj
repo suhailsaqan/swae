@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BA098DD12D55A106005262A4 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA098DD02D55A106005262A4 /* NostrSDK */; };
 		BA8A05062D45609500B35D04 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A05052D45609500B35D04 /* NostrSDK */; };
 		BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050B2D4560CA00B35D04 /* SwiftTrie */; };
 		BA8A050F2D45618000B35D04 /* Logboard in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050E2D45618000B35D04 /* Logboard */; };
@@ -78,6 +79,7 @@
 				BA8A05062D45609500B35D04 /* NostrSDK in Frameworks */,
 				BA8A050F2D45618000B35D04 /* Logboard in Frameworks */,
 				BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */,
+				BA098DD12D55A106005262A4 /* NostrSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -143,6 +145,7 @@
 				BA8A050B2D4560CA00B35D04 /* SwiftTrie */,
 				BA8A050E2D45618000B35D04 /* Logboard */,
 				BABEA7CC2D4F164B0062668E /* Kingfisher */,
+				BA098DD02D55A106005262A4 /* NostrSDK */,
 			);
 			productName = swae;
 			productReference = BA8A03542D455F8400B35D04 /* swae.app */;
@@ -227,10 +230,10 @@
 			mainGroup = BA8A034B2D455F8400B35D04;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				BA8A05042D45609500B35D04 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */,
 				BA8A050A2D4560CA00B35D04 /* XCRemoteSwiftPackageReference "swift-trie" */,
 				BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */,
 				BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				BA098DCF2D55A106005262A4 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA8A03552D455F8400B35D04 /* Products */;
@@ -622,7 +625,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		BA8A05042D45609500B35D04 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */ = {
+		BA098DCF2D55A106005262A4 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../nostr-sdk-ios";
 		};
@@ -656,6 +659,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		BA098DD02D55A106005262A4 /* NostrSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = NostrSDK;
+		};
 		BA8A05052D45609500B35D04 /* NostrSDK */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = NostrSDK;
