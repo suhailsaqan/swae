@@ -136,7 +136,6 @@ struct LiveChatView: View {
     }
     
     /// Loads an older page of messages from your full history.
-    /// (In a real app this might call a network API instead of reading from appState.)
     private func loadMoreMessages() {
         guard let coordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value,
               let allMessages = appState.liveChatMessagesEvents[coordinates],
