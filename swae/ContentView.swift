@@ -27,133 +27,130 @@ struct ContentView: View {
     }
 
     var body: some View {
-        return NavigationStack(path: $navigationCoordinator.path) {
-            VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            NavigationStack(path: $navigationCoordinator.path) {
                 TabView {
                     MainContent(appState: appState)
                 }
+                .background(Color(uiColor: .systemBackground))
+                .edgesIgnoringSafeArea(selected_tab != .home ? [] : [.top, .bottom])
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                //                .navigationDestination(for: Route.self) { route in
-                //                    route.view(navigationCoordinator: navigationCoordinator, appState: appState)
-                //                }
                 .onReceive(handle_notify(.switched_tab)) { _ in
                     navigationCoordinator.popToRoot()
                 }
+            }
+            .navigationViewStyle(.stack)
+            .overlay(alignment: .bottom) {
                 if !hide_bar {
                     TabBar(
-                        selected: $selected_tab, settings: appState.appSettings,
+                        selected: $selected_tab,
+                        settings: appState.appSettings,
                         action: switch_selected_tab
                     )
                     .padding([.bottom], 8)
-                    .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-                } else {
-                    Text("")
+                    .background(Color(uiColor: .systemBackground))
+                    .transition(.move(edge: .bottom))
                 }
             }
+            .onReceive(handle_notify(.display_tabbar)) { display in
+                let show = display
+                self.hide_bar = !show
+            }
         }
-        .navigationViewStyle(.stack)
         .ignoresSafeArea(.keyboard)
         .edgesIgnoringSafeArea(hide_bar ? [.bottom] : [])
-        .onReceive(handle_notify(.display_tabbar)) { display in
-            let show = display
-            self.hide_bar = !show
-        }
-
-        func MainContent(appState: AppState) -> some View {
-            return ZStack {
-                switch selected_tab {
-                case .home:
-                    VideoListView(eventListType: .all)
-                        .navigationBarTitleDisplayMode(.inline)
-                case .live:
-                    IngestView()
-                case .profile:
-                    SignInView()
-                }
-            }
-        }
-
-        func switch_selected_tab(_ screenTab: ScreenTabs) {
-            self.isSideBarOpened = false
-            let navWasAtRoot = self.navIsAtRoot()
-            self.popToRoot()
-
-            notify(.switched_tab(screenTab))
-
-            if screenTab == self.selected_tab && navWasAtRoot {
-                notify(.scroll_to_top)
-                return
-            }
-
-            self.selected_tab = screenTab
-        }
-
-        func popToRoot() {
-            navigationCoordinator.popToRoot()
-            isSideBarOpened = false
-        }
-
-        struct CustomTabBar: View {
-            @Binding var selectedTab: HomeTabs
-
-            let isSignedIn: Bool
-            let onTapAction: () -> Void
-
-            var body: some View {
-                HStack {
-                    CustomTabBarItem(
-                        iconName: "house.fill", title: "home", tab: HomeTabs.home,
-                        selectedTab: $selectedTab, onTapAction: onTapAction)
-
-                    CustomTabBarItem(
-                        iconName: "camera", title: "tab2", tab: HomeTabs.live,
-                        selectedTab: $selectedTab, onTapAction: onTapAction)
-
-                    CustomTabBarItem(
-                        iconName: "person", title: "tab3", tab: HomeTabs.profile,
-                        selectedTab: $selectedTab, onTapAction: onTapAction)
-                }
-                .frame(height: 50)
-                .background(Color.gray.opacity(0.2))
-            }
-        }
-
-        struct CustomTabBarItem: View {
-            let iconName: String
-            let title: LocalizedStringResource
-            let tab: HomeTabs
-            @Binding var selectedTab: HomeTabs
-
-            let onTapAction: () -> Void
-
-            var body: some View {
-                VStack {
-                    Image(systemName: iconName)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 20, height: 20)
-                    Text(title)
-                        .font(.caption)
-                }
-                .padding()
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    selectedTab = tab
-                    onTapAction()
-                }
-                .foregroundColor(selectedTab == tab ? .blue : .gray)
-                .frame(maxWidth: .infinity)
-            }
-        }
     }
 
-    func navIsAtRoot() -> Bool {
-        return navigationCoordinator.isAtRoot()
+    
+    func MainContent(appState: AppState) -> some View {
+        return VStack {
+            switch selected_tab {
+            case .home:
+                VideoListView(eventListType: .all)
+            case .live:
+                IngestView()
+            case .profile:
+                SignInView()
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    func switch_selected_tab(_ screenTab: ScreenTabs) {
+        self.isSideBarOpened = false
+        let navWasAtRoot = self.navIsAtRoot()
+        self.popToRoot()
+        
+        notify(.switched_tab(screenTab))
+        
+        if screenTab == self.selected_tab && navWasAtRoot {
+            notify(.scroll_to_top)
+            return
+        }
+        
+        self.selected_tab = screenTab
     }
 
     func popToRoot() {
         navigationCoordinator.popToRoot()
         isSideBarOpened = false
+    }
+
+    struct CustomTabBar: View {
+        @Binding var selectedTab: HomeTabs
+        
+        let isSignedIn: Bool
+        let onTapAction: () -> Void
+        
+        var body: some View {
+            HStack {
+                CustomTabBarItem(
+                    iconName: "house.fill", title: "home", tab: HomeTabs.home,
+                    selectedTab: $selectedTab, onTapAction: onTapAction)
+                
+                CustomTabBarItem(
+                    iconName: "camera", title: "tab2", tab: HomeTabs.live,
+                    selectedTab: $selectedTab, onTapAction: onTapAction)
+                
+                CustomTabBarItem(
+                    iconName: "person", title: "tab3", tab: HomeTabs.profile,
+                    selectedTab: $selectedTab, onTapAction: onTapAction)
+            }
+            .frame(height: 50)
+            .background(Color.gray.opacity(0.2))
+        }
+    }
+
+    struct CustomTabBarItem: View {
+        let iconName: String
+        let title: LocalizedStringResource
+        let tab: HomeTabs
+        @Binding var selectedTab: HomeTabs
+        
+        let onTapAction: () -> Void
+        
+        var body: some View {
+            VStack {
+                Image(systemName: iconName)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 20, height: 20)
+                Text(title)
+                    .font(.caption)
+            }
+            .padding()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                selectedTab = tab
+                onTapAction()
+            }
+            .foregroundColor(selectedTab == tab ? .blue : .gray)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    func navIsAtRoot() -> Bool {
+        return navigationCoordinator.isAtRoot()
     }
 
     func screen_tab_name(_ screen_tab: ScreenTabs?) -> String {

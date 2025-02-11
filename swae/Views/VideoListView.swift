@@ -9,7 +9,6 @@ import Kingfisher
 import NostrSDK
 import SwiftData
 import SwiftUI
-import UIKit
 
 struct VideoListView: View, MetadataCoding {
 
@@ -35,6 +34,8 @@ struct VideoListView: View, MetadataCoding {
     @State private var isLoadingMore: Bool = false
     @State private var hasMoreData: Bool = true
     
+    @State private var lastScrollOffset: CGFloat = 0
+    
     @EnvironmentObject var orientationMonitor: OrientationMonitor
 
     var body: some View {
@@ -49,49 +50,41 @@ struct VideoListView: View, MetadataCoding {
                 .onChange(of: timeTabFilter) { _, newValue in
                     filteredEvents = events(newValue)
                 }
-//                .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
         }
+//            .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
         .overlay {
             if let currentItem = selectedEvent, showDetailPage {
                 DetailView(item: currentItem)
-                    .ignoresSafeArea(.container, edges: .top)
+                    .ignoresSafeArea(.container, edges: orientationMonitor.isLandscape ? [.top, .bottom] : [.leading, .trailing, .bottom])
             }
-        }
-        .background(alignment: .top) {
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(Color(UIColor.systemBackground))
-                .frame(height: animateView ? nil : 250, alignment: .top)
-                .scaleEffect(animateView ? 1 : 0.93)
-                .opacity(animateView ? 1 : 0)
-                .ignoresSafeArea()
         }
     }
 
     private func vidListView(scrollViewProxy: ScrollViewProxy) -> some View {
         VStack {
-            CustomSegmentedPicker(selectedTimeTab: $timeTabFilter) {
-                withAnimation {
-                    scrollViewProxy.scrollTo("event-list-view-top")
-                }
-            }
-            .padding([.leading, .trailing], 16)
+//            CustomSegmentedPicker(selectedTimeTab: $timeTabFilter) {
+//                withAnimation {
+//                    scrollViewProxy.scrollTo("event-list-view-top")
+//                }
+//            }
+//            .padding([.leading, .trailing], 16)
             
-            if eventListType == .all && appState.publicKey != nil {
-                Button(
-                    action: {
-                        showAllEvents.toggle()
-                    },
-                    label: {
-                        Image(systemName: "figure.stand.line.dotted.figure.stand")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 30)
-                            .foregroundStyle(showAllEvents ? .secondary : .primary)
-                    }
-                )
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding([.leading, .trailing], 16)
-            }
+//            if eventListType == .all && appState.publicKey != nil {
+//                Button(
+//                    action: {
+//                        showAllEvents.toggle()
+//                    },
+//                    label: {
+//                        Image(systemName: "figure.stand.line.dotted.figure.stand")
+//                            .resizable()
+//                            .scaledToFit()
+//                            .frame(width: 30)
+//                            .foregroundStyle(showAllEvents ? .secondary : .primary)
+//                    }
+//                )
+//                .frame(maxWidth: .infinity, alignment: .trailing)
+//                .padding([.leading, .trailing], 16)
+//            }
             
             if filteredEvents.isEmpty {
                 VStack {
@@ -103,67 +96,87 @@ struct VideoListView: View, MetadataCoding {
                 }
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    EmptyView().id("event-list-view-top")
-                    
-                    ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
-                        Button {
-                            withAnimation(
-                                .interactiveSpring(
-                                    response: 0.6, dampingFraction: 0.7,
-                                    blendDuration: 0.7)
-                            ) {
-                                selectedEvent = event
-                                showDetailPage = true
-                                animateView = true
-                                notify(.display_tabbar(false))
-                            }
-                            
-                            withAnimation(
-                                .interactiveSpring(
-                                    response: 0.6, dampingFraction: 0.7,
-                                    blendDuration: 0.7
-                                ).delay(0.1)
-                            ) {
-                                animateContent = true
-                            }
-                        } label: {
-                            CardView(item: event)
-                                .scaleEffect(
-                                    selectedEvent?.id == event.id
-                                    && showDetailPage ? 1 : 0.93
-                                )
-                        }
-                        .buttonStyle(ScaledButtonStyle())
-                        .opacity(
-                            showDetailPage
-                            ? (selectedEvent?.id == event.id ? 1 : 0) : 1)
-                    }
-                    
-                    // Loading more indicator
-                    if isLoadingMore {
-                        LoadingCircleView(showBackground: false)
-                    } else {
-                        GeometryReader { proxy -> Color in
-                            let minY = proxy.frame(in: .global).minY
-                            let height = UIScreen.main.bounds.height
-                            
-                            if !filteredEvents.isEmpty && minY < height && hasMoreData {
-                                DispatchQueue.main.async {
-                                    loadMoreEvents()
+                    VStack(spacing: 0) {
+                        EmptyView().id("event-list-view-top")
+                        
+                        Color.clear
+                            .frame(height: 0)
+                            .background(
+                                GeometryReader { proxy -> Color in
+                                    // Read the minY value of the content within the named coordinate space.
+                                    let newOffset = proxy.frame(in: .named("scroll")).minY
+                                    // Use DispatchQueue.main.async to avoid updating state during view updates.
+                                    DispatchQueue.main.async {
+                                        let delta = newOffset - lastScrollOffset
+                                        if delta < -20 {
+                                            // Scrolling down: hide the tabbar.
+                                            withAnimation(.easeInOut(duration:0.25)) {
+                                                notify(.display_tabbar(false))
+                                            }
+                                        } else if delta > 20 {
+                                            // Scrolling up: show the tabbar.
+                                            withAnimation(.easeInOut(duration:0.25)) {
+                                                notify(.display_tabbar(true))
+                                            }
+                                        }
+                                        lastScrollOffset = newOffset
+                                    }
+                                    return Color.clear
                                 }
+                            )
+                        
+                        ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
+                            Button {
+                                withAnimation(.interactiveSpring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.7)) {
+                                    selectedEvent = event
+                                    showDetailPage = true
+                                    animateView = true
+                                    notify(.display_tabbar(false))
+                                }
+                                withAnimation(
+                                    .interactiveSpring(response: 0.6,
+                                                       dampingFraction: 0.7,
+                                                       blendDuration: 0.7)
+                                    .delay(0.1)
+                                ) {
+                                    animateContent = true
+                                }
+                            } label: {
+                                CardView(item: event)
+                                    .scaleEffect(selectedEvent?.id == event.id && showDetailPage ? 1 : 0.93)
                             }
-                            
-                            return Color.clear
+                            .buttonStyle(ScaledButtonStyle())
+                            .opacity(showDetailPage ? (selectedEvent?.id == event.id ? 1 : 0) : 1)
                         }
-                        .frame(height: 0)
+                        
+                        // Loading indicator view
+                        if isLoadingMore {
+                            VStack(alignment: .leading) {
+                                LoadingCircleView(showBackground: false)
+                                Spacer()
+                            }
+                            .frame(height: 100)
+                        } else {
+                            GeometryReader { proxy -> Color in
+                                let minY = proxy.frame(in: .named("scroll")).minY
+                                let height = UIScreen.main.bounds.height
+                                if !filteredEvents.isEmpty && minY < height && hasMoreData {
+                                    DispatchQueue.main.async {
+                                        loadMoreEvents()
+                                    }
+                                }
+                                return Color.clear
+                            }
+                            .frame(height: 0)
+                        }
                     }
                 }
+                .coordinateSpace(name: "scroll")
                 .refreshable {
                     appState.refresh(hardRefresh: true)
                 }
             }
         }
-        .padding(.vertical)
     }
 
     @ViewBuilder
@@ -184,17 +197,10 @@ struct VideoListView: View, MetadataCoding {
                             .clipShape(
                                 CustomCorner(
                                     corners: [
-                                        .topLeft, .topRight,
+                                        .bottomLeft, .bottomRight, .topLeft, .topRight,
                                     ], radius: 15))
                     }
                     .frame(height: 250)
-
-                    //                    LinearGradient(
-                    //                        colors: [
-                    //                            .black.opacity(0.5),
-                    //                            .black.opacity(0.2),
-                    //                            .clear,
-                    //                        ], startPoint: .top, endPoint: .bottom)
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text(item.title ?? "no title")
@@ -227,7 +233,7 @@ struct VideoListView: View, MetadataCoding {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: orientationMonitor.isLandscape ? .infinity : 250)
-                .ignoresSafeArea(orientationMonitor.isLandscape ? .all : [])
+                .ignoresSafeArea(.container, edges: orientationMonitor.isLandscape ? [.top, .bottom] : [.leading, .trailing, .bottom])
             } else {
                 HStack {}
                     .frame(height: 250)
@@ -290,7 +296,6 @@ struct VideoListView: View, MetadataCoding {
             .offset(y: scrollOffset > 0 ? -scrollOffset : 0)
             .offset(offset: $scrollOffset)
         }
-        .edgesIgnoringSafeArea(.all)
         .overlay(
             alignment: .topLeading,
             content: {
@@ -302,8 +307,6 @@ struct VideoListView: View, MetadataCoding {
                         .foregroundColor(.gray)
                 }
                 .padding()
-                //                .padding(.top, safeArea().top)
-                //                .offset(y: -10)
                 .opacity(animateView ? 1 : 0)
             }
         )
