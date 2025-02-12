@@ -149,7 +149,11 @@ class VideoPlayerModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] status in
                 // .waitingToPlayAtSpecifiedRate indicates buffering/loading
-                self?.isLoading = (status == .waitingToPlayAtSpecifiedRate)
+                let loading = (status == .waitingToPlayAtSpecifiedRate)
+                self?.isLoading = loading
+                withAnimation(.easeInOut(duration: 0.05)) {
+                    self?.showPlayerControls = loading
+                }
             }
             .store(in: &cancellables)
     }
