@@ -110,12 +110,12 @@ struct VideoListView: View, MetadataCoding {
                                         let delta = newOffset - lastScrollOffset
                                         if delta < -20 {
                                             // Scrolling down: hide the tabbar.
-                                            withAnimation(.easeInOut(duration:0.25)) {
+                                            withAnimation(.linear(duration:0.15)) {
                                                 notify(.display_tabbar(false))
                                             }
                                         } else if delta > 20 {
                                             // Scrolling up: show the tabbar.
-                                            withAnimation(.easeInOut(duration:0.25)) {
+                                            withAnimation(.linear(duration:0.15)) {
                                                 notify(.display_tabbar(true))
                                             }
                                         }
