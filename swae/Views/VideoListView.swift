@@ -241,7 +241,7 @@ struct VideoListView: View, MetadataCoding {
                         ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
                             Button {
                                 withAnimation(
-                                    .interactiveSpring(response: 0.6, dampingFraction: 0.9, blendDuration: 0.7)
+                                    .interactiveSpring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.7)
                                 ) {
                                     selectedEvent = event
                                     showDetailPage = true
@@ -250,7 +250,7 @@ struct VideoListView: View, MetadataCoding {
                                 }
                                 withAnimation(
                                     .interactiveSpring(response: 0.6,
-                                                       dampingFraction: 0.9,
+                                                       dampingFraction: 0.7,
                                                        blendDuration: 0.7)
                                     .delay(0.05)
                                 ) {
@@ -385,7 +385,9 @@ struct VideoListView: View, MetadataCoding {
         }
         .background {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(Color(UIColor.systemBackground))
+                .fill(Color.clear)
+//                .fill(Color(UIColor.systemBackground))
+
         }
         .matchedGeometryEffect(
             id: item.id, in: animation,
@@ -429,13 +431,13 @@ struct VideoListView: View, MetadataCoding {
         .onAppear {
             withAnimation(
                 .interactiveSpring(
-                    response: 0.6, dampingFraction: 0.9, blendDuration: 0.7)
+                    response: 0.6, dampingFraction: 0.7, blendDuration: 0.7)
             ) {
                 animateView = true
             }
             withAnimation(
                 .interactiveSpring(
-                    response: 0.6, dampingFraction: 0.9, blendDuration: 0.7)
+                    response: 0.6, dampingFraction: 0.7, blendDuration: 0.7)
                 .delay(0.05)
             ) {
                 animateContent = true
@@ -566,7 +568,7 @@ struct VideoListView: View, MetadataCoding {
     func closeDetailView() {
         withAnimation(
             .interactiveSpring(
-                response: 0.6, dampingFraction: 0.9,
+                response: 0.6, dampingFraction: 0.7,
                 blendDuration: 0.7)
         ) {
             if orientationMonitor.isLandscape {
@@ -578,7 +580,7 @@ struct VideoListView: View, MetadataCoding {
 
         withAnimation(
             .interactiveSpring(
-                response: 0.6, dampingFraction: 0.9,
+                response: 0.6, dampingFraction: 0.7,
                 blendDuration: 0.7)
             .delay(0.05)
         ) {
