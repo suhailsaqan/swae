@@ -17,7 +17,7 @@ struct LoadingCircleView: View {
     var strokeColor: Color? = nil
     
     var computedStrokeColor: Color {
-        strokeColor ?? (colorScheme == .dark ? .white : .black)
+        strokeColor ?? (colorScheme == .dark ? .purple : .purple)
     }
     
     var body: some View {
