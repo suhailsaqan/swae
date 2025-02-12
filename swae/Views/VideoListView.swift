@@ -12,34 +12,40 @@ import SwiftUI
 
 struct VideoListView: View, MetadataCoding {
 
-    @State var eventListType: EventListType
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var orientationMonitor: OrientationMonitor
+
+    @State var eventListType: EventListType
     @State private var timeTabFilter: TimeTabs = .past
     @State private var showAllEvents: Bool = true
     @State private var filteredEvents: [LiveActivitiesEvent] = []
     @ObservedObject private var searchViewModel = SearchViewModel()
-    @State private var isProfilesSectionExpanded: Bool = false
 
+    // Event selection and detail view state
     @State var selectedEvent: LiveActivitiesEvent?
     @State var showDetailPage: Bool = false
 
+    // UI animation states
     @Namespace var animation
-
     @State var animateView: Bool = false
     @State var animateContent: Bool = false
-    @State var scrollOffset: CGFloat = 0
+
+    // Scroll and layout states
+    @State private var scrollOffset: CGFloat = 0
+    @State private var lastScrollOffset: CGFloat = 0
+
+    // Section expansion states
+    @State private var isProfilesSectionExpanded: Bool = false
 
     // Pagination states
     @State private var currentPage: Int = 0
     @State private var isLoadingMore: Bool = false
     @State private var hasMoreData: Bool = true
-    
-    @State private var lastScrollOffset: CGFloat = 0
-    
-    @EnvironmentObject var orientationMonitor: OrientationMonitor
-    
-    @State private var selectedIndex = 1
-    @State private var hideTopBar = false
+
+    // Topbar
+    @State private var selectedIndex: Int = 1
+    @State private var hideTopBar: Bool = false
+
 
     var body: some View {
         customTabView()
