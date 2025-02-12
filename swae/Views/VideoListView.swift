@@ -37,30 +37,135 @@ struct VideoListView: View, MetadataCoding {
     @State private var lastScrollOffset: CGFloat = 0
     
     @EnvironmentObject var orientationMonitor: OrientationMonitor
+    
+    @State private var selectedIndex = 1
+    @State private var hideTopBar = false
 
     var body: some View {
-        ScrollViewReader { scrollViewProxy in
-            vidListView(scrollViewProxy: scrollViewProxy)
-                .onAppear {
-                    filteredEvents = events(timeTabFilter)
-                }
-                .onChange(of: appState.liveActivitiesEvents) { _, newValue in
-                    filteredEvents = events(timeTabFilter)
-                }
-                .onChange(of: timeTabFilter) { _, newValue in
-                    filteredEvents = events(newValue)
-                }
-        }
+        customTabView()
+            .onAppear {
+                filteredEvents = events(timeTabFilter)
+            }
+            .onChange(of: appState.liveActivitiesEvents) { _, newValue in
+                filteredEvents = events(timeTabFilter)
+            }
+            .onChange(of: timeTabFilter) { _, newValue in
+                filteredEvents = events(newValue)
+            }
 //            .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
-        .overlay {
-            if let currentItem = selectedEvent, showDetailPage {
-                DetailView(item: currentItem)
-                    .ignoresSafeArea(.container, edges: orientationMonitor.isLandscape ? [.top, .bottom] : [.leading, .trailing, .bottom])
+            .overlay {
+                if let currentItem = selectedEvent, showDetailPage {
+                    DetailView(item: currentItem)
+                        .ignoresSafeArea(.container, edges: orientationMonitor.isLandscape ? [.top, .bottom] : [.leading, .trailing, .bottom])
+                }
+            }
+    }
+    
+    /// Computes the total height of our top bar: safe area inset + content height.
+    var topBarHeight: CGFloat {
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            return window.safeAreaInsets.top
+        }
+        return 0
+    }
+    
+    private func customTabView() -> some View {
+        ZStack(alignment: .top) {
+            TabView(selection: $selectedIndex) {
+                Text("hi")
+                    .tag(0)
+                vidListView()
+                    .tag(1)
+            }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+            .ignoresSafeArea()
+            
+            TopTabBar(selectedIndex: $selectedIndex)
+                .frame(height: topBarHeight*2)
+                .offset(y: hideTopBar ? -topBarHeight*2 : 0) // Slide the bar up (hidden) by offsetting it by its full height.
+                .ignoresSafeArea()
+        }
+    }
+    
+    struct TopTabBar: View {
+        @Binding var selectedIndex: Int
+
+        var body: some View {
+            GeometryReader { geometry in
+                ZStack {
+                    Rectangle()
+                        .fill(Color.black)
+                        .fill(.ultraThinMaterial)
+                        .mask(
+                            LinearGradient(
+                                gradient: Gradient(colors: [.black, .clear]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .ignoresSafeArea(edges: .top)
+                    
+                    VStack {
+                        HStack {
+                            TabButton(title: "Following", tag: 0, selectedIndex: $selectedIndex)
+                            TabButton(title: "For You", tag: 1, selectedIndex: $selectedIndex)
+                        }
+                        .padding(.horizontal, 30)
+                        
+                        Indicator(selectedIndex: $selectedIndex)
+                            .frame(height: 2)
+                            .padding(.horizontal, 30)
+                        
+                        Spacer()
+                    }
+                    .offset(y: geometry.size.height / 2) // Offset the VStack so its top edge starts at the middle of the view.
+                }
             }
         }
     }
+    
+    struct TabButton: View {
+        let title: String
+        let tag: Int
+        @Binding var selectedIndex: Int
 
-    private func vidListView(scrollViewProxy: ScrollViewProxy) -> some View {
+        var body: some View {
+            Button {
+                // Animate the change when tapped.
+                withAnimation {
+                    selectedIndex = tag
+                }
+            } label: {
+                Text(title)
+                    .foregroundColor(selectedIndex == tag ? .purple : .white)
+                    .font(selectedIndex == tag ? .headline : .subheadline)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+    
+    /// A sliding capsule indicator that sits under the active tab.
+    struct Indicator: View {
+        @Binding var selectedIndex: Int
+        
+        var body: some View {
+            GeometryReader { geo in
+                // Each button occupies half of the available width.
+                let buttonWidth = geo.size.width / 2
+                Capsule()
+                    .fill(Color.purple)
+                    .frame(width: 60, height: 2)
+                // Calculate the horizontal offset for the capsule.
+                    .offset(x: selectedIndex == 0
+                            ? (buttonWidth - 60) / 2
+                            : buttonWidth + (buttonWidth - 60) / 2)
+                    .animation(.easeInOut, value: selectedIndex)
+            }
+        }
+    }
+    
+    private func vidListView(/*scrollViewProxy: ScrollViewProxy*/) -> some View {
         VStack {
 //            CustomSegmentedPicker(selectedTimeTab: $timeTabFilter) {
 //                withAnimation {
@@ -100,7 +205,7 @@ struct VideoListView: View, MetadataCoding {
                         EmptyView().id("event-list-view-top")
                         
                         Color.clear
-                            .frame(height: 0)
+                            .frame(height: topBarHeight)
                             .background(
                                 GeometryReader { proxy -> Color in
                                     // Read the minY value of the content within the named coordinate space.
@@ -108,16 +213,18 @@ struct VideoListView: View, MetadataCoding {
                                     // Use DispatchQueue.main.async to avoid updating state during view updates.
                                     DispatchQueue.main.async {
                                         let delta = newOffset - lastScrollOffset
-                                        if delta < -20 {
+                                        if delta < -15 {
                                             // Scrolling down: hide the tabbar.
                                             withAnimation(.linear(duration:0.15)) {
                                                 notify(.display_tabbar(false))
                                             }
-                                        } else if delta > 20 {
+                                            hide_topbar(true)
+                                        } else if delta > 15 {
                                             // Scrolling up: show the tabbar.
                                             withAnimation(.linear(duration:0.15)) {
                                                 notify(.display_tabbar(true))
                                             }
+                                            hide_topbar(false)
                                         }
                                         lastScrollOffset = newOffset
                                     }
@@ -477,6 +584,13 @@ struct VideoListView: View, MetadataCoding {
         let orientationIsLandscape = orientationMonitor.isLandscape
         withAnimation(.easeInOut(duration: 0.2)) {
             orientationMonitor.setOrientation(to: orientationIsLandscape ? .portrait : .landscape)
+        }
+    }
+    
+    /// Call this method with `true` to slide the top bar offscreen, or `false` to reveal it.
+    func hide_topbar(_ shouldHide: Bool) {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            hideTopBar = shouldHide
         }
     }
 }
