@@ -152,6 +152,7 @@ struct VideoListView: View, MetadataCoding {
                         // Loading indicator view
                         if isLoadingMore {
                             VStack(alignment: .leading) {
+                                Spacer()
                                 LoadingCircleView(showBackground: false)
                                 Spacer()
                             }
