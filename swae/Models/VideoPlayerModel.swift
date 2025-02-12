@@ -19,6 +19,7 @@ class VideoPlayerModel: ObservableObject {
     @Published var isFinishedPlaying: Bool = false
     @Published var isSeeking: Bool = false
     @Published var isLoading: Bool = false
+    @Published var playerError: Bool = false
     @Published var thumbnailFrames: [UIImage] = []
     @Published var draggingImage: UIImage?
     @Published var isRotated: Bool = false
@@ -148,11 +149,19 @@ class VideoPlayerModel: ObservableObject {
         player.publisher(for: \.timeControlStatus)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] status in
-                // .waitingToPlayAtSpecifiedRate indicates buffering/loading
+                guard let self = self else { return }
+
                 let loading = (status == .waitingToPlayAtSpecifiedRate)
-                self?.isLoading = loading
+                self.isLoading = loading
+                
                 withAnimation(.easeInOut(duration: 0.05)) {
-                    self?.showPlayerControls = loading
+                    self.showPlayerControls = loading
+                }
+
+                // Check if playback fails
+                if status == .paused, let error = self.player.currentItem?.error {
+                    print("Playback error: \(error.localizedDescription)")
+                    self.playerError = true
                 }
             }
             .store(in: &cancellables)

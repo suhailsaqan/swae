@@ -36,49 +36,60 @@ struct VideoPlayerView: View {
                 width: orientationMonitor.isLandscape ? size.height : size.width, height: orientationMonitor.isLandscape ? size.width : 250)
 
             ZStack {
-                CustomVideoPlayer(player: viewModel.player)
-                    .overlay {
-                        Rectangle()
-                            .fill(.black.opacity(0.3))
-                            .opacity(viewModel.showPlayerControls || isDragging ? 1 : 0)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.5), value: viewModel.showPlayerControls)
-                            .overlay {
-                                PlayBackControls()
-                            }
-                    }
-                    .overlay {
-                        HStack(spacing: 60) {
-                            DoubleTapSeek {
-                                let seconds = viewModel.player.currentTime().seconds - 15
-                                viewModel.player.seek(
-                                    to: .init(seconds: seconds, preferredTimescale: 600))
-                            }
-
-                            DoubleTapSeek(isForward: true) {
-                                let seconds = viewModel.player.currentTime().seconds + 15
-                                viewModel.player.seek(
-                                    to: .init(seconds: seconds, preferredTimescale: 600))
+                if !viewModel.playerError {
+                    CustomVideoPlayer(player: viewModel.player)
+                        .overlay {
+                            Rectangle()
+                                .fill(.black.opacity(0.3))
+                                .opacity(viewModel.showPlayerControls || isDragging ? 1 : 0)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.5), value: viewModel.showPlayerControls)
+                                .overlay {
+                                    PlayBackControls()
+                                }
+                        }
+                        .overlay {
+                            HStack(spacing: 60) {
+                                DoubleTapSeek {
+                                    let seconds = viewModel.player.currentTime().seconds - 15
+                                    viewModel.player.seek(
+                                        to: .init(seconds: seconds, preferredTimescale: 600))
+                                }
+                                
+                                DoubleTapSeek(isForward: true) {
+                                    let seconds = viewModel.player.currentTime().seconds + 15
+                                    viewModel.player.seek(
+                                        to: .init(seconds: seconds, preferredTimescale: 600))
+                                }
                             }
                         }
-                    }
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.05)) {
-                            viewModel.showPlayerControls.toggle()
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.05)) {
+                                viewModel.showPlayerControls.toggle()
+                            }
+                            
+                            if viewModel.isPlaying {
+                                viewModel.timeoutControls()
+                            }
                         }
-
-                        if viewModel.isPlaying {
-                            viewModel.timeoutControls()
+                        .overlay(alignment: .bottomLeading) {
+                            SeekerThumbnailView(size)
+                                .offset(y: orientationMonitor.isLandscape ? -85 : -60)
                         }
+                        .overlay(alignment: .bottom) {
+                            VideoSeekerView(size)
+                                .offset(y: orientationMonitor.isLandscape ? -15 : 0)
+                                .opacity(viewModel.showPlayerControls ? 1 : 0)
+                        }
+                } else {
+                    VStack {
+                        Text("STREAM NOT LIVE")
+                            .font(.headline)
+                            .foregroundColor(.purple)
+                            .padding()
                     }
-                    .overlay(alignment: .bottomLeading) {
-                        SeekerThumbnailView(size)
-                            .offset(y: orientationMonitor.isLandscape ? -85 : -60)
-                    }
-                    .overlay(alignment: .bottom) {
-                        VideoSeekerView(size)
-                            .offset(y: orientationMonitor.isLandscape ? -15 : 0)
-                            .opacity(viewModel.showPlayerControls ? 1 : 0)
-                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
+                }
             }
             .background {
                 Rectangle()
