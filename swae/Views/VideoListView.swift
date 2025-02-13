@@ -240,7 +240,9 @@ struct VideoListView: View, MetadataCoding {
                         
                         ForEach(filteredEvents.prefix(currentPage * 10), id: \.self) { event in
                             Button {
-                                withAnimation(.interactiveSpring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.7)) {
+                                withAnimation(
+                                    .interactiveSpring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.7)
+                                ) {
                                     selectedEvent = event
                                     showDetailPage = true
                                     animateView = true
@@ -250,7 +252,7 @@ struct VideoListView: View, MetadataCoding {
                                     .interactiveSpring(response: 0.6,
                                                        dampingFraction: 0.7,
                                                        blendDuration: 0.7)
-                                    .delay(0.1)
+                                    .delay(0.05)
                                 ) {
                                     animateContent = true
                                 }
@@ -383,7 +385,9 @@ struct VideoListView: View, MetadataCoding {
         }
         .background {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(Color(UIColor.systemBackground))
+                .fill(Color.clear)
+//                .fill(Color(UIColor.systemBackground))
+
         }
         .matchedGeometryEffect(
             id: item.id, in: animation,
@@ -433,8 +437,8 @@ struct VideoListView: View, MetadataCoding {
             }
             withAnimation(
                 .interactiveSpring(
-                    response: 0.6, dampingFraction: 0.7, blendDuration: 0.7
-                ).delay(0.1)
+                    response: 0.6, dampingFraction: 0.7, blendDuration: 0.7)
+                .delay(0.05)
             ) {
                 animateContent = true
             }
@@ -577,8 +581,8 @@ struct VideoListView: View, MetadataCoding {
         withAnimation(
             .interactiveSpring(
                 response: 0.6, dampingFraction: 0.7,
-                blendDuration: 0.7
-            ).delay(0.1)
+                blendDuration: 0.7)
+            .delay(0.05)
         ) {
             selectedEvent = nil
             showDetailPage = false
