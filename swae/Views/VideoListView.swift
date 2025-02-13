@@ -101,15 +101,13 @@ struct VideoListView: View, MetadataCoding {
         var body: some View {
             GeometryReader { geometry in
                 ZStack {
-                    GlassView(style: colorScheme == .dark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight)
+                    GlassView(style: .regular)
                         .mask(
                             LinearGradient(
                                 gradient: Gradient(stops: [
-                                    .init(color: .black, location: 0.0),
-                                    .init(color: .black, location: 0.8),
-                                    .init(color: .black.opacity(0.6), location: 0.85),
-                                    .init(color: .black.opacity(0.3), location: 0.9),
-                                    .init(color: .clear, location: 1.0)
+                                    .init(color: .black.opacity(1), location: 0.0),
+                                    .init(color: .black.opacity(1), location: 0.80),
+                                    .init(color: .clear, location: 1),
                                 ]),
                                 startPoint: .top,
                                 endPoint: .bottom
@@ -399,7 +397,6 @@ struct VideoListView: View, MetadataCoding {
                         LiveChatView(liveActivitiesEvent: item)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding()
                     .offset(y: scrollOffset > 0 ? scrollOffset : 0)
                     .opacity(animateContent ? 1 : 0)
                     .scaleEffect(animateView ? 1 : 0, anchor: .top)
