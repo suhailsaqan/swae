@@ -95,17 +95,22 @@ struct VideoListView: View, MetadataCoding {
     }
     
     struct TopTabBar: View {
+        @Environment(\.colorScheme) var colorScheme
         @Binding var selectedIndex: Int
 
         var body: some View {
             GeometryReader { geometry in
                 ZStack {
-                    Rectangle()
-                        .fill(Color.black)
-                        .fill(.ultraThinMaterial)
+                    GlassView(style: colorScheme == .dark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight)
                         .mask(
                             LinearGradient(
-                                gradient: Gradient(colors: [.black, .clear]),
+                                gradient: Gradient(stops: [
+                                    .init(color: .black, location: 0.0),
+                                    .init(color: .black, location: 0.8),
+                                    .init(color: .black.opacity(0.6), location: 0.85),
+                                    .init(color: .black.opacity(0.3), location: 0.9),
+                                    .init(color: .clear, location: 1.0)
+                                ]),
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -120,12 +125,12 @@ struct VideoListView: View, MetadataCoding {
                         .padding(.horizontal, 30)
                         
                         Indicator(selectedIndex: $selectedIndex)
-                            .frame(height: 2)
                             .padding(.horizontal, 30)
+                            .padding(.vertical, -10)
                         
                         Spacer()
                     }
-                    .offset(y: geometry.size.height / 2) // Offset the VStack so its top edge starts at the middle of the view.
+                    .offset(y: geometry.size.height / 2) // Offset so the top edge of the VStack starts at mid-height.
                 }
             }
         }
@@ -144,8 +149,8 @@ struct VideoListView: View, MetadataCoding {
                 }
             } label: {
                 Text(title)
-                    .foregroundColor(selectedIndex == tag ? .purple : .white)
-                    .font(selectedIndex == tag ? .headline : .subheadline)
+                    .foregroundColor(selectedIndex == tag ? .purple : Color(.label))
+                    .font(.headline)
                     .frame(maxWidth: .infinity)
             }
         }
