@@ -202,7 +202,7 @@ struct VideoListView: View, MetadataCoding {
                     Spacer()
                     Text("its boring here")
                         .font(.title)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.purple)
                     Spacer()
                 }
             } else {
@@ -314,18 +314,9 @@ struct VideoListView: View, MetadataCoding {
                                 CustomCorner(
                                     corners: [
                                         .bottomLeft, .bottomRight, .topLeft, .topRight,
-                                    ], radius: 15))
+                                    ], radius: 10))
                     }
                     .frame(height: 250)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(item.title ?? "no title")
-                            .font(.callout)
-                            .fontWeight(.semibold)
-                            .lineLimit(2)
-                    }
-                    .foregroundColor(.primary)
-                    .padding()
                     .offset(y: selectedEvent?.id == item.id && animateView ? safeArea().top : 0)
                 }
             } else if showDetailPage && (selectedEvent?.id == item.id) && isDetailPage {
@@ -361,32 +352,30 @@ struct VideoListView: View, MetadataCoding {
                     KFImage.url(item.image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 40, height: 40)
                         .clipShape(
                             RoundedRectangle(
                                 cornerRadius: 10, style: .continuous))
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title?.uppercased() ?? "no title")
-                            .font(.caption)
+                        Text(item.title ?? "no title")
+                            .font(.body)
                             .foregroundColor(.gray)
                             .lineLimit(2)
                         
-                        Text(item.status == .ended ? "STREAM ENDED" : "STREAM LIVE")
+                        Text(item.status == .ended ? "ENDED" : "LIVE")
                             .font(.caption)
-                            .foregroundColor(.gray)
-                            .lineLimit(2)
+                            .foregroundColor(.red)
+                            .lineLimit(1)
                     }
-                    .foregroundColor(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding([.horizontal])
             }
         }
         .background {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(Color.clear)
-//                .fill(Color(UIColor.systemBackground))
+//                .fill(Color.clear)
+                .fill(Color(UIColor.systemBackground))
 
         }
         .matchedGeometryEffect(
