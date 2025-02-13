@@ -425,10 +425,8 @@ extension AppState: EventVerifying, RelayDelegate {
                     authors: Array(pubkeysToFetchMetadata),
                     kinds: [
                         EventKind.metadata.rawValue,
-                        EventKind.followList.rawValue,
                         EventKind.liveActivities.rawValue,
-//                        EventKind.liveChatMessage.rawValue,
-                        EventKind.deletion.rawValue,
+//                        EventKind.deletion.rawValue,
                     ],
                     until: Int(until.timeIntervalSince1970)
                 )
@@ -460,10 +458,8 @@ extension AppState: EventVerifying, RelayDelegate {
                 authors: Array(pubkeysToRefresh),
                 kinds: [
                     EventKind.metadata.rawValue,
-                    EventKind.followList.rawValue,
                     EventKind.liveActivities.rawValue,
-//                    EventKind.liveChatMessage.rawValue,
-                    EventKind.deletion.rawValue,
+//                    EventKind.deletion.rawValue,
                 ],
                 since: since,
                 until: Int(until.timeIntervalSince1970)
@@ -533,8 +529,7 @@ extension AppState: EventVerifying, RelayDelegate {
                             EventKind.metadata.rawValue,
                             EventKind.followList.rawValue,
                             EventKind.liveActivities.rawValue,
-//                            EventKind.liveChatMessage.rawValue,
-                            EventKind.deletion.rawValue,
+//                            EventKind.deletion.rawValue,
                         ],
                         since: since,
                         until: Int(until.timeIntervalSince1970)
@@ -870,6 +865,8 @@ extension AppState: EventVerifying, RelayDelegate {
     func loadPersistentNostrEvents(_ persistentNostrEvents: [PersistentNostrEvent]) {
         for persistentNostrEvent in persistentNostrEvents {
             switch persistentNostrEvent.nostrEvent {
+            case let liveActivitiesEvent as LiveActivitiesEvent:
+                self.didReceiveLiveActivitiesEvent(liveActivitiesEvent)
             case let followListEvent as FollowListEvent:
                 self.didReceiveFollowListEvent(followListEvent)
             case let metadataEvent as MetadataEvent:
@@ -963,7 +960,7 @@ extension AppState: EventVerifying, RelayDelegate {
         let newSummary = newEvent.firstValueForRawTagName("summary")?.trimmedOrNilIfEmpty
 
         if let oldEvent {
-            liveActivitiesTrie.remove(key: oldEvent.id, value: eventCoordinates)
+//            liveActivitiesTrie.remove(key: oldEvent.id, value: eventCoordinates)
             if let oldTitle = oldEvent.firstValueForRawTagName("title")?.trimmedOrNilIfEmpty,
                 oldTitle != newTitle
             {
@@ -986,7 +983,7 @@ extension AppState: EventVerifying, RelayDelegate {
                 key: newTitle, value: eventCoordinates,
                 options: [
                     .includeCaseInsensitiveMatches, .includeDiacriticsInsensitiveMatches,
-                    .includeNonPrefixedMatches,
+                    /*.includeNonPrefixedMatches,*/
                 ])
         }
         if let newSummary {

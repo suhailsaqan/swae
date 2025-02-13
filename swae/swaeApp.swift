@@ -25,12 +25,18 @@ struct swaeApp: App {
         } catch {
             fatalError("Failed to create ModelContainer for AppSettings and PersistentNostrEvent.")
         }
-
+        
+        print("started")
         loadAppSettings()
+        print("loadAppSettings")
         updateActiveTab()
+        print("updateActiveTab")
         loadNostrEvents()
+        print("loadNostrEvents")
         appState.updateRelayPool()
+        print("updateRelayPool")
         appState.refresh()
+        print("refresh")
     }
 
     var body: some Scene {
@@ -70,7 +76,9 @@ struct swaeApp: App {
     @MainActor
     private func loadNostrEvents() {
         let descriptor = FetchDescriptor<PersistentNostrEvent>()
+        print("loading nostr events")
         let persistentNostrEvents = (try? container.mainContext.fetch(descriptor)) ?? []
+        print("loaded nostr events", persistentNostrEvents.count)
         appState.loadPersistentNostrEvents(persistentNostrEvents)
 
         appState.refreshFollowedPubkeys()
