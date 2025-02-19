@@ -154,7 +154,7 @@ class VideoPlayerModel: ObservableObject {
                 let loading = (status == .waitingToPlayAtSpecifiedRate)
                 self.isLoading = loading
                 
-                withAnimation(.easeInOut(duration: 0.05)) {
+                withAnimation(.easeInOut(duration: 0.15)) {
                     self.showPlayerControls = loading
                 }
 
