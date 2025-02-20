@@ -28,7 +28,7 @@ final class CredentialHandler: NSObject, ASAuthorizationControllerDelegate {
         let npub = keypair.publicKey.npub
         let nsec = keypair.privateKey.nsec
 
-        SecAddSharedWebCredential("comingle.co" as CFString, npub as CFString, nsec as CFString, { error in
+        SecAddSharedWebCredential("swae.live" as CFString, npub as CFString, nsec as CFString, { error in
             if let error {
                 print("⚠️ An error occurred while saving credentials: \(error)")
             }
