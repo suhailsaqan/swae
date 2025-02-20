@@ -76,7 +76,7 @@ struct ContentView: View {
             }
             
             if selected_tab == .profile {
-                SignInView()
+                SettingsView(appState: appState)
                     .setupTab(.profile)
             }
         }

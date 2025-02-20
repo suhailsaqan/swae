@@ -41,7 +41,7 @@ enum ScreenTabs: String, CustomStringConvertible, Hashable, CaseIterable {
         case .live:
             "video.fill"
         case .profile:
-            "person"
+            "person.fill"
         }
     }
 }
