@@ -11,7 +11,6 @@
 		BA8A05062D45609500B35D04 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A05052D45609500B35D04 /* NostrSDK */; };
 		BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050B2D4560CA00B35D04 /* SwiftTrie */; };
 		BA8A050F2D45618000B35D04 /* Logboard in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050E2D45618000B35D04 /* Logboard */; };
-		BAACC2692D4F2088006A7182 /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BAACC2682D4F2088006A7182 /* Launch Screen.storyboard */; };
 		BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = BABEA7CC2D4F164B0062668E /* Kingfisher */; };
 /* End PBXBuildFile section */
 
@@ -36,7 +35,6 @@
 		BA8A03542D455F8400B35D04 /* swae.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = swae.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA8A03662D455F8800B35D04 /* swaeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swaeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA8A03702D455F8900B35D04 /* swaeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swaeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		BAACC2682D4F2088006A7182 /* Launch Screen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -103,7 +101,6 @@
 		BA8A034B2D455F8400B35D04 = {
 			isa = PBXGroup;
 			children = (
-				BAACC2682D4F2088006A7182 /* Launch Screen.storyboard */,
 				BA8A03562D455F8400B35D04 /* swae */,
 				BA8A03692D455F8800B35D04 /* swaeTests */,
 				BA8A03732D455F8900B35D04 /* swaeUITests */,
@@ -252,7 +249,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BAACC2692D4F2088006A7182 /* Launch Screen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -10,10 +10,12 @@ import SwiftUI
 
 struct VideoPlayerView: View {
     var size: CGSize
-    var safeArea: EdgeInsets
+//    var safeArea: EdgeInsets
     let url: URL
-    let onDragDown: (() -> Void)?
+//    let onDragDown: (() -> Void)?
     let onDragUp: (() -> Void)?
+    
+    @State private var videoSize: CGSize = CGSize(width: 393, height: 250)
 
     @GestureState private var isDragging: Bool = false
 
@@ -21,28 +23,35 @@ struct VideoPlayerView: View {
     
     @EnvironmentObject var orientationMonitor: OrientationMonitor
 
-    init(size: CGSize, safeArea: EdgeInsets, url: URL, onDragDown: (() -> Void)? = nil, onDragUp: (() -> Void)? = nil) {
+    init(size: CGSize, /*safeArea: EdgeInsets,*/ url: URL, /*onDragDown: (() -> Void)? = nil,*/ onDragUp: (() -> Void)? = nil) {
         self.size = size
-        self.safeArea = safeArea
+//        self.safeArea = safeArea
         self.url = url
-        self.onDragDown = onDragDown
+//        self.onDragDown = onDragDown
         self.onDragUp = onDragUp
         _viewModel = StateObject(wrappedValue: VideoPlayerModel(url: url))
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            let videoPlayerSize: CGSize = .init(
-                width: orientationMonitor.isLandscape ? size.height : size.width, height: orientationMonitor.isLandscape ? size.width : 250)
-
+        var scaledSize: CGSize {
+            guard videoSize.width > 0 && videoSize.height > 0 else { return .zero }
+            
+            let widthRatio = self.size.width / videoSize.width
+            let heightRatio = self.size.height / videoSize.height
+            let scaleFactor = min(widthRatio, heightRatio, 1.0) // Ensure it doesn't upscale
+            
+            return CGSize(width: videoSize.width * scaleFactor, height: videoSize.height * scaleFactor)
+        }
+        
+        VStack {
             ZStack {
                 if !viewModel.playerError {
-                    CustomVideoPlayer(player: viewModel.player)
+                    CustomVideoPlayer(player: viewModel.player, videoSize: $videoSize)
+                        .frame(width: scaledSize.width, height: scaledSize.height)
                         .overlay {
                             Rectangle()
                                 .fill(.black.opacity(0.3))
                                 .opacity(viewModel.showPlayerControls || isDragging ? 1 : 0)
-                                .animation(.spring(response: 0.4, dampingFraction: 0.5), value: viewModel.showPlayerControls)
                                 .overlay {
                                     PlayBackControls()
                                 }
@@ -63,7 +72,7 @@ struct VideoPlayerView: View {
                             }
                         }
                         .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.05)) {
+                            withAnimation(.easeInOut(duration: 0.15)) {
                                 viewModel.showPlayerControls.toggle()
                             }
                             
@@ -91,38 +100,38 @@ struct VideoPlayerView: View {
                     .background(Color.black)
                 }
             }
-            .background {
-                Rectangle()
-                    .fill(.black)
-//                    .padding(/*.trailing,*/ orientationMonitor.isLandscape ? -safeArea.bottom : 0)
-            }
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        if value.translation.height > 1 && !orientationMonitor.isLandscape {  // Trigger immediately when dragging down
-                            onDragDown?()
-                        }
-                    }
-                    .onEnded { value in
-                        if value.translation.height < -50 {  // Drag Up
-                            /// Rotate Player
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                orientationMonitor.setOrientation(to: .landscape)
-                                onDragUp?()
-                            }
-                        } else {
-                            /// Go to Normal
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                orientationMonitor.setOrientation(to: .portrait)
-                                onDragUp?()
-                            }
-                        }
-                    }
-            )
-            .frame(width: size.width, height: orientationMonitor.isLandscape ? size.height : 250)
+            .frame(height: scaledSize.height)
+//            .background {
+//                Rectangle()
+//                    .fill(.black)
+//                    .padding(.trailing, orientationMonitor.isLandscape ? -safeArea.bottom : 0) // remove for now
+//            }
+//            .gesture(
+//                DragGesture()
+//                    .onChanged { value in
+//                        if value.translation.height > 1 && !orientationMonitor.isLandscape {  // Trigger immediately when dragging down
+////                            onDragDown?()
+//                        }
+//                    }
+//                    .onEnded { value in
+//                        if value.translation.height < -50 {  // Drag Up
+//                            /// Rotate Player
+//                            withAnimation(.easeInOut(duration: 0.15)) {
+//                                orientationMonitor.setOrientation(to: .landscape)
+//                                onDragUp?()
+//                            }
+//                        } else {
+//                            /// Go to Normal
+//                            withAnimation(.easeInOut(duration: 0.15)) {
+//                                orientationMonitor.setOrientation(to: .portrait)
+//                                onDragUp?()
+//                            }
+//                        }
+//                    }
+//            )
+//            .frame(width: size.width, height: orientationMonitor.isLandscape ? size.height : 250)
             .zIndex(10000)
         }
-//        .padding(.top, safeArea.top)
         .onAppear {
             guard !viewModel.isObserverAdded else { return }
 
@@ -383,7 +392,6 @@ struct VideoPlayerView: View {
 
         }
         .opacity(viewModel.showPlayerControls && !isDragging ? 1 : 0)
-        .animation(.easeIn(duration: 0.1), value: viewModel.showPlayerControls && !isDragging)
     }
 
     func togglePlayWithAnimation(_ isPlaying: Binding<Bool>, duration: Double = 0.15) {

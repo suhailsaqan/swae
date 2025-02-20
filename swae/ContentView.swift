@@ -12,14 +12,12 @@ import SwiftUI
 
 struct ContentView: View {
     let modelContext: ModelContext
+
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var orientationMonitor: OrientationMonitor
 
     @SceneStorage("ContentView.selected_tab") var selected_tab: ScreenTabs = .home
 
-    @State var isShowingCreationConfirmation: Bool = false
-    @State private var isSideBarOpened = false
-    @StateObject var navigationCoordinator: NavigationCoordinator = NavigationCoordinator()
     @State var hide_bar: Bool = false
 
     init(modelContext: ModelContext) {
@@ -27,155 +25,88 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            NavigationStack(path: $navigationCoordinator.path) {
-                TabView {
-                    MainContent(appState: appState)
-                }
-                .background(Color(uiColor: .systemBackground))
-                .edgesIgnoringSafeArea(selected_tab != .home ? [] : [.top, .bottom])
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .onReceive(handle_notify(.switched_tab)) { _ in
-                    navigationCoordinator.popToRoot()
+        ZStack(alignment: .bottom) {
+            TabView(selection: $selected_tab) {
+                MainContent()
+            }
+            
+            if appState.playerConfig.showMiniPlayer {
+                ZStack {
+                    Rectangle()
+                        .fill(Color(UIColor.systemBackground))
+                        .opacity(1.0 - appState.playerConfig.progress)
+                        .zIndex(1)
+                    
+                    GeometryReader { geometry in
+                        let size = geometry.size
+                        
+                        if appState.playerConfig.showMiniPlayer {
+                            PlayerView(size: size, playerConfig: $appState.playerConfig) {
+                                withAnimation(.easeInOut(duration: 0.3), completionCriteria: .logicallyComplete) {
+                                    appState.playerConfig.showMiniPlayer = false
+                                } completion: {
+                                    appState.playerConfig.resetPosition()
+                                    appState.playerConfig.selectedLiveActivitiesEvent = nil
+                                }
+                            }
+                        }
+                    }
+                    .zIndex(2)
                 }
             }
-            .navigationViewStyle(.stack)
-            .overlay(alignment: .bottom) {
-                if !hide_bar {
-                    TabBar(
-                        selected: $selected_tab,
-                        settings: appState.appSettings,
-                        action: switch_selected_tab
-                    )
-                    .padding([.bottom], 8)
-                    .background(Color(uiColor: .systemBackground))
-                    .transition(.move(edge: .bottom))
-                }
-            }
-            .onReceive(handle_notify(.display_tabbar)) { display in
-                let show = display
-                self.hide_bar = !show
-            }
+            
+            CustomTabBar()
+                .offset(y: appState.playerConfig.showMiniPlayer || hide_bar ? tabBarHeight - (appState.playerConfig.progress * tabBarHeight) : 0)
         }
-        .ignoresSafeArea(.keyboard)
-        .edgesIgnoringSafeArea(hide_bar ? [.bottom] : [])
+        .ignoresSafeArea()
+        .onReceive(handle_notify(.display_tabbar)) { display in
+            let show = display
+            self.hide_bar = !show
+        }
     }
-
     
-    func MainContent(appState: AppState) -> some View {
-        return VStack {
-            switch selected_tab {
-            case .home:
-                VideoListView(eventListType: .all)
-            case .live:
+    func MainContent() -> some View {
+        return Group {
+            VideoListView(eventListType: .all)
+                .setupTab(.home)
+            
+            if selected_tab == .live {
                 IngestView()
-            case .profile:
+                    .setupTab(.live)
+            }
+            
+            if selected_tab == .profile {
                 SignInView()
+                    .setupTab(.profile)
             }
         }
-        .frame(maxHeight: .infinity)
     }
-
-    func switch_selected_tab(_ screenTab: ScreenTabs) {
-        self.isSideBarOpened = false
-        let navWasAtRoot = self.navIsAtRoot()
-        self.popToRoot()
-        
-        notify(.switched_tab(screenTab))
-        
-        if screenTab == self.selected_tab && navWasAtRoot {
-            notify(.scroll_to_top)
-            return
-        }
-        
-        self.selected_tab = screenTab
-    }
-
-    func popToRoot() {
-        navigationCoordinator.popToRoot()
-        isSideBarOpened = false
-    }
-
-    struct CustomTabBar: View {
-        @Binding var selectedTab: HomeTabs
-        
-        let isSignedIn: Bool
-        let onTapAction: () -> Void
-        
-        var body: some View {
-            HStack {
-                CustomTabBarItem(
-                    iconName: "house.fill", title: "home", tab: HomeTabs.home,
-                    selectedTab: $selectedTab, onTapAction: onTapAction)
-                
-                CustomTabBarItem(
-                    iconName: "camera", title: "tab2", tab: HomeTabs.live,
-                    selectedTab: $selectedTab, onTapAction: onTapAction)
-                
-                CustomTabBarItem(
-                    iconName: "person", title: "tab3", tab: HomeTabs.profile,
-                    selectedTab: $selectedTab, onTapAction: onTapAction)
+    
+    /// Custom Tab Bar
+    @ViewBuilder
+    func CustomTabBar() -> some View {
+        HStack(spacing: 0) {
+            ForEach(ScreenTabs.allCases, id: \.rawValue) { tab in
+                TabItemView(tab: tab, isSelected: selected_tab == tab)
+                    .onTapGesture {
+                        selected_tab = tab
+                    }
             }
-            .frame(height: 50)
-            .background(Color.gray.opacity(0.2))
         }
+        .frame(height: 49)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(height: tabBarHeight)
+        .background(.background)
     }
+}
 
-    struct CustomTabBarItem: View {
-        let iconName: String
-        let title: LocalizedStringResource
-        let tab: HomeTabs
-        @Binding var selectedTab: HomeTabs
-        
-        let onTapAction: () -> Void
-        
-        var body: some View {
-            VStack {
-                Image(systemName: iconName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 20, height: 20)
-                Text(title)
-                    .font(.caption)
-            }
-            .padding()
-            .contentShape(Rectangle())
-            .onTapGesture {
-                selectedTab = tab
-                onTapAction()
-            }
-            .foregroundColor(selectedTab == tab ? .blue : .gray)
-            .frame(maxWidth: .infinity)
-        }
+var safeArea: UIEdgeInsets {
+    if let safeArea = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets {
+        return safeArea
     }
-
-    func navIsAtRoot() -> Bool {
-        return navigationCoordinator.isAtRoot()
-    }
-
-    func screen_tab_name(_ screen_tab: ScreenTabs?) -> String {
-        guard let screen_tab else {
-            return ""
-        }
-        switch screen_tab {
-        case .home:
-            return NSLocalizedString(
-                "Home",
-                comment:
-                    "Navigation bar title for Home view where notes and replies appear from those who the user is following."
-            )
-        case .live:
-            return NSLocalizedString(
-                "Live",
-                comment:
-                    "Navigation bar title for Live view."
-            )
-        case .profile:
-            return NSLocalizedString(
-                "Profile",
-                comment:
-                    "Navigation bar title for profile view."
-            )
-        }
-    }
+    
+    return .zero
 }

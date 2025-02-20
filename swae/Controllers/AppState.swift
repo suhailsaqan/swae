@@ -45,6 +45,8 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     @Published var eventsTrie = Trie<String>()
     @Published var liveActivitiesTrie = Trie<String>()
     @Published var pubkeyTrie = Trie<String>()
+    
+    @Published var playerConfig: PlayerConfig = .init()
 
     // Keep track of relay pool active subscriptions and the until filter so that we can limit the scope of how much we query from the relay pools.
     var metadataSubscriptionCounts = [String: Int]()
