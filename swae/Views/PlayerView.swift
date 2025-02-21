@@ -20,6 +20,8 @@ struct PlayerView: View {
     let miniPlayerHeight: CGFloat = 50
     let playerHeight: CGFloat = 250
     
+    @State private var videoPlayerViewSize: CGSize = .zero
+    
     var body: some View {
         let progress = playerConfig.progress > 0.7 ? ((playerConfig.progress - 0.7) / 0.3) : 0
         
@@ -35,7 +37,6 @@ struct PlayerView: View {
                             .frame(width: 120 + (width - (width * progress)),
                                    height: height)
                     }
-                    .zIndex(2)
                     
                     if !orientationMonitor.isLandscape {
                         PlayerMinifiedContent()
@@ -108,33 +109,33 @@ struct PlayerView: View {
     @ViewBuilder
     func VideoPlayer() -> some View {
         GeometryReader { geometry in
-            if let url = playerConfig.selectedLiveActivitiesEvent?.recording ?? playerConfig.selectedLiveActivitiesEvent?.streaming {
-                let size = geometry.size
-                
-                Rectangle()
-                    .fill(.black)
-                
-//                Text("\(CGFloat(size.width)):\(CGFloat(size.height))").zIndex(100000)
-                
-                if playerConfig.selectedLiveActivitiesEvent != nil {
-                    VideoPlayerView(
-                        size: size, url: url,
-                        //                        onDragDown: closeDetailView,
-                        onDragUp: fullScreen
-                    )
+            let size = geometry.size
+            VStack {
+                if let url = playerConfig.selectedLiveActivitiesEvent?.recording ?? playerConfig.selectedLiveActivitiesEvent?.streaming {
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.blue)
+                        VideoPlayerView(url: url, onDragUp: fullScreen)
+                    }
+                    // Use the size provided by VideoPlayerView.
+                    .frame(width: videoPlayerViewSize.width, height: videoPlayerViewSize.height)
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: size.width, height: size.height)
+                    .onPreferenceChange(VideoPlayerViewSizeKey.self) { newSize in
+                        videoPlayerViewSize = newSize
+                    }
+                } else {
+                    VStack {
+                        Text("NO RECORDING NOR STREAM")
+                            .font(.headline)
+                            .foregroundColor(.purple)
+                            .padding()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
                 }
-            } else {
-                VStack {
-                    Text("NO RECORDING NOR STREAM")
-                        .font(.headline)
-                        .foregroundColor(.purple)
-                        .padding()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black)
             }
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size.width, height: size.height)
         }
     }
     
