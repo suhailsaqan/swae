@@ -75,7 +75,6 @@ struct LiveChatView: View {
                                     }
                             }
                         }
-                        
                     }
                 }
                 // A marker at the bottom for auto-scrolling.
@@ -110,14 +109,13 @@ struct LiveChatView: View {
                 }
             }
         }
-
         .safeAreaInset(edge: .top) {
             topHeader
                 .offset(y: hideTopBar ? -topHeaderHeight*2 : keyboardObserver.keyboardHeight>0 ?  -topHeaderHeight*2 : 0)
         }
-//        .safeAreaInset(edge: .bottom) {
-//            chatInputBar
-//        }
+        .safeAreaInset(edge: .bottom) {
+            chatInputBar
+        }
         .onAppear {
             viewModel.appState = appState
             subscribeToLiveChat()
@@ -173,7 +171,8 @@ struct LiveChatView: View {
             .frame(maxWidth: .infinity,  alignment: .leading)
         }
         .frame(height: topHeaderHeight)
-        .background(.black)
+        .padding(.horizontal, 5)
+        .background(.ultraThinMaterial)
     }
     
     /// Call this method with `true` to slide the top bar offscreen, or `false` to reveal it.

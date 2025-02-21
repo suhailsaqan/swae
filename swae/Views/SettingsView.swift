@@ -123,6 +123,7 @@ struct SettingsView: View {
                     }
                 }
                 ProfileNameView(publicKeyHex: publicKeyHex)
+                    .foregroundStyle(.purple)
             }
         }
     }

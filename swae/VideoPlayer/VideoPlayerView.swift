@@ -14,160 +14,198 @@ struct VideoPlayerView: View {
     let url: URL
 //    let onDragDown: (() -> Void)?
     let onDragUp: (() -> Void)?
+    let onSizeChange: ((_ size: CGSize) -> Void)?
     
-    @State private var videoSize: CGSize = CGSize(width: 393, height: 250)
+    @State private var videoSize: CGSize = CGSize(width: UIScreen.main.bounds.size.width, height: 250)
 
     @GestureState private var isDragging: Bool = false
 
     @StateObject private var viewModel: VideoPlayerModel
     
+    @Binding var playerConfig: PlayerConfig
+    
     @EnvironmentObject var orientationMonitor: OrientationMonitor
 
-    init(size: CGSize, /*safeArea: EdgeInsets,*/ url: URL, /*onDragDown: (() -> Void)? = nil,*/ onDragUp: (() -> Void)? = nil) {
+    init(size: CGSize,/*safeArea: EdgeInsets,*/ url: URL, playerConfig: Binding<PlayerConfig>, /*onDragDown: (() -> Void)? = nil,*/ onDragUp: (() -> Void)? = nil, onSizeChange: ((_ size: CGSize) -> Void)? = nil) {
         self.size = size
 //        self.safeArea = safeArea
         self.url = url
+        self._playerConfig = playerConfig
 //        self.onDragDown = onDragDown
         self.onDragUp = onDragUp
+        self.onSizeChange = onSizeChange
         _viewModel = StateObject(wrappedValue: VideoPlayerModel(url: url))
+    }
+    
+    var computedSize: CGSize {
+        if playerConfig.progress > 0 {
+            print("SWITCHED ******************************", playerConfig.progress, self.size)
+            return self.size
+        } else if orientationMonitor.isLandscape {
+            // Fullscreen mode: maintain correct aspect ratio
+            let screenWidth = UIScreen.main.bounds.width
+            let screenHeight = UIScreen.main.bounds.height
+            let aspectRatio = videoSize.width > 0 ? (videoSize.height / videoSize.width) : (9.0 / 16.0)
+            let calculatedHeight = screenWidth * aspectRatio
+
+            // Ensure it doesn't exceed screen height
+            return CGSize(width: screenWidth, height: min(calculatedHeight, screenHeight))
+        } else {
+            // Portrait mode: maintain aspect ratio while limiting max height
+            let screenWidth = UIScreen.main.bounds.width
+            let defaultAspectRatio: CGFloat = 9.0 / 16.0
+            let aspectRatio = videoSize.width > 0 ? (videoSize.height / videoSize.width) : defaultAspectRatio
+            let calculatedHeight = screenWidth * aspectRatio
+
+            // Constrain height to avoid excessive stretching (capped at 250px)
+            let maxHeight: CGFloat = 250
+            return CGSize(width: screenWidth, height: min(calculatedHeight, maxHeight))
+        }
     }
 
     var body: some View {
-        var scaledSize: CGSize {
-            guard videoSize.width > 0 && videoSize.height > 0 else { return .zero }
-            
-            let widthRatio = self.size.width / videoSize.width
-            let heightRatio = self.size.height / videoSize.height
-            let scaleFactor = min(widthRatio, heightRatio, 1.0) // Ensure it doesn't upscale
-            
-            return CGSize(width: videoSize.width * scaleFactor, height: videoSize.height * scaleFactor)
-        }
+//        var scaledSize: CGSize {
+//            guard videoSize.width > 0 && videoSize.height > 0 else {
+//                return CGSize(width: 0, height: 250)
+//            }
+//            // Calculate a scale factor that limits the height to 250.
+//            let scaleFactor = min(250 / videoSize.height, 1.0)
+//            return CGSize(width: videoSize.width * scaleFactor, height: videoSize.height * scaleFactor)
+//        }
         
         VStack {
-            ZStack {
-                if !viewModel.playerError {
-                    CustomVideoPlayer(player: viewModel.player, videoSize: $videoSize)
-                        .frame(width: scaledSize.width, height: scaledSize.height)
-                        .overlay {
-                            Rectangle()
-                                .fill(.black.opacity(0.3))
-                                .opacity(viewModel.showPlayerControls || isDragging ? 1 : 0)
-                                .overlay {
-                                    PlayBackControls()
-                                }
+            if !viewModel.playerError {
+                CustomVideoPlayer(player: viewModel.player, videoSize: $videoSize)
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: VideoPlayerViewSizeKey.self, value: proxy.size)
                         }
-                        .overlay {
-                            HStack(spacing: 60) {
-                                DoubleTapSeek {
-                                    let seconds = viewModel.player.currentTime().seconds - 15
-                                    viewModel.player.seek(
-                                        to: .init(seconds: seconds, preferredTimescale: 600))
-                                }
-                                
-                                DoubleTapSeek(isForward: true) {
-                                    let seconds = viewModel.player.currentTime().seconds + 15
-                                    viewModel.player.seek(
-                                        to: .init(seconds: seconds, preferredTimescale: 600))
-                                }
+                            .onPreferenceChange(VideoPlayerViewSizeKey.self) { newSize in
+                                print("newSize1", newSize.width, newSize.height)
+                                (onSizeChange!)(newSize)
                             }
-                        }
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                viewModel.showPlayerControls.toggle()
+                    )
+                    .background(Color.black)
+                    .overlay {
+                        Rectangle()
+                            .fill(.black.opacity(0.3))
+                            .opacity(viewModel.showPlayerControls || isDragging ? 1 : 0)
+                            .overlay {
+                                PlayBackControls()
+                            }
+                    }
+                    .overlay {
+                        HStack(spacing: 60) {
+                            DoubleTapSeek {
+                                let seconds = viewModel.player.currentTime().seconds - 15
+                                viewModel.player.seek(
+                                    to: .init(seconds: seconds, preferredTimescale: 600))
                             }
                             
-                            if viewModel.isPlaying {
-                                viewModel.timeoutControls()
+                            DoubleTapSeek(isForward: true) {
+                                let seconds = viewModel.player.currentTime().seconds + 15
+                                viewModel.player.seek(
+                                    to: .init(seconds: seconds, preferredTimescale: 600))
                             }
                         }
-                        .overlay(alignment: .bottomLeading) {
-                            SeekerThumbnailView(size)
-                                .offset(y: orientationMonitor.isLandscape ? -85 : -60)
-                        }
-                        .overlay(alignment: .bottom) {
-                            VideoSeekerView(size)
-                                .offset(y: orientationMonitor.isLandscape ? -15 : 0)
-                                .opacity(viewModel.showPlayerControls ? 1 : 0)
-                        }
-                } else {
-                    VStack {
-                        Text("STREAM NOT LIVE")
-                            .font(.headline)
-                            .foregroundColor(.purple)
-                            .padding()
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black)
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            viewModel.showPlayerControls.toggle()
+                        }
+                        
+                        if viewModel.isPlaying {
+                            viewModel.timeoutControls()
+                        }
+                    }
+                    .overlay(alignment: .bottomLeading) {
+                        SeekerThumbnailView(videoSize)
+                            .offset(y: orientationMonitor.isLandscape ? -85 : -60)
+                    }
+                    .overlay(alignment: .bottom) {
+                        VideoSeekerView(videoSize)
+                            .offset(y: orientationMonitor.isLandscape ? -15 : 0)
+                            .opacity(viewModel.showPlayerControls ? 1 : 0)
+                    }
+            } else {
+                VStack {
+                    Text("STREAM NOT LIVE")
+                        .font(.headline)
+                        .foregroundColor(.purple)
+                        .padding()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
             }
-            .frame(height: scaledSize.height)
-//            .background {
-//                Rectangle()
-//                    .fill(.black)
-//                    .padding(.trailing, orientationMonitor.isLandscape ? -safeArea.bottom : 0) // remove for now
-//            }
-//            .gesture(
-//                DragGesture()
-//                    .onChanged { value in
-//                        if value.translation.height > 1 && !orientationMonitor.isLandscape {  // Trigger immediately when dragging down
-////                            onDragDown?()
-//                        }
-//                    }
-//                    .onEnded { value in
-//                        if value.translation.height < -50 {  // Drag Up
-//                            /// Rotate Player
-//                            withAnimation(.easeInOut(duration: 0.15)) {
-//                                orientationMonitor.setOrientation(to: .landscape)
-//                                onDragUp?()
-//                            }
-//                        } else {
-//                            /// Go to Normal
-//                            withAnimation(.easeInOut(duration: 0.15)) {
-//                                orientationMonitor.setOrientation(to: .portrait)
-//                                onDragUp?()
-//                            }
-//                        }
-//                    }
-//            )
-//            .frame(width: size.width, height: orientationMonitor.isLandscape ? size.height : 250)
-            .zIndex(10000)
         }
+        .frame(width: computedSize.width, height: computedSize.height)
+            //        .frame(width: size.width, height: size.height)
+        //            .background {
+        //                Rectangle()
+        //                    .fill(.black)
+        //                    .padding(.trailing, orientationMonitor.isLandscape ? -safeArea.bottom : 0) // remove for now
+        //            }
+        //            .gesture(
+        //                DragGesture()
+        //                    .onChanged { value in
+        //                        if value.translation.height > 1 && !orientationMonitor.isLandscape {  // Trigger immediately when dragging down
+        ////                            onDragDown?()
+        //                        }
+        //                    }
+        //                    .onEnded { value in
+        //                        if value.translation.height < -50 {  // Drag Up
+        //                            /// Rotate Player
+        //                            withAnimation(.easeInOut(duration: 0.15)) {
+        //                                orientationMonitor.setOrientation(to: .landscape)
+        //                                onDragUp?()
+        //                            }
+        //                        } else {
+        //                            /// Go to Normal
+        //                            withAnimation(.easeInOut(duration: 0.15)) {
+        //                                orientationMonitor.setOrientation(to: .portrait)
+        //                                onDragUp?()
+        //                            }
+        //                        }
+        //                    }
+        //            )
+        //            .frame(width: size.width, height: orientationMonitor.isLandscape ? size.height : 250)
+        .zIndex(10000)
         .onAppear {
             guard !viewModel.isObserverAdded else { return }
-
+            
             viewModel.player.addPeriodicTimeObserver(
                 forInterval: .init(seconds: 1, preferredTimescale: 600), queue: .main,
                 using: { time in
                     if let currentPlayerItem = viewModel.player.currentItem {
                         let totalDuration = currentPlayerItem.duration.seconds
                         let currentDuration = viewModel.player.currentTime().seconds
-
+                        
                         let calculatedProgress = currentDuration / totalDuration
-
+                        
                         if !viewModel.isSeeking {
                             viewModel.progress = calculatedProgress
                             viewModel.lastDraggedProgress = viewModel.progress
                         }
                     }
                 })
-
+            
             viewModel.isObserverAdded = true
-
+            
             viewModel.playerStatusObserver = viewModel.player.observe(
                 \.status, options: .new,
-                changeHandler: { player, _ in
-                    if player.status == .readyToPlay {
-                        viewModel.generateThumbnailFrames()
-                    }
-                })
-
+                 changeHandler: { player, _ in
+                     if player.status == .readyToPlay {
+                         viewModel.generateThumbnailFrames()
+                     }
+                 })
+            
             NotificationCenter.default.addObserver(
                 viewModel,
                 selector: #selector(viewModel.videoDidFinishPlaying),
                 name: .AVPlayerItemDidPlayToEndTime,
                 object: viewModel.player.currentItem
             )
-
+            
             viewModel.player.play()
             togglePlayWithAnimation($viewModel.isPlaying)
             if let timeoutTask = viewModel.timeoutTask {
@@ -176,7 +214,6 @@ struct VideoPlayerView: View {
         }
         .onDisappear {
             viewModel.playerStatusObserver?.invalidate()
-
             viewModel.player.pause()
             togglePlayWithAnimation($viewModel.isPlaying)
             viewModel.timeoutControls()
@@ -235,7 +272,7 @@ struct VideoPlayerView: View {
                 .fill(.gray)
 
             Rectangle()
-                .fill(.red)
+                .fill(.purple)
                 .frame(
                     width: max(
                         videoSize.width * (viewModel.progress.isFinite ? viewModel.progress : 0), 0)
@@ -244,7 +281,7 @@ struct VideoPlayerView: View {
         .frame(height: 3)
         .overlay(alignment: .leading) {
             Circle()
-                .fill(.red)
+                .fill(.purple)
                 .frame(width: 15, height: 15)
                 /// Showing Drag Knob Only When Dragging
                 .scaleEffect(
@@ -398,5 +435,12 @@ struct VideoPlayerView: View {
         withAnimation(.easeInOut(duration: duration)) {
             isPlaying.wrappedValue.toggle()
         }
+    }
+}
+
+struct VideoPlayerViewSizeKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
     }
 }

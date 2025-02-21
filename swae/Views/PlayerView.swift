@@ -12,13 +12,16 @@ import Kingfisher
 
 struct PlayerView: View {
     @EnvironmentObject var orientationMonitor: OrientationMonitor
+    @EnvironmentObject var appState: AppState
     
     var size: CGSize
     @Binding var playerConfig: PlayerConfig
     var close: () -> ()
     
     let miniPlayerHeight: CGFloat = 50
-    let playerHeight: CGFloat = 250
+    @State private var playerHeight: CGFloat = 250
+    
+    @State private var videoPlayerViewSize: CGSize = .zero
     
     var body: some View {
         let progress = playerConfig.progress > 0.7 ? ((playerConfig.progress - 0.7) / 0.3) : 0
@@ -35,7 +38,6 @@ struct PlayerView: View {
                             .frame(width: 120 + (width - (width * progress)),
                                    height: height)
                     }
-                    .zIndex(2)
                     
                     if !orientationMonitor.isLandscape {
                         PlayerMinifiedContent()
@@ -108,38 +110,37 @@ struct PlayerView: View {
     @ViewBuilder
     func VideoPlayer() -> some View {
         GeometryReader { geometry in
-            if let url = playerConfig.selectedLiveActivitiesEvent?.recording ?? playerConfig.selectedLiveActivitiesEvent?.streaming {
-                let size = geometry.size
-                
-                Rectangle()
-                    .fill(.black)
-                
-//                Text("\(CGFloat(size.width)):\(CGFloat(size.height))").zIndex(100000)
-                
-                if playerConfig.selectedLiveActivitiesEvent != nil {
-                    VideoPlayerView(
-                        size: size, url: url,
-                        //                        onDragDown: closeDetailView,
-                        onDragUp: fullScreen
-                    )
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: size.width, height: size.height)
+            let size = geometry.size
+            VStack {
+                if let url = playerConfig.selectedLiveActivitiesEvent?.recording ?? playerConfig.selectedLiveActivitiesEvent?.streaming {
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.blue)
+                        VideoPlayerView(size: size, url: url, playerConfig: $appState.playerConfig, onDragUp: fullScreen, onSizeChange: onSizeChange)
+                    }
+                } else {
+                    VStack {
+                        Text("NO RECORDING NOR STREAM")
+                            .font(.headline)
+                            .foregroundColor(.purple)
+                            .padding()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
                 }
-            } else {
-                VStack {
-                    Text("NO RECORDING NOR STREAM")
-                        .font(.headline)
-                        .foregroundColor(.purple)
-                        .padding()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black)
             }
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size.width, height: size.height)
         }
     }
     
     func fullScreen() {
         
+    }
+    
+    func onSizeChange(size: CGSize) {
+        playerHeight = size.height
+        print("updated height to: ", size.height)
     }
     
     @ViewBuilder

@@ -40,9 +40,11 @@ struct IngestView: View {
             }
         }
         .onAppear {
+            notify(.display_tabbar(false))
             viewModel.setup()
         }
         .onDisappear {
+            notify(.display_tabbar(true))
             viewModel.cleanup()
         }
     }
@@ -59,6 +61,8 @@ struct ControlPanelView: View {
     @Binding var selectedAudioDevice: Int
     @State private var showOptions = false
     @State private var sheetPresented = false
+    
+    @SceneStorage("ContentView.selected_tab") var selected_tab: ScreenTabs = .home
 
     var fpsList = ["15", "30", "60"]
 
@@ -66,15 +70,26 @@ struct ControlPanelView: View {
         VStack {
             HStack {
                 if !viewModel.isPublishing {
-                    Button(action: {
-                        withAnimation(.spring()) {
-                            showOptions.toggle()
-                            sheetPresented = showOptions
+                    HStack {
+                        Button(action: {
+                            selected_tab = .home
+                            notify(.display_tabbar(true))
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.white)
+                                .font(.system(size: 28))
                         }
-                    }) {
-                        Image(systemName: "gearshape.fill")
-                            .foregroundColor(.white)
-                            .font(.system(size: 28))
+                        
+                        Button(action: {
+                            withAnimation(.spring()) {
+                                showOptions.toggle()
+                                sheetPresented = showOptions
+                            }
+                        }) {
+                            Image(systemName: "gearshape.fill")
+                                .foregroundColor(.white)
+                                .font(.system(size: 28))
+                        }
                     }
 
                     Spacer()
