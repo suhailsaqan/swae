@@ -118,10 +118,6 @@ struct PlayerView: View {
                             .fill(Color.blue)
                         VideoPlayerView(size: size, url: url, playerConfig: $appState.playerConfig, onDragUp: fullScreen, onSizeChange: onSizeChange)
                     }
-                    // Use the size provided by VideoPlayerView.
-                    .frame(width: videoPlayerViewSize.width, height: videoPlayerViewSize.height)
-                    .aspectRatio(contentMode: .fit)
-                    
                 } else {
                     VStack {
                         Text("NO RECORDING NOR STREAM")
