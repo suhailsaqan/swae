@@ -16,6 +16,7 @@ struct CustomVideoPlayer: UIViewControllerRepresentable {
         let controller = AVPlayerViewController()
         controller.player = player
         controller.showsPlaybackControls = false
+        controller.videoGravity = .resizeAspect
 
         // Observe video size
         if let item = player.currentItem {
