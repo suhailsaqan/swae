@@ -9,39 +9,46 @@ import AVKit
 import SwiftUI
 
 struct VideoPlayerView: View {
-//    var size: CGSize
+    var size: CGSize
 //    var safeArea: EdgeInsets
     let url: URL
 //    let onDragDown: (() -> Void)?
     let onDragUp: (() -> Void)?
+    let onSizeChange: ((_ size: CGSize) -> Void)?
     
-    @State private var videoSize: CGSize = CGSize(width: 393, height: 250)
+    @State private var videoSize: CGSize = CGSize(width: UIScreen.main.bounds.size.width, height: 250)
 
     @GestureState private var isDragging: Bool = false
 
     @StateObject private var viewModel: VideoPlayerModel
     
+    @Binding var playerConfig: PlayerConfig
+    
     @EnvironmentObject var orientationMonitor: OrientationMonitor
 
-    init(/*size: CGSize,safeArea: EdgeInsets,*/ url: URL, /*onDragDown: (() -> Void)? = nil,*/ onDragUp: (() -> Void)? = nil) {
-//        self.size = size
+    init(size: CGSize,/*safeArea: EdgeInsets,*/ url: URL, playerConfig: Binding<PlayerConfig>, /*onDragDown: (() -> Void)? = nil,*/ onDragUp: (() -> Void)? = nil, onSizeChange: ((_ size: CGSize) -> Void)? = nil) {
+        self.size = size
 //        self.safeArea = safeArea
         self.url = url
+        self._playerConfig = playerConfig
 //        self.onDragDown = onDragDown
         self.onDragUp = onDragUp
+        self.onSizeChange = onSizeChange
         _viewModel = StateObject(wrappedValue: VideoPlayerModel(url: url))
     }
     
     var computedSize: CGSize {
-        let screenWidth = UIScreen.main.bounds.width
-        if orientationMonitor.isLandscape {
+        // Check progressed first
+        if playerConfig.progress > 0 {
+            return self.size
+        } else if orientationMonitor.isLandscape {
             // Full screen mode: extend to the bottom of the screen.
             return UIScreen.main.bounds.size
         } else {
             // Use the intrinsic video aspect ratio, defaulting to 16:9 if not available.
             let aspectRatio = videoSize.width > 0 ? videoSize.height / videoSize.width : (9.0 / 16.0)
-            let calculatedHeight = screenWidth * aspectRatio
-            return CGSize(width: screenWidth, height: min(calculatedHeight, 250))
+            let calculatedHeight = UIScreen.main.bounds.width * aspectRatio
+            return CGSize(width: UIScreen.main.bounds.width, height: min(calculatedHeight, 250))
         }
     }
 
@@ -59,10 +66,13 @@ struct VideoPlayerView: View {
             if !viewModel.playerError {
                 CustomVideoPlayer(player: viewModel.player, videoSize: $videoSize)
                     .background(
-                        // Use a GeometryReader to report the final size up via a preference.
                         GeometryReader { proxy in
                             Color.clear.preference(key: VideoPlayerViewSizeKey.self, value: proxy.size)
                         }
+                            .onPreferenceChange(VideoPlayerViewSizeKey.self) { newSize in
+                                print("newSize1", newSize.width, newSize.height)
+                                (onSizeChange!)(newSize)
+                            }
                     )
                     .background(Color.black)
                     .overlay {

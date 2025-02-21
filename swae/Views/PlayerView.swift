@@ -12,13 +12,14 @@ import Kingfisher
 
 struct PlayerView: View {
     @EnvironmentObject var orientationMonitor: OrientationMonitor
+    @EnvironmentObject var appState: AppState
     
     var size: CGSize
     @Binding var playerConfig: PlayerConfig
     var close: () -> ()
     
     let miniPlayerHeight: CGFloat = 50
-    let playerHeight: CGFloat = 250
+    @State private var playerHeight: CGFloat = 250
     
     @State private var videoPlayerViewSize: CGSize = .zero
     
@@ -115,14 +116,12 @@ struct PlayerView: View {
                     ZStack {
                         Rectangle()
                             .fill(Color.blue)
-                        VideoPlayerView(url: url, onDragUp: fullScreen)
+                        VideoPlayerView(size: size, url: url, playerConfig: $appState.playerConfig, onDragUp: fullScreen, onSizeChange: onSizeChange)
                     }
                     // Use the size provided by VideoPlayerView.
                     .frame(width: videoPlayerViewSize.width, height: videoPlayerViewSize.height)
                     .aspectRatio(contentMode: .fit)
-                    .onPreferenceChange(VideoPlayerViewSizeKey.self) { newSize in
-                        videoPlayerViewSize = newSize
-                    }
+                    
                 } else {
                     VStack {
                         Text("NO RECORDING NOR STREAM")
@@ -141,6 +140,11 @@ struct PlayerView: View {
     
     func fullScreen() {
         
+    }
+    
+    func onSizeChange(size: CGSize) {
+        playerHeight = size.height
+        print("updated height to: ", size.height)
     }
     
     @ViewBuilder
