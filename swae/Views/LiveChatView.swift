@@ -113,6 +113,9 @@ struct LiveChatView: View {
             topHeader
                 .offset(y: hideTopBar ? -topHeaderHeight*2 : keyboardObserver.keyboardHeight>0 ?  -topHeaderHeight*2 : 0)
         }
+        .safeAreaInset(edge: .bottom) {
+            chatInputBar
+        }
         .onAppear {
             viewModel.appState = appState
             subscribeToLiveChat()
