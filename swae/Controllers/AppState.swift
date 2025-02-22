@@ -111,12 +111,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         }
 
         return liveActivitiesEvents.values.filter { event in
-            guard let coordinates = event.replaceableEventCoordinates() else {
-                return false
-            }
-
-            return event.startsAt != nil
-                && followedPubkeys.contains(event.pubkey)
+            return event.startsAt != nil && (followedPubkeys.contains(event.pubkey))
         }
     }
 
@@ -130,10 +125,6 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
 
     private func profileEvents(_ publicKeyHex: String) -> [LiveActivitiesEvent] {
         return liveActivitiesEvents.values.filter { event in
-            guard let coordinates = event.replaceableEventCoordinates() else {
-                return false
-            }
-
             return event.startsAt != nil && event.pubkey == publicKeyHex
         }
     }

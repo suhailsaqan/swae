@@ -37,6 +37,9 @@ struct LiveChatView: View {
     @State private var lastScrollOffset: CGFloat = 0
     
     @State private var hideTopBar: Bool = false
+    
+    @State private var pubkeysToPullMetadata = Set<String>()
+    @State private var metadataPullCancellable: AnyCancellable?
 
     init(liveActivitiesEvent: LiveActivitiesEvent) {
         self.liveActivitiesEvent = liveActivitiesEvent
@@ -87,12 +90,12 @@ struct LiveChatView: View {
                 DispatchQueue.main.async {
                     let delta = newOffset - lastScrollOffset
                     if delta < -15 {
-                        // Scrolling down: show the chat input.
+                        // Scrolling down: show the top bar.
                         hide_top_bar(false)
                     } else if delta > 15 {
                         // Pause autoscroll when user scrolls up
                         autoScrollEnabled = false
-                        // Scrolling up: hide the chat input.
+                        // Scrolling up: hide the top bar.
                         hide_top_bar(true)
                     }
                     lastScrollOffset = newOffset
@@ -149,13 +152,7 @@ struct LiveChatView: View {
     
     private var topHeader: some View {
         HStack(spacing: 12) {
-            KFImage.url(liveActivitiesEvent.image)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 40, height: 40)
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: 10, style: .continuous))
+            ProfilePictureView(publicKeyHex: liveActivitiesEvent.pubkey)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(liveActivitiesEvent.title ?? "no title")
@@ -218,8 +215,30 @@ struct LiveChatView: View {
                         }
                     }
                 }
+                
+                // Accumulate pubkeys.
+                incomingMessages.forEach { message in
+                    pubkeysToPullMetadata.insert(message.pubkey)
+                }
+                
+                // Debounce the metadata pull to avoid calling it too frequently.
+                scheduleMetadataPull()
             }
             .store(in: &cancellables)
+    }
+    
+    private func scheduleMetadataPull() {
+        // Cancel any previous scheduled call.
+        metadataPullCancellable?.cancel()
+        // Schedule a new call after 0.5 seconds of inactivity.
+        metadataPullCancellable = Just(())
+            .delay(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { _ in
+                let pubkeysArray = Array(self.pubkeysToPullMetadata)
+                self.appState.pullMissingEventsFromPubkeysAndFollows(pubkeysArray)
+                // Optionally clear the set if you no longer need the pubkeys.
+                self.pubkeysToPullMetadata.removeAll()
+            }
     }
     
     private func loadMoreMessages() {
