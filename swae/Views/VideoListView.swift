@@ -365,13 +365,7 @@ struct VideoListView: View, MetadataCoding {
 
             if !orientationMonitor.isLandscape {
                 HStack(spacing: 12) {
-                    KFImage.url(item.image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 40, height: 40)
-                        .clipShape(
-                            RoundedRectangle(
-                                cornerRadius: 10, style: .continuous))
+                    ProfilePictureView(publicKeyHex: item.participants.first(where: { $0.role == "host" })?.pubkey?.hex)
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.title ?? "no title")

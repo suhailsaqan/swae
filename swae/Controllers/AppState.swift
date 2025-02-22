@@ -111,12 +111,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         }
 
         return liveActivitiesEvents.values.filter { event in
-            guard let coordinates = event.replaceableEventCoordinates() else {
-                return false
-            }
-
-            return event.startsAt != nil
-                && followedPubkeys.contains(event.pubkey)
+            return event.startsAt != nil && (followedPubkeys.contains(event.pubkey))
         }
     }
 
@@ -130,10 +125,6 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
 
     private func profileEvents(_ publicKeyHex: String) -> [LiveActivitiesEvent] {
         return liveActivitiesEvents.values.filter { event in
-            guard let coordinates = event.replaceableEventCoordinates() else {
-                return false
-            }
-
             return event.startsAt != nil && event.pubkey == publicKeyHex
         }
     }
@@ -940,6 +931,8 @@ extension AppState: EventVerifying, RelayDelegate {
                 // Wait until we have fetched all the live activities before fetching metadata in bulk.
                 pullMissingEventsFromPubkeysAndFollows(
                     liveActivitiesEvents.values.map { $0.pubkey })
+                pullMissingEventsFromPubkeysAndFollows(
+                    liveActivitiesEvents.values.compactMap { $0.participants.first(where: { $0.role == "host" })?.pubkey?.hex })
             } else {
                 liveActivityEventSubscriptionCounts[closedSubscriptionId] =
                     liveActivityEventSubscriptionCount - 1
