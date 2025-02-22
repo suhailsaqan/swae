@@ -27,13 +27,18 @@ class ViewModel: ObservableObject, EventCreating {
             print("no keypair")
             return false
         }
-        
+        // Make sure liveActivitiesEvent.identifier is valid (not nil or empty).
+        guard let identifier = liveActivitiesEvent.identifier, !identifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("Invalid identifier")
+            return false
+        }
+
         do {
             print(messageText, liveActivitiesEvent.pubkey, liveActivitiesEvent.id)
             let liveChatMessageEvent = try liveChatMessageEvent(
                 content: messageText,
                 liveEventPubKey: liveActivitiesEvent.pubkey,
-                d: liveActivitiesEvent.id,
+                d: identifier,
                 relay: "wss://relay.damus.io",
                 signedBy: keypair
             )
