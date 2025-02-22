@@ -502,7 +502,6 @@ struct VideoListView: View, MetadataCoding {
             let events = appState.liveActivitiesEvents.filter { results.contains($0.key) }.map {
                 $0.value
             }
-            //            print("this one:", events)
             switch timeTabFilter {
             case .upcoming:
                 return appState.upcomingEvents(events)
@@ -537,7 +536,6 @@ struct VideoListView: View, MetadataCoding {
                     appState.pastProfileEvents(publicKeyHex)
                 }
             }
-//        print("events \(events)")
         return events
     }
 

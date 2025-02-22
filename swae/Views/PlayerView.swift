@@ -153,9 +153,9 @@ struct PlayerView: View {
                         .textScale(.secondary)
                         .lineLimit(1)
                     
-//                    Text(playerItem.author)
-//                        .font(.caption2)
-//                        .foregroundColor(.gray)
+                    ProfileNameView(publicKeyHex: playerItem.pubkey)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
                 }
                 .frame(maxHeight: .infinity)
                 .frame(maxHeight: miniPlayerHeight)

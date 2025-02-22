@@ -9,7 +9,6 @@ import NostrSDK
 import Combine
 
 class ViewModel: ObservableObject, EventCreating {
-    // If you need to set appState later (because it isn’t available in the initializer)
     @Published var appState: AppState!
     
     @Published var messageText: String = ""
@@ -44,7 +43,6 @@ class ViewModel: ObservableObject, EventCreating {
             )
             
             if let liveActivitiesEventCoordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value {
-                print("liveActivitiesEventCoordinates:", liveActivitiesEventCoordinates)
                 // Publish the event.
                 appState.relayWritePool.publishEvent(liveChatMessageEvent)
                 return true

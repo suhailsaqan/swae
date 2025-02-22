@@ -82,7 +82,6 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     }
 
     var allPastEvents: [LiveActivitiesEvent] {
-        print("running allPastEvents")
         return pastEvents(allEvents)
     }
 
@@ -143,7 +142,6 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     }
 
     func pastEvents(_ events: [LiveActivitiesEvent]) -> [LiveActivitiesEvent] {
-        //        print("here: ", events)
         return events.filter { $0.isPast }
             .sorted(using: LiveActivitiesEventSortComparator(order: .reverse))
     }
@@ -382,9 +380,7 @@ extension AppState: EventVerifying, RelayDelegate {
 
     func relayStateDidChange(_ relay: Relay, state: Relay.State) {
         guard relayReadPool.relays.contains(relay) || relayWritePool.relays.contains(relay) else {
-            print(
-                "Relay \(relay.url.absoluteString) changed state to \(state) but it is not in the read or write relay pool. Doing nothing."
-            )
+            print("Relay \(relay.url.absoluteString) changed state to \(state) but it is not in the read or write relay pool. Doing nothing.")
             return
         }
 

@@ -39,7 +39,7 @@ struct VideoPlayerView: View {
     
     var computedSize: CGSize {
         if playerConfig.progress > 0 {
-            print("SWITCHED ******************************", playerConfig.progress, self.size)
+            print("SWITCHED: ", playerConfig.progress, self.size)
             return self.size
         } else if orientationMonitor.isLandscape {
             // Fullscreen mode: maintain correct aspect ratio
@@ -81,7 +81,6 @@ struct VideoPlayerView: View {
                             Color.clear.preference(key: VideoPlayerViewSizeKey.self, value: proxy.size)
                         }
                             .onPreferenceChange(VideoPlayerViewSizeKey.self) { newSize in
-                                print("newSize1", newSize.width, newSize.height)
                                 (onSizeChange!)(newSize)
                             }
                     )
