@@ -152,7 +152,7 @@ struct LiveChatView: View {
     
     private var topHeader: some View {
         HStack(spacing: 12) {
-            ProfilePictureView(publicKeyHex: liveActivitiesEvent.pubkey)
+            ProfilePictureView(publicKeyHex: liveActivitiesEvent.participants.first(where: { $0.role == "host" })?.pubkey?.hex)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(liveActivitiesEvent.title ?? "no title")

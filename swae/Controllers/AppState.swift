@@ -931,6 +931,8 @@ extension AppState: EventVerifying, RelayDelegate {
                 // Wait until we have fetched all the live activities before fetching metadata in bulk.
                 pullMissingEventsFromPubkeysAndFollows(
                     liveActivitiesEvents.values.map { $0.pubkey })
+                pullMissingEventsFromPubkeysAndFollows(
+                    liveActivitiesEvents.values.compactMap { $0.participants.first(where: { $0.role == "host" })?.pubkey?.hex })
             } else {
                 liveActivityEventSubscriptionCounts[closedSubscriptionId] =
                     liveActivityEventSubscriptionCount - 1

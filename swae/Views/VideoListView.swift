@@ -365,7 +365,7 @@ struct VideoListView: View, MetadataCoding {
 
             if !orientationMonitor.isLandscape {
                 HStack(spacing: 12) {
-                    ProfilePictureView(publicKeyHex: item.pubkey)
+                    ProfilePictureView(publicKeyHex: item.participants.first(where: { $0.role == "host" })?.pubkey?.hex)
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.title ?? "no title")
