@@ -25,9 +25,11 @@ struct SettingsView: View {
     
     // MARK: - Body
     var body: some View {
-        NavigationStack {
+        NavigationView {
             VStack(spacing: 30) {
                 profilesSection
+                
+                profileSettingsSection
 
                 if let activeProfile = viewModel.activeProfile,
                    activeProfile.publicKeyHex != nil {
@@ -184,33 +186,20 @@ struct SettingsView: View {
         Section(
             content: {
                 let publicKeyHex = viewModel.publicKeyHex
-                // Uncomment and implement settings as needed:
-                // if let publicKeyHex, let publicKey = PublicKey(hex: publicKeyHex) {
-                //     NavigationLink(destination: KeysSettingsView(publicKey: publicKey)) {
-                //         Label(
-                //             String(localized: "Keys", comment: "Settings section for Nostr key management."),
-                //             systemImage: "key"
-                //         )
-                //     }
-                // }
-                // NavigationLink(destination: RelaysSettingsView()) {
-                //     Label(
-                //         String(localized: "Relays", comment: "Settings section for relay management."),
-                //         systemImage: "server.rack"
-                //     )
-                // }
-                // NavigationLink(destination: AppearanceSettingsView(modelContext: viewModel.appState.modelContext, publicKeyHex: viewModel.publicKeyHex)) {
-                //     Label(
-                //         String(localized: "Appearance", comment: "Settings section for appearance of the app."),
-                //         systemImage: "eye"
-                //     )
-                // }
-            },
-            header: {
-                Text(
-                    "Settings for \(viewModel.activeProfileName)",
-                    comment: "Section title for settings for profile"
-                )
+                 if let publicKeyHex, let publicKey = PublicKey(hex: publicKeyHex) {
+                     NavigationLink(destination: KeysSettingsView(publicKey: publicKey)) {
+                         Label(
+                             String(localized: "Keys", comment: "Settings section for Nostr key management."),
+                             systemImage: "key"
+                         )
+                     }
+                 }
+                 NavigationLink(destination: RelaysSettingsView()) {
+                     Label(
+                         String(localized: "Relays", comment: "Settings section for relay management."),
+                         systemImage: "server.rack"
+                     )
+                 }
             }
         )
     }
