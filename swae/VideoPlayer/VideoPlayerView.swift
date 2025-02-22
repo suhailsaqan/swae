@@ -38,17 +38,28 @@ struct VideoPlayerView: View {
     }
     
     var computedSize: CGSize {
-        // Check progressed first
         if playerConfig.progress > 0 {
+            print("SWITCHED ******************************", playerConfig.progress, self.size)
             return self.size
         } else if orientationMonitor.isLandscape {
-            // Full screen mode: extend to the bottom of the screen.
-            return UIScreen.main.bounds.size
+            // Fullscreen mode: maintain correct aspect ratio
+            let screenWidth = UIScreen.main.bounds.width
+            let screenHeight = UIScreen.main.bounds.height
+            let aspectRatio = videoSize.width > 0 ? (videoSize.height / videoSize.width) : (9.0 / 16.0)
+            let calculatedHeight = screenWidth * aspectRatio
+
+            // Ensure it doesn't exceed screen height
+            return CGSize(width: screenWidth, height: min(calculatedHeight, screenHeight))
         } else {
-            // Use the intrinsic video aspect ratio, defaulting to 16:9 if not available.
-            let aspectRatio = videoSize.width > 0 ? videoSize.height / videoSize.width : (9.0 / 16.0)
-            let calculatedHeight = UIScreen.main.bounds.width * aspectRatio
-            return CGSize(width: UIScreen.main.bounds.width, height: min(calculatedHeight, 250))
+            // Portrait mode: maintain aspect ratio while limiting max height
+            let screenWidth = UIScreen.main.bounds.width
+            let defaultAspectRatio: CGFloat = 9.0 / 16.0
+            let aspectRatio = videoSize.width > 0 ? (videoSize.height / videoSize.width) : defaultAspectRatio
+            let calculatedHeight = screenWidth * aspectRatio
+
+            // Constrain height to avoid excessive stretching (capped at 250px)
+            let maxHeight: CGFloat = 250
+            return CGSize(width: screenWidth, height: min(calculatedHeight, maxHeight))
         }
     }
 
