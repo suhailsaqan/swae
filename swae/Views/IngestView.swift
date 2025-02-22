@@ -61,6 +61,7 @@ struct ControlPanelView: View {
     @Binding var selectedAudioDevice: Int
     @State private var showOptions = false
     @State private var sheetPresented = false
+    @State private var isStreamNameVisible: Bool = false
     
     @SceneStorage("ContentView.selected_tab") var selected_tab: ScreenTabs = .home
 
@@ -116,10 +117,10 @@ struct ControlPanelView: View {
             LiveButton(viewModel: viewModel)
         }
         .padding()
-        .onChange(of: selectedFPS) { _ in
+        .onChange(of: selectedFPS) {
             viewModel.updateFPS()
         }
-        .onChange(of: zoomFactor) { zoom in
+        .onChange(of: zoomFactor) { _, zoom in
             viewModel.updateZoom(zoom)
         }
         .sheet(isPresented: $sheetPresented) {
@@ -128,6 +129,42 @@ struct ControlPanelView: View {
                     .font(.headline)
                     .foregroundColor(.white)
                     .padding(.top, 8)
+                
+                TextField("Stream URI", text: $viewModel.streamURI)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding()
+                
+                HStack {
+                    if isStreamNameVisible {
+                        TextField("Stream key", text: Binding(
+                            get: { viewModel.streamName ?? "" },
+                            set: { viewModel.streamName = $0 }
+                        ))
+                    } else {
+                        SecureField("Stream key", text: Binding(
+                            get: { viewModel.streamName ?? "" },
+                            set: { viewModel.streamName = $0.isEmpty ? nil : $0 }
+                        ))
+                    }
+                    Button(action: {
+                        isStreamNameVisible.toggle()
+                    }) {
+                        Image(systemName: isStreamNameVisible ? "eye.slash" : "eye")
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+                .padding(.horizontal)
+                
+                Button(action: {
+                    Task {
+                        await viewModel.configureMixer()
+                    }
+                }) {
+                    Text("Save")
+                }
 
                 // Video Bitrate Control
                 VStack(alignment: .leading, spacing: 12) {
@@ -216,6 +253,8 @@ final class IngestViewModel: ObservableObject {
     @Published var isPublishing: Bool = false
     @Published var audioDevices: [String] = []
     @Published var isTorchEnabled: Bool = false
+    @Published var streamURI: String = "rtmp://in.zap.stream/live"
+    @Published var streamName: String? = "live"
 
     let mixer = MediaMixer(
         multiCamSessionEnabled: true,
@@ -241,7 +280,7 @@ final class IngestViewModel: ObservableObject {
         }
     }
 
-    private func configureMixer() async {
+    func configureMixer() async {
         if let orientation = DeviceUtil.videoOrientation(
             by: UIApplication.shared.statusBarOrientation)
         {
@@ -252,8 +291,12 @@ final class IngestViewModel: ObservableObject {
         var videoMixerSettings = await mixer.videoMixerSettings
         videoMixerSettings.mode = .offscreen
         await mixer.setVideoMixerSettings(videoMixerSettings)
-
-        await netStreamSwitcher.setPreference(Preference.default)
+        
+        if !streamURI.isEmpty && streamName != nil {
+            await netStreamSwitcher.setPreference(Preference(uri: streamURI, streamName: streamName))
+        } else {
+            await netStreamSwitcher.setPreference(Preference.default)
+        }
         if let stream = await netStreamSwitcher.stream {
             await mixer.addOutput(stream)
         }
