@@ -31,8 +31,6 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     @Published var relayReadPool: RelayPool = RelayPool(relays: [])
     @Published var relayWritePool: RelayPool = RelayPool(relays: [])
 
-    @Published var activeTab: HomeTabs = .home
-
     @Published var followListEvents: [String: FollowListEvent] = [:]
     @Published var metadataEvents: [String: MetadataEvent] = [:]
     @Published var liveActivitiesEvents: [String: LiveActivitiesEvent] = [:]
@@ -269,7 +267,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         followedPubkeys.removeAll()
 
         if profile.publicKeyHex == nil {
-            activeTab = .home
+            // empty for now
         } else if publicKey != nil {
             refreshFollowedPubkeys()
         }
@@ -1073,10 +1071,4 @@ extension AppState: EventVerifying, RelayDelegate {
         }
     }
 
-}
-
-enum HomeTabs {
-    case home
-    case live
-    case profile
 }

@@ -27,7 +27,6 @@ struct swaeApp: App {
         }
         
         loadAppSettings()
-        updateActiveTab()
         loadNostrEvents()
         appState.updateRelayPool()
         appState.refresh()
@@ -41,11 +40,6 @@ struct swaeApp: App {
                 .environmentObject(orientationMonitor)
         }
         .modelContainer(container)
-    }
-
-    @MainActor
-    private func updateActiveTab() {
-        appState.activeTab = .home
     }
 
     @MainActor
