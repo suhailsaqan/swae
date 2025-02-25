@@ -472,7 +472,7 @@ struct VideoListView: View, MetadataCoding {
                         return [liveActivitiesEvent]
                         // Search by nevent.
                     } else if let eventId = metadata.eventId {
-                        let results = Set(appState.eventsTrie.find(key: eventId))
+                        let results = Set(appState.liveActivitiesTrie.find(key: eventId))
                         let events = appState.liveActivitiesEvents.filter {
                             results.contains($0.key)
                         }.map { $0.value }
@@ -498,7 +498,7 @@ struct VideoListView: View, MetadataCoding {
             }
 
             // Search by event tags and content.
-            let results = appState.eventsTrie.find(key: searchText.localizedLowercase)
+            let results = appState.liveActivitiesTrie.find(key: searchText.localizedLowercase)
             let events = appState.liveActivitiesEvents.filter { results.contains($0.key) }.map {
                 $0.value
             }
