@@ -12,6 +12,7 @@
 		BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050B2D4560CA00B35D04 /* SwiftTrie */; };
 		BA8A050F2D45618000B35D04 /* Logboard in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050E2D45618000B35D04 /* Logboard */; };
 		BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = BABEA7CC2D4F164B0062668E /* Kingfisher */; };
+		BACAF8E62D71311A00A2AE16 /* KSPlayer in Frameworks */ = {isa = PBXBuildFile; productRef = BACAF8E52D71311A00A2AE16 /* KSPlayer */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +75,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */,
+				BACAF8E62D71311A00A2AE16 /* KSPlayer in Frameworks */,
 				BA8A05062D45609500B35D04 /* NostrSDK in Frameworks */,
 				BA8A050F2D45618000B35D04 /* Logboard in Frameworks */,
 				BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */,
@@ -143,6 +145,7 @@
 				BA8A050E2D45618000B35D04 /* Logboard */,
 				BABEA7CC2D4F164B0062668E /* Kingfisher */,
 				BA098DD02D55A106005262A4 /* NostrSDK */,
+				BACAF8E52D71311A00A2AE16 /* KSPlayer */,
 			);
 			productName = swae;
 			productReference = BA8A03542D455F8400B35D04 /* swae.app */;
@@ -231,6 +234,7 @@
 				BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */,
 				BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				BA098DCF2D55A106005262A4 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */,
+				BACAF8E42D71311A00A2AE16 /* XCLocalSwiftPackageReference "../KSPlayer" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA8A03552D455F8400B35D04 /* Products */;
@@ -625,6 +629,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../nostr-sdk-ios";
 		};
+		BACAF8E42D71311A00A2AE16 /* XCLocalSwiftPackageReference "../KSPlayer" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../KSPlayer;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -677,6 +685,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */;
 			productName = Kingfisher;
+		};
+		BACAF8E52D71311A00A2AE16 /* KSPlayer */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KSPlayer;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -9,6 +9,7 @@
 import SwiftUI
 import NostrSDK
 import Kingfisher
+import KSPlayer
 
 struct PlayerView: View {
     @EnvironmentObject var orientationMonitor: OrientationMonitor
@@ -19,43 +20,39 @@ struct PlayerView: View {
     var close: () -> ()
     
     let miniPlayerHeight: CGFloat = 50
-    @State private var playerHeight: CGFloat = 250
-    
-    @State private var videoPlayerViewSize: CGSize = .zero
+    @State private var playerHeight: CGFloat = 200
     
     var body: some View {
         let progress = playerConfig.progress > 0.7 ? ((playerConfig.progress - 0.7) / 0.3) : 0
         
         VStack(spacing: 0) {
-            VStack {
-                ZStack(alignment: .top) {
-                    GeometryReader {
-                        let size = $0.size
-                        let width = size.width - 120
-                        let height = size.height
-                        
-                        VideoPlayer()
-                            .frame(width: 120 + (width - (width * progress)),
-                                   height: height)
-                    }
+            ZStack(alignment: .top) {
+                GeometryReader {
+                    let size = $0.size
+                    let width = size.width - 120
+                    let height = size.height - ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom ?? 0) * (playerConfig.progress)
                     
-                    if !orientationMonitor.isLandscape {
-                        PlayerMinifiedContent()
-                            .padding(.leading, 130)
-                            .padding(.trailing, 15)
-                            .foregroundStyle(Color.primary)
-                            .opacity(progress)
-                    }
+                    VideoPlayer()
+                        .frame(width: 120 + (width - (width * progress)), height: height)
                 }
-                .frame(minHeight: miniPlayerHeight, maxHeight: orientationMonitor.isLandscape ? .infinity : playerHeight)
-                .padding(.top, ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.top ?? 0) * (1 - playerConfig.progress))
-                .zIndex(2)
+                .zIndex(1)
                 
                 if !orientationMonitor.isLandscape {
-                    if let playerItem = playerConfig.selectedLiveActivitiesEvent {
-                        LiveChatView(liveActivitiesEvent: playerItem)
-                            .opacity(1.0 - (playerConfig.progress * 1.6))
-                    }
+                    PlayerMinifiedContent()
+                        .padding(.leading, 130)
+                        .padding(.trailing, 15)
+                        .foregroundStyle(Color.primary)
+                        .opacity(progress)
+                }
+            }
+            .frame(minHeight: miniPlayerHeight, maxHeight: orientationMonitor.isLandscape ? .infinity : playerHeight)
+            .padding(.top, ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.top ?? 0) * (1 - playerConfig.progress))
+            .zIndex(2)
+                
+            if !orientationMonitor.isLandscape {
+                if let playerItem = playerConfig.selectedLiveActivitiesEvent {
+                    LiveChatView(liveActivitiesEvent: playerItem)
+                        .opacity(1.0 - (playerConfig.progress * 1.6))
                 }
             }
         }
@@ -111,36 +108,22 @@ struct PlayerView: View {
     func VideoPlayer() -> some View {
         GeometryReader { geometry in
             let size = geometry.size
-            VStack {
-                if let url = playerConfig.selectedLiveActivitiesEvent?.recording ?? playerConfig.selectedLiveActivitiesEvent?.streaming {
-                    ZStack {
-                        Rectangle()
-                            .fill(Color.blue)
-                        VideoPlayerView(size: size, url: url, playerConfig: $appState.playerConfig, onDragUp: fullScreen, onSizeChange: onSizeChange)
-                    }
-                } else {
-                    VStack {
-                        Text("NO RECORDING NOR STREAM")
-                            .font(.headline)
-                            .foregroundColor(.purple)
-                            .padding()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black)
+            Rectangle()
+                .fill(.black)
+            if let url = playerConfig.selectedLiveActivitiesEvent?.recording ?? playerConfig.selectedLiveActivitiesEvent?.streaming {
+                KSVideoPlayerView(url: url)
+                    .frame(width: size.width, height: size.height)
+            } else {
+                VStack {
+                    Text("NO RECORDING NOR STREAM")
+                        .font(.headline)
+                        .foregroundColor(.purple)
+                        .padding()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black)
             }
-            .aspectRatio(contentMode: .fit)
-            .frame(width: size.width, height: size.height)
         }
-    }
-    
-    func fullScreen() {
-        
-    }
-    
-    func onSizeChange(size: CGSize) {
-        playerHeight = size.height
-        print("updated height to: ", size.height)
     }
     
     @ViewBuilder
@@ -184,5 +167,6 @@ struct PlayerView: View {
     func generateProgress() {
         let progress = max(min(playerConfig.position / (size.height - miniPlayerHeight), 1.0), .zero)
         playerConfig.progress = progress
+        print(progress)
     }
 }

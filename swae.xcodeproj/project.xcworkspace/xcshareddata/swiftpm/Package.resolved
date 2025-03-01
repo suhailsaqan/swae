@@ -1,5 +1,5 @@
 {
-  "originHash" : "165304f6631b8a41d393b2dfdf83ad722fb8f57249cc1111cd3c0577e8360515",
+  "originHash" : "2cc89db1097e20b59fb7351b6bf9d92900cda3c5c37cd592220179e01e4990aa",
   "pins" : [
     {
       "identity" : "cryptoswift",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "729e01bc9b9dab466ac85f21fb9ee2bc1c61b258",
         "version" : "1.8.4"
+      }
+    },
+    {
+      "identity" : "ffmpegkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kingslay/FFmpegKit.git",
+      "state" : {
+        "revision" : "85b77c589de0360c111de16752db86b60496d70b",
+        "version" : "6.1.3"
       }
     },
     {
