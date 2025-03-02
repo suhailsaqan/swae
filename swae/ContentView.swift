@@ -63,6 +63,28 @@ struct ContentView: View {
             let show = display
             self.hide_bar = !show
         }
+        .onReceive(handle_notify(.unfollow)) { target in
+            if (appState.saveFollowList(pubkeys: target)) {
+                notify(.unfollowed(target))
+            }
+        }
+        .onReceive(handle_notify(.unfollowed)) { pubkeys in
+            appState.followedPubkeys.subtract(pubkeys)
+            print("unfollowed************")
+            appState.refreshFollowedPubkeys()
+//            print("unfollowed: ", pubkeys)
+        }
+        .onReceive(handle_notify(.follow)) { target in
+            if (appState.saveFollowList(pubkeys: target)) {
+                notify(.followed(target))
+            }
+        }
+        .onReceive(handle_notify(.followed)) { pubkeys in
+            appState.followedPubkeys.formUnion(pubkeys)
+            print("**********followed************")
+            appState.refreshFollowedPubkeys()
+//            print("followed: ", pubkeys)
+        }
     }
     
     func MainContent() -> some View {
@@ -76,7 +98,7 @@ struct ContentView: View {
             }
             
             if selected_tab == .profile {
-                SettingsView(appState: appState)
+                ProfileView(appState: appState)
                     .setupTab(.profile)
             }
         }

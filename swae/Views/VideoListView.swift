@@ -48,33 +48,35 @@ struct VideoListView: View, MetadataCoding {
 
 
     var body: some View {
-        customTabView()
-            .edgesIgnoringSafeArea([.bottom])
-            .onAppear {
-                filteredEvents = events(timeTabFilter)
-            }
-            .onChange(of: appState.liveActivitiesEvents) { _, newValue in
-                filteredEvents = events(timeTabFilter)
-            }
-            .onChange(of: timeTabFilter) { _, newValue in
-                filteredEvents = events(newValue)
-            }
-//            .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
-            .overlay {
-                if let currentItem = selectedEvent, showDetailPage {
-                    DetailView(item: currentItem)
-//                        .edgesIgnoringSafeArea([.bottom])
-//                        .ignoresSafeArea(.container, edges: orientationMonitor.isLandscape ? [.top, .bottom] : [.leading, .trailing])
+        NavigationView {
+            customTabView()
+                .edgesIgnoringSafeArea([.bottom])
+                .onAppear {
+                    filteredEvents = events(timeTabFilter)
                 }
-            }
-//            .background(alignment: .top) {
-//                Rectangle()
-//                    .fill(Color(UIColor.systemBackground))
-//                    .frame(height: animateView ? nil : 250, alignment: .top)
-//                    .scaleEffect(animateView ? 1 : 0.93)
-//                    .opacity(animateView ? 1 : 0)
-//                    .ignoresSafeArea()
-//            }
+                .onChange(of: appState.liveActivitiesEvents) { _, newValue in
+                    filteredEvents = events(timeTabFilter)
+                }
+                .onChange(of: timeTabFilter) { _, newValue in
+                    filteredEvents = events(newValue)
+                }
+            //            .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
+            //            .overlay {
+            //                if let currentItem = selectedEvent, showDetailPage {
+            //                    DetailView(item: currentItem)
+            ////                        .edgesIgnoringSafeArea([.bottom])
+            ////                        .ignoresSafeArea(.container, edges: orientationMonitor.isLandscape ? [.top, .bottom] : [.leading, .trailing])
+            //                }
+            //            }
+            //            .background(alignment: .top) {
+            //                Rectangle()
+            //                    .fill(Color(UIColor.systemBackground))
+            //                    .frame(height: animateView ? nil : 250, alignment: .top)
+            //                    .scaleEffect(animateView ? 1 : 0.93)
+            //                    .opacity(animateView ? 1 : 0)
+            //                    .ignoresSafeArea()
+            //            }
+        }
     }
     
     /// Computes the total height of our top bar: safe area inset + content height.
@@ -365,7 +367,9 @@ struct VideoListView: View, MetadataCoding {
 
             if !orientationMonitor.isLandscape {
                 HStack(spacing: 12) {
-                    ProfilePictureView(publicKeyHex: item.participants.first(where: { $0.role == "host" })?.pubkey?.hex)
+                    if let publicKeyHex = item.participants.first(where: { $0.role == "host" })?.pubkey?.hex {
+                        ProfilePicView(pubkey: publicKeyHex, size: 45, profile: appState.metadataEvents[publicKeyHex]?.userMetadata)
+                    }
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.title ?? "no title")
@@ -373,7 +377,7 @@ struct VideoListView: View, MetadataCoding {
                             .foregroundColor(.gray)
                             .lineLimit(2)
                         
-                        Text(item.status == .ended ? "ENDED" : "LIVE")
+                        Text(item.status != .live ? "ENDED" : "LIVE")
                             .font(.caption)
                             .foregroundColor(.red)
                             .lineLimit(1)

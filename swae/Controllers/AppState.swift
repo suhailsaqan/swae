@@ -51,6 +51,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     var bootstrapSubscriptionCounts = [String: Int]()
     var liveActivityEventSubscriptionCounts = [String: Int]()
     var liveChatSubscriptionCounts: [String: String] = [:]
+    var followListEventSubscriptionCounts: [String: String] = [:]
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -413,7 +414,7 @@ extension AppState: EventVerifying, RelayDelegate {
                     kinds: [
                         EventKind.metadata.rawValue,
                         EventKind.liveActivities.rawValue,
-//                        EventKind.deletion.rawValue,
+                        EventKind.deletion.rawValue,
                     ],
                     until: Int(until.timeIntervalSince1970)
                 )
@@ -446,7 +447,7 @@ extension AppState: EventVerifying, RelayDelegate {
                 kinds: [
                     EventKind.metadata.rawValue,
                     EventKind.liveActivities.rawValue,
-//                    EventKind.deletion.rawValue,
+                    EventKind.deletion.rawValue,
                 ],
                 since: since,
                 until: Int(until.timeIntervalSince1970)
@@ -516,7 +517,7 @@ extension AppState: EventVerifying, RelayDelegate {
                             EventKind.metadata.rawValue,
                             EventKind.followList.rawValue,
                             EventKind.liveActivities.rawValue,
-//                            EventKind.deletion.rawValue,
+                            EventKind.deletion.rawValue,
                         ],
                         since: since,
                         until: Int(until.timeIntervalSince1970)
@@ -745,6 +746,44 @@ extension AppState: EventVerifying, RelayDelegate {
             }
     }
     
+    func subscribeToProfile(for publicKeyHex: String) {
+        guard !followListEventSubscriptionCounts.values.contains(publicKeyHex) else { return }
+        
+        // Create filter with proper tag structure
+        guard let filter = Filter(
+            authors: [publicKeyHex, appSettings?.activeProfile?.publicKeyHex].compactMap { $0 },
+            kinds: [
+                EventKind.metadata.rawValue,
+                EventKind.followList.rawValue,
+//                EventKind.liveActivities.rawValue,
+//                    EventKind.deletion.rawValue
+            ]
+        ) else {
+            print("Unable to create profile filter.")
+            return
+        }
+        
+        // Add time constraints to get historical messages
+        //        if let liveEventStart = event.startsAt {
+        //            filter.since = Int(liveEventStart.timeIntervalSince1970)
+        //        }
+        
+        let subscriptionId = relayReadPool.subscribe(with: filter)
+        followListEventSubscriptionCounts[subscriptionId] = publicKeyHex
+        print("Subscribed to profile \(publicKeyHex) with ID: \(subscriptionId)")
+    }
+    
+    func unsubscribeFromProfile(for publicKeyHex: String) {
+        followListEventSubscriptionCounts
+            .filter { $0.value == publicKeyHex }
+            .keys
+            .forEach { subscriptionId in
+                relayReadPool.closeSubscription(with: subscriptionId)
+                followListEventSubscriptionCounts.removeValue(forKey: subscriptionId)
+//                followListEvents.removeValue(forKey: publicKeyHex)
+            }
+    }
+    
     private func didReceiveLiveChatMessage(_ message: LiveChatMessageEvent) {
         print("received live chat message", self.liveChatMessagesEvents.count)
         guard let eventReference = message.liveEventReference else { return }
@@ -812,7 +851,7 @@ extension AppState: EventVerifying, RelayDelegate {
     func didReceive(nostrEvent: NostrEvent, relay: Relay? = nil) -> PersistentNostrEvent? {
         switch nostrEvent {
         case let followListEvent as FollowListEvent:
-            self.didReceiveFollowListEvent(followListEvent, shouldPullMissingEvents: true)
+            self.didReceiveFollowListEvent(followListEvent, shouldPullMissingEvents: nostrEvent.pubkey == appSettings?.activeProfile?.publicKeyHex)
         case let metadataEvent as MetadataEvent:
             self.didReceiveMetadataEvent(metadataEvent)
         case let liveActivitiesEvent as LiveActivitiesEvent:
@@ -874,9 +913,9 @@ extension AppState: EventVerifying, RelayDelegate {
         DispatchQueue.main.async {
             switch response {
             case let .eose(subscriptionId):
-                if self.liveChatSubscriptionCounts.keys.contains(subscriptionId) {
+                if self.liveChatSubscriptionCounts.keys.contains(subscriptionId) || self.followListEventSubscriptionCounts.keys.contains(subscriptionId) {
                     // Maintain live chat subscription for real-time updates
-                    print("Maintaining live chat subscription: \(subscriptionId)")
+                    print("Maintaining subscription: \(subscriptionId)")
                 } else {
                     try? relay.closeSubscription(with: subscriptionId)
                     self.updateRelaySubscriptionCounts(closedSubscriptionId: subscriptionId)
@@ -884,6 +923,7 @@ extension AppState: EventVerifying, RelayDelegate {
                 
             case let .closed(subscriptionId, _):
                 self.liveChatSubscriptionCounts.removeValue(forKey: subscriptionId)
+                self.followListEventSubscriptionCounts.removeValue(forKey: subscriptionId)
                 self.updateRelaySubscriptionCounts(closedSubscriptionId: subscriptionId)
             case let .ok(eventId, success, message):
                 if success {
@@ -1006,18 +1046,10 @@ extension AppState: EventVerifying, RelayDelegate {
             }
 
             switch deletedEventCoordinate.kind {
-            //            case .timeBasedCalendarEvent:
-            //                if let timeBasedCalendarEvent = timeBasedCalendarEvents[deletedEventCoordinate.tag.value], timeBasedCalendarEvent.createdAt <= deletionEvent.createdAt {
-            //                    timeBasedCalendarEvents.removeValue(forKey: deletedEventCoordinate.tag.value)
-            //                    calendarEventsToRsvps.removeValue(forKey: deletedEventCoordinate.tag.value)
-            //                }
-            //            case .calendarEventRSVP:
-            //                if let rsvp = rsvps[deletedEventCoordinate.tag.value], rsvp.createdAt <= deletionEvent.createdAt {
-            //                    rsvps.removeValue(forKey: deletedEventCoordinate.tag.value)
-            //                    if let calendarEventCoordinates = rsvp.calendarEventCoordinates?.tag.value {
-            //                        calendarEventsToRsvps[calendarEventCoordinates]?.removeAll(where: { $0 == rsvp })
-            //                    }
-            //                }
+                case .liveActivities:
+                    if let liveAcitivitiesEvent = liveActivitiesEvents[deletedEventCoordinate.tag.value], liveAcitivitiesEvent.createdAt <= deletionEvent.createdAt {
+                        liveActivitiesEvents.removeValue(forKey: deletedEventCoordinate.tag.value)
+                    }
             default:
                 continue
             }
@@ -1038,25 +1070,10 @@ extension AppState: EventVerifying, RelayDelegate {
                     followListEvents.removeValue(forKey: nostrEvent.pubkey)
                 case _ as MetadataEvent:
                     metadataEvents.removeValue(forKey: nostrEvent.pubkey)
-                //                case let timeBasedCalendarEvent as TimeBasedCalendarEvent:
-                //                    if let eventCoordinates = timeBasedCalendarEvent.replaceableEventCoordinates()?.tag.value, timeBasedCalendarEvents[eventCoordinates]?.id == timeBasedCalendarEvent.id {
-                //                        timeBasedCalendarEvents.removeValue(forKey: eventCoordinates)
-                //                        calendarEventsToRsvps.removeValue(forKey: eventCoordinates)
-                //                    }
-                //                case let calendarListEvent as CalendarListEvent:
-                //                    if let eventCoordinates = calendarListEvent.replaceableEventCoordinates()?.tag.value, calendarListEvents[eventCoordinates]?.id == calendarListEvent.id {
-                //                        calendarListEvents.removeValue(forKey: eventCoordinates)
-                //                    }
-                //                case let rsvp as CalendarEventRSVP:
-                //                    if let eventCoordinates = rsvp.replaceableEventCoordinates()?.tag.value, rsvps[eventCoordinates]?.id == rsvp.id {
-                //                        rsvps.removeValue(forKey: eventCoordinates)
-                //
-                //                        if let calendarEventCoordinates = rsvp.calendarEventCoordinates?.tag.value {
-                //                            calendarEventsToRsvps[calendarEventCoordinates]?.removeAll(where: { $0.id == rsvp.id })
-                //                        }
-                //                    }
-                //
-                //                    rsvps.removeValue(forKey: nostrEvent.pubkey)
+                case let liveActivitiesEvent as LiveActivitiesEvent:
+                    if let eventCoordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value, liveActivitiesEvents[eventCoordinates]?.id == liveActivitiesEvent.id {
+                        liveActivitiesEvents.removeValue(forKey: eventCoordinates)
+                    }
                 default:
                     continue
                 }
@@ -1070,5 +1087,27 @@ extension AppState: EventVerifying, RelayDelegate {
             }
         }
     }
+    
+    func saveFollowList(pubkeys: [String]) -> Bool {
+        // Make sure pubkeys is not empty.
+        guard pubkeys.count > 0 else { return false }
+        // Make sure we have an appState keypair.
+        guard let keypair = keypair else {
+            print("no keypair")
+            return false
+        }
 
+        do {
+            let liveChatMessageEvent = try followList(
+                withPubkeys: pubkeys,
+                signedBy: keypair
+            )
+            // Publish the event.
+            relayWritePool.publishEvent(liveChatMessageEvent)
+            return true
+        } catch {
+            print("Unable to save event: \(error)")
+        }
+        return false
+    }
 }
