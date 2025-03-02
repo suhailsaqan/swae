@@ -61,7 +61,7 @@ struct LiveChatView: View {
                     
                     ForEach(Array(liveChatMessages.enumerated()), id: \.offset) { index, message in
                         HStack {
-                            ProfilePictureView(publicKeyHex: message.pubkey)
+                            ProfilePicView(pubkey: message.pubkey, size: 45, profile: appState.metadataEvents[message.pubkey]?.userMetadata)
                             
                             VStack(alignment: .leading) {
                                 ProfileNameView(publicKeyHex: message.pubkey)
@@ -152,7 +152,9 @@ struct LiveChatView: View {
     
     private var topHeader: some View {
         HStack(spacing: 12) {
-            ProfilePictureView(publicKeyHex: liveActivitiesEvent.participants.first(where: { $0.role == "host" })?.pubkey?.hex)
+            if let publicKeyHex = liveActivitiesEvent.participants.first(where: { $0.role == "host" })?.pubkey?.hex {
+                ProfilePicView(pubkey: publicKeyHex, size: 45, profile: appState.metadataEvents[publicKeyHex]?.userMetadata)
+            }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(liveActivitiesEvent.title ?? "no title")

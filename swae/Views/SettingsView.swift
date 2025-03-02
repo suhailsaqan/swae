@@ -25,31 +25,29 @@ struct SettingsView: View {
     
     // MARK: - Body
     var body: some View {
-        NavigationView {
-            VStack(spacing: 30) {
-                profilesSection
-                
-                profileSettingsSection
-
-                if let activeProfile = viewModel.activeProfile,
-                   activeProfile.publicKeyHex != nil {
-                    Section {
-                        Button(
-                            action: {
-                                profileToSignOut = activeProfile
-                                isShowingSignOutConfirmation = true
-                            },
-                            label: {
-                                Label(
-                                    String(
-                                        localized: "Sign Out of \(viewModel.activeProfileName)",
-                                        comment: "Button to sign out of a profile from the device."
-                                    ),
-                                    systemImage: "door.left.hand.open"
-                                )
-                            }
-                        )
-                    }
+        VStack(spacing: 30) {
+            profilesSection
+            
+            profileSettingsSection
+            
+            if let activeProfile = viewModel.activeProfile,
+               activeProfile.publicKeyHex != nil {
+                Section {
+                    Button(
+                        action: {
+                            profileToSignOut = activeProfile
+                            isShowingSignOutConfirmation = true
+                        },
+                        label: {
+                            Label(
+                                String(
+                                    localized: "Sign Out of \(viewModel.activeProfileName)",
+                                    comment: "Button to sign out of a profile from the device."
+                                ),
+                                systemImage: "door.left.hand.open"
+                            )
+                        }
+                    )
                 }
             }
         }
@@ -113,10 +111,10 @@ struct SettingsView: View {
                 if let publicKeyHex,
                    PublicKey(hex: publicKeyHex) != nil {
                     if viewModel.isActiveProfileSignedInWithPrivateKey {
-                        ProfilePictureView(publicKeyHex: publicKeyHex)
+                        ProfilePicView(pubkey: publicKeyHex, size: 20, profile: viewModel.activeProfileMetadata)
                     } else {
                         ImageOverlayView(imageSystemName: "lock.fill", overlayBackgroundColor: .purple) {
-                            ProfilePictureView(publicKeyHex: publicKeyHex)
+                            ProfilePicView(pubkey: publicKeyHex, size: 20, profile: viewModel.activeProfileMetadata)
                         }
                     }
                 } else {
@@ -136,10 +134,10 @@ struct SettingsView: View {
             ForEach(viewModel.profiles, id: \.self) { profile in
                 HStack {
                     if viewModel.isSignedInWithPrivateKey(profile) {
-                        ProfilePictureView(publicKeyHex: profile.publicKeyHex)
+                        ProfilePicView(pubkey: profile.publicKeyHex ?? "", size: 20, profile: viewModel.appState.metadataEvents[profile.publicKeyHex ?? ""]?.userMetadata)
                     } else {
                         ImageOverlayView(imageSystemName: "lock.fill", overlayBackgroundColor: .purple) {
-                            ProfilePictureView(publicKeyHex: profile.publicKeyHex)
+                            ProfilePicView(pubkey: profile.publicKeyHex ?? "", size: 20, profile: viewModel.appState.metadataEvents[profile.publicKeyHex ?? ""]?.userMetadata)
                         }
                     }
                     
@@ -230,6 +228,13 @@ extension SettingsView {
 
         var profiles: [Profile] {
             appState.profiles
+        }
+        
+        var activeProfileMetadata: UserMetadata? {
+            guard let activeProfilePublicKeyHex = appState.appSettings?.activeProfile?.publicKeyHex else {
+                return nil
+            }
+            return appState.metadataEvents[activeProfilePublicKeyHex]?.userMetadata
         }
 
         func profileName(publicKeyHex: String?) -> String {
