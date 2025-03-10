@@ -27,6 +27,8 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     let privateKeySecureStorage = PrivateKeySecureStorage()
 
     let modelContext: ModelContext
+    
+    let nostrWalletConnectStorage = NostrWalletConnectKeyStorage()
 
     @Published var relayReadPool: RelayPool = RelayPool(relays: [])
     @Published var relayWritePool: RelayPool = RelayPool(relays: [])
@@ -45,6 +47,8 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     @Published var pubkeyTrie = Trie<String>()
     
     @Published var playerConfig: PlayerConfig = .init()
+    
+    @Published var wallet: WalletModel?
 
     // Keep track of relay pool active subscriptions and the until filter so that we can limit the scope of how much we query from the relay pools.
     var metadataSubscriptionCounts = [String: Int]()
@@ -55,6 +59,13 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+        
+        if let publicKey = self.publicKey {
+            self.wallet = WalletModel(publicKey: publicKey)
+        } else {
+            print("set to nil")
+            self.wallet = nil
+        }
     }
 
     var publicKey: PublicKey? {
@@ -702,20 +713,33 @@ extension AppState: EventVerifying, RelayDelegate {
         updateLiveActivitiesTrie(oldEvent: existingLiveActivity, newEvent: liveActivitiesEvent)
     }
     
+    private func didReceiveZapReceiptEvent(_ zapReceiptEvent: LightningZapsReceiptEvent) {
+        guard let eventCoordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value,
+            let startTimestamp = liveActivitiesEvent.startsAt,
+            startTimestamp <= liveActivitiesEvent.endsAt ?? startTimestamp,
+            startTimestamp.timeIntervalSince1970 > 0
+        else {
+            return
+        }
+
+        let existingLiveActivity = self.liveActivitiesEvents[eventCoordinates]
+        if let existingLiveActivity, existingLiveActivity.createdAt >= liveActivitiesEvent.createdAt
+        {
+            return
+        }
+
+        liveActivitiesEvents[eventCoordinates] = liveActivitiesEvent
+
+        updateLiveActivitiesTrie(oldEvent: existingLiveActivity, newEvent: liveActivitiesEvent)
+    }
+    
     func subscribeToLiveChat(for event: LiveActivitiesEvent) {
         guard let eventCoordinate = event.replaceableEventCoordinates()?.tag.value,
               !liveChatSubscriptionCounts.values.contains(eventCoordinate) else { return }
         
-        // Create proper a tag structure for filter
-        //        let aTagValues = [
-        //            eventCoordinate,  // The full a tag value "30311:pubkey:d"
-        //            "",               // Relay hint
-        //            "root"            // Marker
-        //        ]
-        
         // Create filter with proper tag structure
         guard let filter = Filter(
-            kinds: [EventKind.liveChatMessage.rawValue],
+            kinds: [EventKind.liveChatMessage.rawValue, /*EventKind.zapRequest.rawValue,*/ EventKind.zapReceipt.rawValue],
             tags: ["a": [eventCoordinate]],  // Note the array of arrays
             since: 0
         ) else {
@@ -858,6 +882,8 @@ extension AppState: EventVerifying, RelayDelegate {
             self.didReceiveLiveActivitiesEvent(liveActivitiesEvent)
         case let liveChatMessageEvent as LiveChatMessageEvent:
             self.didReceiveLiveChatMessage(liveChatMessageEvent)
+        case let zapReceiptEvent as LightningZapsReceiptEvent:
+            self.didReceiveZapReceiptEvent(zapReceiptEvent)
         case let deletionEvent as DeletionEvent:
             self.didReceiveDeletionEvent(deletionEvent)
         default:

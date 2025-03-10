@@ -28,6 +28,7 @@ struct TabItemView: View {
 enum ScreenTabs: String, CustomStringConvertible, Hashable, CaseIterable {
     case home
     case live
+    case wallet
     case profile
 
     var description: String {
@@ -40,6 +41,8 @@ enum ScreenTabs: String, CustomStringConvertible, Hashable, CaseIterable {
             "house.fill"
         case .live:
             "video.fill"
+        case .wallet:
+            "wallet.pass.fill"
         case .profile:
             "person.fill"
         }

@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BA098DD12D55A106005262A4 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA098DD02D55A106005262A4 /* NostrSDK */; };
-		BA8A05062D45609500B35D04 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A05052D45609500B35D04 /* NostrSDK */; };
+		BA34E1752D7D013800FC97F0 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA34E1742D7D013800FC97F0 /* NostrSDK */; };
+		BA59D3852D7BE70000A66AB3 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = BA59D3842D7BE70000A66AB3 /* CodeScanner */; };
 		BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050B2D4560CA00B35D04 /* SwiftTrie */; };
 		BA8A050F2D45618000B35D04 /* Logboard in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050E2D45618000B35D04 /* Logboard */; };
 		BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = BABEA7CC2D4F164B0062668E /* Kingfisher */; };
@@ -76,10 +76,10 @@
 			files = (
 				BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */,
 				BACAF8E62D71311A00A2AE16 /* KSPlayer in Frameworks */,
-				BA8A05062D45609500B35D04 /* NostrSDK in Frameworks */,
+				BA34E1752D7D013800FC97F0 /* NostrSDK in Frameworks */,
 				BA8A050F2D45618000B35D04 /* Logboard in Frameworks */,
 				BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */,
-				BA098DD12D55A106005262A4 /* NostrSDK in Frameworks */,
+				BA59D3852D7BE70000A66AB3 /* CodeScanner in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,12 +140,12 @@
 			);
 			name = swae;
 			packageProductDependencies = (
-				BA8A05052D45609500B35D04 /* NostrSDK */,
 				BA8A050B2D4560CA00B35D04 /* SwiftTrie */,
 				BA8A050E2D45618000B35D04 /* Logboard */,
 				BABEA7CC2D4F164B0062668E /* Kingfisher */,
-				BA098DD02D55A106005262A4 /* NostrSDK */,
 				BACAF8E52D71311A00A2AE16 /* KSPlayer */,
+				BA59D3842D7BE70000A66AB3 /* CodeScanner */,
+				BA34E1742D7D013800FC97F0 /* NostrSDK */,
 			);
 			productName = swae;
 			productReference = BA8A03542D455F8400B35D04 /* swae.app */;
@@ -233,8 +233,9 @@
 				BA8A050A2D4560CA00B35D04 /* XCRemoteSwiftPackageReference "swift-trie" */,
 				BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */,
 				BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */,
-				BA098DCF2D55A106005262A4 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */,
 				BACAF8E42D71311A00A2AE16 /* XCLocalSwiftPackageReference "../KSPlayer" */,
+				BA59D3832D7BE70000A66AB3 /* XCRemoteSwiftPackageReference "CodeScanner" */,
+				BA34E1732D7D013800FC97F0 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA8A03552D455F8400B35D04 /* Products */;
@@ -625,7 +626,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		BA098DCF2D55A106005262A4 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */ = {
+		BA34E1732D7D013800FC97F0 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../nostr-sdk-ios";
 		};
@@ -636,6 +637,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		BA59D3832D7BE70000A66AB3 /* XCRemoteSwiftPackageReference "CodeScanner" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/twostraws/CodeScanner.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.2;
+			};
+		};
 		BA8A050A2D4560CA00B35D04 /* XCRemoteSwiftPackageReference "swift-trie" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tyiu/swift-trie.git";
@@ -663,13 +672,14 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		BA098DD02D55A106005262A4 /* NostrSDK */ = {
+		BA34E1742D7D013800FC97F0 /* NostrSDK */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = NostrSDK;
 		};
-		BA8A05052D45609500B35D04 /* NostrSDK */ = {
+		BA59D3842D7BE70000A66AB3 /* CodeScanner */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = NostrSDK;
+			package = BA59D3832D7BE70000A66AB3 /* XCRemoteSwiftPackageReference "CodeScanner" */;
+			productName = CodeScanner;
 		};
 		BA8A050B2D4560CA00B35D04 /* SwiftTrie */ = {
 			isa = XCSwiftPackageProductDependency;

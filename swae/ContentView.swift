@@ -89,12 +89,21 @@ struct ContentView: View {
     
     func MainContent() -> some View {
         return Group {
-            VideoListView(eventListType: .all)
-                .setupTab(.home)
-            
+//            if selected_tab == .home {
+                VideoListView(eventListType: .all)
+                    .setupTab(.home)
+//            }
+                
             if selected_tab == .live {
                 IngestView()
                     .setupTab(.live)
+            }
+            
+            if selected_tab == .wallet {
+                if let wallet = appState.wallet {
+                    WalletView(model: wallet)
+                        .setupTab(.wallet)
+                }
             }
             
             if selected_tab == .profile {
