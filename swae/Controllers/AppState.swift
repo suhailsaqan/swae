@@ -37,6 +37,8 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     @Published var metadataEvents: [String: MetadataEvent] = [:]
     @Published var liveActivitiesEvents: [String: LiveActivitiesEvent] = [:]
     @Published var liveChatMessagesEvents: [String: [LiveChatMessageEvent]] = [:]
+    @Published var zapReceiptEvents: [String: [LightningZapsReceiptEvent]] = [:]
+    @Published var eventZapTotals: [String: Int64] = [:]
     @Published var deletedEventIds = Set<String>()
     @Published var deletedEventCoordinates = [String: Date]()
 
@@ -425,7 +427,7 @@ extension AppState: EventVerifying, RelayDelegate {
                     kinds: [
                         EventKind.metadata.rawValue,
                         EventKind.liveActivities.rawValue,
-                        EventKind.deletion.rawValue,
+//                        EventKind.deletion.rawValue,
                     ],
                     until: Int(until.timeIntervalSince1970)
                 )
@@ -458,7 +460,7 @@ extension AppState: EventVerifying, RelayDelegate {
                 kinds: [
                     EventKind.metadata.rawValue,
                     EventKind.liveActivities.rawValue,
-                    EventKind.deletion.rawValue,
+//                    EventKind.deletion.rawValue,
                 ],
                 since: since,
                 until: Int(until.timeIntervalSince1970)
@@ -528,7 +530,7 @@ extension AppState: EventVerifying, RelayDelegate {
                             EventKind.metadata.rawValue,
                             EventKind.followList.rawValue,
                             EventKind.liveActivities.rawValue,
-                            EventKind.deletion.rawValue,
+//                            EventKind.deletion.rawValue,
                         ],
                         since: since,
                         until: Int(until.timeIntervalSince1970)
@@ -712,25 +714,26 @@ extension AppState: EventVerifying, RelayDelegate {
 
         updateLiveActivitiesTrie(oldEvent: existingLiveActivity, newEvent: liveActivitiesEvent)
     }
-    
-    private func didReceiveZapReceiptEvent(_ zapReceiptEvent: LightningZapsReceiptEvent) {
-        guard let eventCoordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value,
-            let startTimestamp = liveActivitiesEvent.startsAt,
-            startTimestamp <= liveActivitiesEvent.endsAt ?? startTimestamp,
-            startTimestamp.timeIntervalSince1970 > 0
-        else {
-            return
+
+    private func didReceiveZapReceiptEvent(_ zapReceipt: LightningZapsReceiptEvent) {
+        guard let eventCoordinate = zapReceipt.eventCoordinate else { return }
+        
+        DispatchQueue.main.async {
+            // Continue maintaining your original collection if needed
+            if self.zapReceiptEvents[eventCoordinate] == nil {
+                self.zapReceiptEvents[eventCoordinate] = []
+            }
+            
+            // Prevent duplicates using event ID
+            if !self.zapReceiptEvents[eventCoordinate]!.contains(where: { $0.id == zapReceipt.id }) {
+                self.zapReceiptEvents[eventCoordinate]!.append(zapReceipt)
+                
+                // Update the total amount - handle the optional properly
+                if let amount = zapReceipt.description?.amount {
+                    self.eventZapTotals[eventCoordinate, default: 0] += Int64(amount)
+                }
+            }
         }
-
-        let existingLiveActivity = self.liveActivitiesEvents[eventCoordinates]
-        if let existingLiveActivity, existingLiveActivity.createdAt >= liveActivitiesEvent.createdAt
-        {
-            return
-        }
-
-        liveActivitiesEvents[eventCoordinates] = liveActivitiesEvent
-
-        updateLiveActivitiesTrie(oldEvent: existingLiveActivity, newEvent: liveActivitiesEvent)
     }
     
     func subscribeToLiveChat(for event: LiveActivitiesEvent) {
@@ -767,6 +770,7 @@ extension AppState: EventVerifying, RelayDelegate {
                 relayReadPool.closeSubscription(with: subscriptionId)
                 liveChatSubscriptionCounts.removeValue(forKey: subscriptionId)
                 liveChatMessagesEvents.removeValue(forKey: eventCoordinate)
+                zapReceiptEvents.removeValue(forKey: eventCoordinate)
             }
     }
     

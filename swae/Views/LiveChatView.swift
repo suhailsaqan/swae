@@ -168,10 +168,21 @@ struct LiveChatView: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity,  alignment: .leading)
+            
+            zapAmount
         }
         .frame(height: topHeaderHeight)
         .padding(.horizontal, 5)
         .background(.ultraThinMaterial)
+    }
+    
+    private var zapAmount: some View {
+        HStack {
+            let coordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value ?? ""
+            
+            Text("\(String((appState.eventZapTotals[coordinates] ?? 0) / 1000)) Sats")
+        }
+        .padding()
     }
     
     /// Call this method with `true` to slide the top bar offscreen, or `false` to reveal it.
