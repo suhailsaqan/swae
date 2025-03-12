@@ -11,44 +11,44 @@ import SwiftData
 import SwiftUI
 
 struct VideoListView: View, MetadataCoding {
-
+    
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var orientationMonitor: OrientationMonitor
-
+    
     @State var eventListType: EventListType
     @State private var timeTabFilter: TimeTabs = .past
     @State private var showAllEvents: Bool = true
     @State private var filteredEvents: [LiveActivitiesEvent] = []
     @ObservedObject private var searchViewModel = SearchViewModel()
-
+    
     // Event selection and detail view state
     @State var selectedEvent: LiveActivitiesEvent?
     @State var showDetailPage: Bool = false
-
+    
     // UI animation states
     @Namespace var animation
     @State var animateView: Bool = false
     @State var animateContent: Bool = false
-
+    
     // Scroll and layout states
     @State private var scrollOffset: CGFloat = 0
     @State private var lastScrollOffset: CGFloat = 0
-
+    
     // Section expansion states
     @State private var isProfilesSectionExpanded: Bool = false
-
+    
     // Pagination states
     @State private var currentPage: Int = 0
     @State private var isLoadingMore: Bool = false
     @State private var hasMoreData: Bool = true
-
+    
     // Topbar
     @State private var selectedIndex: Int = 1
     @State private var hideTopBar: Bool = false
-
-
+    
+    
     var body: some View {
-        NavigationView {
+        NavigationStack {
             customTabView()
                 .edgesIgnoringSafeArea([.bottom])
                 .onAppear {
@@ -295,8 +295,8 @@ struct VideoListView: View, MetadataCoding {
                                 let minY = proxy.frame(in: .named("scroll")).minY
                                 let height = UIScreen.main.bounds.height
                                 if !filteredEvents.isEmpty && minY < height && hasMoreData {
-                                    DispatchQueue.main.async {
-                                        loadMoreEvents()
+                                    Task {
+                                        await loadMoreEvents()
                                     }
                                 }
                                 return Color.clear
@@ -543,20 +543,29 @@ struct VideoListView: View, MetadataCoding {
         return events
     }
 
-    private func loadMoreEvents() {
+    private func loadMoreEvents() async {
+        // Prevent overlapping calls
         guard !isLoadingMore else { return }
-
-        isLoadingMore = true
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            let newEvents = self.events(self.timeTabFilter)
+        
+        // Update state on the main actor
+        await MainActor.run { isLoadingMore = true }
+        
+        // Offload heavy work (fetching/filtering events) to a background thread
+        let newEvents = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let events = self.events(self.timeTabFilter)
+                continuation.resume(returning: events)
+            }
+        }
+        
+        // Update UI-related state on the main actor
+        await MainActor.run {
             if newEvents.count > self.currentPage * 10 {
                 self.currentPage += 1
             } else {
                 self.hasMoreData = false
             }
-
-            self.isLoadingMore = false
+            isLoadingMore = false
         }
     }
 
