@@ -179,8 +179,10 @@ struct LiveChatView: View {
     private var zapAmount: some View {
         HStack {
             let coordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value ?? ""
+            let zapAmount = (appState.eventZapTotals[coordinates] ?? 0) / 1000
             
-            Text("\(String((appState.eventZapTotals[coordinates] ?? 0) / 1000)) Sats")
+            Text("\(zapAmount.formatted()) \(pluralize("sat", count: zapAmount))")
+                .foregroundColor(.orange)
         }
         .padding()
     }
