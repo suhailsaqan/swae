@@ -32,3 +32,24 @@ extension AttributedString {
         return AttributedString(truncatedAttributedString) + "..."
     }
 }
+
+func pluralize(_ word: String, count: Int64) -> String {
+    guard count != 1 else { return word }
+    
+    let irregularPlurals: [String: String] = [
+        "child": "children"
+        /// ...
+    ]
+    
+    if let irregular = irregularPlurals[word.lowercased()] {
+        return irregular
+    }
+    
+    if word.hasSuffix("y") && !["a", "e", "i", "o", "u"].contains(word[word.index(before: word.endIndex)].lowercased()) {
+        return word.dropLast() + "ies"
+    } else if word.hasSuffix("s") || word.hasSuffix("x") || word.hasSuffix("z") || word.hasSuffix("ch") || word.hasSuffix("sh") {
+        return word + "es"
+    } else {
+        return word + "s"
+    }
+}
