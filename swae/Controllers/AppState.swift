@@ -673,7 +673,7 @@ extension AppState: EventVerifying, RelayDelegate {
                     key: name, value: metadataEvent.pubkey,
                     options: [
                         .includeCaseInsensitiveMatches, .includeDiacriticsInsensitiveMatches,
-                        .includeNonPrefixedMatches,
+                        /*.includeNonPrefixedMatches,*/
                     ])
             }
             if let displayName = userMetadata.displayName?.trimmingCharacters(
@@ -683,7 +683,7 @@ extension AppState: EventVerifying, RelayDelegate {
                     key: displayName, value: metadataEvent.pubkey,
                     options: [
                         .includeCaseInsensitiveMatches, .includeDiacriticsInsensitiveMatches,
-                        .includeNonPrefixedMatches,
+                        /*.includeNonPrefixedMatches,*/
                     ])
             }
         }
@@ -691,7 +691,7 @@ extension AppState: EventVerifying, RelayDelegate {
         if let publicKey = PublicKey(hex: metadataEvent.pubkey) {
             _ = pubkeyTrie.insert(
                 key: publicKey.npub, value: metadataEvent.pubkey,
-                options: [.includeNonPrefixedMatches])
+                options: [/*.includeNonPrefixedMatches*/])
         }
     }
 
