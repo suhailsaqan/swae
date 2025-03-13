@@ -445,41 +445,40 @@ struct VideoListView: View, MetadataCoding {
 
     func events(_ timeTabFilter: TimeTabs) -> [LiveActivitiesEvent] {
         if eventListType == .all,
-            let searchText = searchViewModel.debouncedSearchText.trimmedOrNilIfEmpty
+           let searchText = searchViewModel.debouncedSearchText.trimmedOrNilIfEmpty
         {
-//            // Search by npub.
-//            if let authorPublicKey = PublicKey(npub: searchText) {
-//                switch timeTabFilter {
-//                case .upcoming:
-//                    return appState.upcomingProfileEvents(authorPublicKey.hex)
-//                case .past:
-//                    return appState.pastProfileEvents(authorPublicKey.hex)
-//                }
-//            }
-            if let metadata = try? decodedMetadata(from: searchText), let kind = metadata.kind,
-                let pubkey = metadata.pubkey, let publicKey = PublicKey(hex: pubkey)
+            // Search by metadata (naddr or nevent)
+            if let metadata = try? decodedMetadata(from: searchText),
+               let kind = metadata.kind,
+               let pubkey = metadata.pubkey,
+               let publicKey = PublicKey(hex: pubkey)
             {
                 if kind == EventKind.liveActivities.rawValue {
-                    // Search by naddr.
+                    // Search by naddr
                     if let identifier = metadata.identifier,
-                        let eventCoordinates = try? EventCoordinates(
-                            kind: EventKind(rawValue: Int(kind)), pubkey: publicKey,
-                            identifier: identifier),
-                        let liveActivitiesEvent = appState.liveActivitiesEvents[
-                            eventCoordinates.tag.value]
+                       let eventCoordinates = try? EventCoordinates(
+                           kind: EventKind(rawValue: Int(kind)),
+                           pubkey: publicKey,
+                           identifier: identifier),
+                       let liveActivitiesEvents = appState.liveActivitiesEvents[eventCoordinates.tag.value]
                     {
-                        if timeTabFilter == .upcoming && !liveActivitiesEvent.isUpcoming {
-                            self.timeTabFilter = .past
-                        } else if timeTabFilter == .past && !liveActivitiesEvent.isPast {
-                            self.timeTabFilter = .upcoming
+                        // Flatten the array and filter based on timeTabFilter
+                        let filteredEvents = liveActivitiesEvents.filter { event in
+                            switch timeTabFilter {
+                            case .upcoming:
+                                return event.isUpcoming
+                            case .past:
+                                return event.isPast
+                            }
                         }
-                        return [liveActivitiesEvent]
-                        // Search by nevent.
-                    } else if let eventId = metadata.eventId {
+                        return filteredEvents
+                    }
+                    // Search by nevent
+                    else if let eventId = metadata.eventId {
                         let results = Set(appState.liveActivitiesTrie.find(key: eventId))
-                        let events = appState.liveActivitiesEvents.filter {
-                            results.contains($0.key)
-                        }.map { $0.value }
+                        let events = appState.liveActivitiesEvents
+                            .filter { results.contains($0.key) }
+                            .flatMap { $0.value }
                         switch timeTabFilter {
                         case .upcoming:
                             return appState.upcomingEvents(events)
@@ -488,24 +487,13 @@ struct VideoListView: View, MetadataCoding {
                         }
                     }
                 }
-                //                    else if kind == EventKind.liveActivities.rawValue,
-                //                              let identifier = metadata.identifier,
-                //                              let coordinates = try? EventCoordinates(kind: EventKind(rawValue: Int(kind)), pubkey: publicKey, identifier: identifier) {
-                //                        let coordinatesString = coordinates.tag.value
-                //                        switch timeTabFilter {
-                //                        case .upcoming:
-                //                            return appState.upcomingEventsOnCalendarList(coordinatesString)
-                //                        case .past:
-                //                            return appState.pastEventsOnCalendarList(coordinatesString)
-                //                        }
-                //                    }
             }
 
-            // Search by event tags and content.
+            // Search by event tags and content
             let results = appState.liveActivitiesTrie.find(key: searchText.localizedLowercase)
-            let events = appState.liveActivitiesEvents.filter { results.contains($0.key) }.map {
-                $0.value
-            }
+            let events = appState.liveActivitiesEvents
+                .filter { results.contains($0.key) }
+                .flatMap { $0.value }
             switch timeTabFilter {
             case .upcoming:
                 return appState.upcomingEvents(events)
@@ -514,6 +502,7 @@ struct VideoListView: View, MetadataCoding {
             }
         }
 
+        // Handle non-search cases
         if !showAllEvents && eventListType == .all && appState.publicKey != nil {
             switch timeTabFilter {
             case .upcoming:
@@ -523,23 +512,24 @@ struct VideoListView: View, MetadataCoding {
             }
         }
 
-        let events =
-            switch eventListType {
-            case .all:
-                switch timeTabFilter {
-                case .upcoming:
-                    appState.allUpcomingEvents
-                case .past:
-                    appState.allPastEvents
-                }
-            case .profile(let publicKeyHex):
-                switch timeTabFilter {
-                case .upcoming:
-                    appState.upcomingProfileEvents(publicKeyHex)
-                case .past:
-                    appState.pastProfileEvents(publicKeyHex)
-                }
+        // Handle event list type and time tab filter
+        let events: [LiveActivitiesEvent]
+        switch eventListType {
+        case .all:
+            switch timeTabFilter {
+            case .upcoming:
+                events = appState.allUpcomingEvents
+            case .past:
+                events = appState.allPastEvents
             }
+        case .profile(let publicKeyHex):
+            switch timeTabFilter {
+            case .upcoming:
+                events = appState.upcomingProfileEvents(publicKeyHex)
+            case .past:
+                events = appState.pastProfileEvents(publicKeyHex)
+            }
+        }
         return events
     }
 
