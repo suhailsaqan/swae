@@ -9,7 +9,7 @@
 import SwiftUI
 import NostrSDK
 import Kingfisher
-import KSPlayer
+//import KSPlayer
 
 struct PlayerView: View {
     @EnvironmentObject var orientationMonitor: OrientationMonitor
@@ -111,7 +111,8 @@ struct PlayerView: View {
             Rectangle()
                 .fill(.black)
             if let url = playerConfig.selectedLiveActivitiesEvent?.recording ?? playerConfig.selectedLiveActivitiesEvent?.streaming {
-                KSVideoPlayerView(url: url)
+//                KSVideoPlayerView(url: url)
+                VideoPlayerView(size: size, url: url)
                     .frame(width: size.width, height: size.height)
             } else {
                 VStack {

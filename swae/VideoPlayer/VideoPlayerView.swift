@@ -22,45 +22,49 @@ struct VideoPlayerView: View {
 
     @StateObject private var viewModel: VideoPlayerModel
     
-    @Binding var playerConfig: PlayerConfig
+//    @Binding var playerConfig: PlayerConfig
     
     @EnvironmentObject var orientationMonitor: OrientationMonitor
 
-    init(size: CGSize,/*safeArea: EdgeInsets,*/ url: URL, playerConfig: Binding<PlayerConfig>, /*onDragDown: (() -> Void)? = nil,*/ onDragUp: (() -> Void)? = nil, onSizeChange: ((_ size: CGSize) -> Void)? = nil) {
+    init(size: CGSize,/*safeArea: EdgeInsets,*/ url: URL, /*playerConfig: Binding<PlayerConfig>,*/ /*onDragDown: (() -> Void)? = nil,*/ onDragUp: (() -> Void)? = nil, onSizeChange: ((_ size: CGSize) -> Void)? = nil) {
         self.size = size
 //        self.safeArea = safeArea
         self.url = url
-        self._playerConfig = playerConfig
+//        self._playerConfig = playerConfig
 //        self.onDragDown = onDragDown
         self.onDragUp = onDragUp
         self.onSizeChange = onSizeChange
         _viewModel = StateObject(wrappedValue: VideoPlayerModel(url: url))
     }
     
+//    var computedSize: CGSize {
+//        if playerConfig.progress > 0 {
+//            print("SWITCHED: ", playerConfig.progress, self.size)
+//            return self.size
+//        } else if orientationMonitor.isLandscape {
+//            // Fullscreen mode: maintain correct aspect ratio
+//            let screenWidth = UIScreen.main.bounds.width
+//            let screenHeight = UIScreen.main.bounds.height
+//            let aspectRatio = videoSize.width > 0 ? (videoSize.height / videoSize.width) : (9.0 / 16.0)
+//            let calculatedHeight = screenWidth * aspectRatio
+//
+//            // Ensure it doesn't exceed screen height
+//            return CGSize(width: screenWidth, height: min(calculatedHeight, screenHeight))
+//        } else {
+//            // Portrait mode: maintain aspect ratio while limiting max height
+//            let screenWidth = UIScreen.main.bounds.width
+//            let defaultAspectRatio: CGFloat = 9.0 / 16.0
+//            let aspectRatio = videoSize.width > 0 ? (videoSize.height / videoSize.width) : defaultAspectRatio
+//            let calculatedHeight = screenWidth * aspectRatio
+//
+//            // Constrain height to avoid excessive stretching (capped at 250px)
+//            let maxHeight: CGFloat = 250
+//            return CGSize(width: screenWidth, height: min(calculatedHeight, maxHeight))
+//        }
+//    }
+    
     var computedSize: CGSize {
-        if playerConfig.progress > 0 {
-            print("SWITCHED: ", playerConfig.progress, self.size)
-            return self.size
-        } else if orientationMonitor.isLandscape {
-            // Fullscreen mode: maintain correct aspect ratio
-            let screenWidth = UIScreen.main.bounds.width
-            let screenHeight = UIScreen.main.bounds.height
-            let aspectRatio = videoSize.width > 0 ? (videoSize.height / videoSize.width) : (9.0 / 16.0)
-            let calculatedHeight = screenWidth * aspectRatio
-
-            // Ensure it doesn't exceed screen height
-            return CGSize(width: screenWidth, height: min(calculatedHeight, screenHeight))
-        } else {
-            // Portrait mode: maintain aspect ratio while limiting max height
-            let screenWidth = UIScreen.main.bounds.width
-            let defaultAspectRatio: CGFloat = 9.0 / 16.0
-            let aspectRatio = videoSize.width > 0 ? (videoSize.height / videoSize.width) : defaultAspectRatio
-            let calculatedHeight = screenWidth * aspectRatio
-
-            // Constrain height to avoid excessive stretching (capped at 250px)
-            let maxHeight: CGFloat = 250
-            return CGSize(width: screenWidth, height: min(calculatedHeight, maxHeight))
-        }
+        return self.size
     }
 
     var body: some View {
@@ -81,7 +85,7 @@ struct VideoPlayerView: View {
                             Color.clear.preference(key: VideoPlayerViewSizeKey.self, value: proxy.size)
                         }
                             .onPreferenceChange(VideoPlayerViewSizeKey.self) { newSize in
-                                (onSizeChange!)(newSize)
+//                                (onSizeChange!)(newSize)
                             }
                     )
                     .background(Color.black)
