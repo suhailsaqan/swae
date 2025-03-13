@@ -72,7 +72,7 @@ struct WalletView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             switch model.connect_state {
             case .new:
                 ConnectWalletView(model: model)
