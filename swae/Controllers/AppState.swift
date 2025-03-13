@@ -438,9 +438,10 @@ extension AppState: EventVerifying, RelayDelegate {
                     authors: Array(pubkeysToFetchMetadata),
                     kinds: [
                         EventKind.metadata.rawValue,
-                        EventKind.liveActivities.rawValue,
+//                        EventKind.liveActivities.rawValue,
 //                        EventKind.deletion.rawValue,
                     ],
+//                    since: Int(
                     until: Int(until.timeIntervalSince1970)
                 )
             else {
