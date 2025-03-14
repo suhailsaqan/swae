@@ -85,6 +85,13 @@ struct ContentView: View {
             appState.refreshFollowedPubkeys()
 //            print("followed: ", pubkeys)
         }
+        .onReceive(handle_notify(.attached_wallet)) { nwc in
+            // update the lightning address on our profile when we connect a wallet
+            // TODO
+            
+            // add nwc relay to read and write
+            appState.addRelay(relayURL: nwc.relay.url)
+        }
     }
     
     func MainContent() -> some View {
