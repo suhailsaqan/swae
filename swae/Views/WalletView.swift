@@ -22,9 +22,13 @@ struct WalletView: View {
             VStack(spacing: 35) {
                 VStack(spacing: 5) {
                     VStack(spacing: 10) {
-                        Text("Wallet Relay", comment: "Label text indicating that below it is the information about the wallet relay.")
+                        Text("Wallet Relay")
                             .fontWeight(.semibold)
                             .padding(.top)
+                        
+                        Divider()
+                        
+                        Text(nwc.relay.url.absoluteString)
                     }
                     .frame(maxWidth: .infinity, minHeight: 125, alignment: .top)
                     .padding(.horizontal, 10)
