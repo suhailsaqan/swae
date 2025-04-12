@@ -53,3 +53,16 @@ func pluralize(_ word: String, count: Int64) -> String {
         return word + "s"
     }
 }
+
+func toMSats(_ msat: Int64) -> String {
+    let numberFormatter = NumberFormatter()
+    numberFormatter.numberStyle = .decimal
+    numberFormatter.minimumFractionDigits = 0
+    numberFormatter.maximumFractionDigits = 3
+    numberFormatter.roundingMode = .down
+
+    let sats = NSNumber(value: (Double(msat) / 1000.0))
+    let formattedSats = numberFormatter.string(from: sats) ?? sats.stringValue
+
+    return String(formattedSats)
+}
