@@ -17,14 +17,26 @@ struct ContentView: View {
     @EnvironmentObject var orientationMonitor: OrientationMonitor
 
     @SceneStorage("ContentView.selected_tab") var selected_tab: ScreenTabs = .home
+    
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
 
     @State var hide_bar: Bool = false
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
-
+    
     var body: some View {
+        Group {
+            if !hasCompletedOnboarding {
+                OnboardingView()
+            } else {
+                MainAppView()
+            }
+        }
+    }
+
+    func MainAppView() -> some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selected_tab) {
                 MainContent()
