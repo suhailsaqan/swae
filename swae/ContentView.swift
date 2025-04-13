@@ -29,7 +29,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if !hasCompletedOnboarding {
-                OnboardingView()
+                OnboardingView(appState: appState)
             } else {
                 MainAppView()
             }
