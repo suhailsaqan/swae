@@ -260,6 +260,9 @@ extension SettingsView {
 
         func signOut(_ profile: Profile) {
             appState.deleteProfile(profile)
+            if profiles.count == 1, let activeProfile = activeProfile, activeProfile.publicKeyHex == nil {
+                UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            }
         }
 
         func isActiveProfile(_ profile: Profile) -> Bool {
