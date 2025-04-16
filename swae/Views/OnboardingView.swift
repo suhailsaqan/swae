@@ -80,14 +80,6 @@ struct OnboardingView: View {
             LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(0.7), Color.purple.opacity(0.6)]), startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
             
-//            // Content overlay with blur
-//            RoundedRectangle(cornerRadius: 25)
-//                .fill(Color.white.opacity(0.85))
-//                .shadow(radius: 10)
-//                .padding(.horizontal)
-//                .padding(.vertical, 30)
-//                .blur(radius: 0)
-//            
             // Main content
             VStack(spacing: 0) {
                 // The content changes depending on if we're on the profile creation step
