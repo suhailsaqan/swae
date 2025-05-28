@@ -40,20 +40,18 @@ struct IngestView: View {
             .opacity(isControlsVisible ? 1 : 0)
             .animation(.easeInOut(duration: 0.3), value: isControlsVisible)
 
-            GeometryReader { geometry in
-                VStack {
-                    TopControlBar(viewModel: viewModel)
-                        .padding(.top, ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.top ?? 0) + 10)
-                        .opacity(isControlsVisible ? 1 : 0)
-                        .offset(y: isControlsVisible ? 0 : -100)
-                    
-                    Spacer()
-                    
-                    BottomControlBar(viewModel: viewModel, zoomFactor: $zoomFactor)
-                        .padding(.bottom, ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom ?? 0) + 10)
-                        .opacity(isControlsVisible ? 1 : 0)
-                        .offset(y: isControlsVisible ? 0 : 100)
-                }
+            VStack {
+                TopControlBar(viewModel: viewModel)
+                    .padding(.top, ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.top ?? 0) + 10)
+                    .opacity(isControlsVisible ? 1 : 0)
+                    .offset(y: isControlsVisible ? 0 : -100)
+                
+                Spacer()
+                
+                BottomControlBar(viewModel: viewModel, zoomFactor: $zoomFactor)
+                    .padding(.bottom, ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom ?? 0) + 10)
+                    .opacity(isControlsVisible ? 1 : 0)
+                    .offset(y: isControlsVisible ? 0 : 100)
             }
             .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isControlsVisible)
 
