@@ -409,20 +409,52 @@ struct LiveIndicatorView: View {
 
 struct StreamStatusView: View {
     let isConnected: Bool
+    @State private var ringPulse: CGFloat = 1.0
+    @State private var rotation: Double = 0.0
     
     var body: some View {
-        HStack(spacing: 6) {
+        ZStack {
+            // Outer glowing ring for "Connecting..." state
             Circle()
-                .fill(isConnected ? .green : .orange)
-                .frame(width: 6, height: 6)
+                .stroke(
+                    isConnected ? Color.clear : Color.orange.opacity(0.5),
+                    lineWidth: 3
+                )
+                .frame(width: 38, height: 38)
+                .scaleEffect(ringPulse)
+                .opacity(isConnected ? 0 : 0.6)
+                .animation(
+                    isConnected ? .none : .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
+                    value: ringPulse
+                )
             
-            Text(isConnected ? "Ready" : "Connecting...")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.8))
+            // Main badge
+            Circle()
+                .fill(.ultraThinMaterial.opacity(0.7))
+                .frame(width: 28, height: 28)
+                .overlay(
+                    Group {
+                        if isConnected {
+                            Circle()
+                                .fill(.green)
+                                .frame(width: 14, height: 14)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(.orange)
+                                .rotationEffect(.degrees(rotation))
+                                .animation(
+                                    .linear(duration: 2.0).repeatForever(autoreverses: false),
+                                    value: rotation
+                                )
+                        }
+                    }
+                )
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(.ultraThinMaterial, in: Capsule())
+        .onAppear {
+            ringPulse = 1.2
+            rotation = 360
+        }
     }
 }
 
