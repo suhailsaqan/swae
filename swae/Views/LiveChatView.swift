@@ -111,17 +111,6 @@ struct LiveChatView: View {
                     }
                 }
             }
-            .onChange(of: keyboardObserver.keyboardHeight) { _, keyboardHeight in
-                print("Keyboard height changed to: \(keyboardHeight)")
-//                if keyboardHeight > 0 && autoScrollEnabled {
-//                    // Small delay to ensure the view has adjusted to keyboard
-//                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-//                        withAnimation(.easeOut(duration: 0.3)) {
-//                            scrollProxy.scrollTo("chat_list_bottom", anchor: .bottom)
-//                        }
-//                    }
-//                }
-            }
         }
     }
     
