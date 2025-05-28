@@ -72,10 +72,6 @@ struct LiveChatView: View {
         .dismissKeyboardOnTap()
     }
     
-    private var chatInputBarHeight: CGFloat {
-        return 60 // Approximate height of the input bar
-    }
-    
     private var chatMessagesView: some View {
         ScrollViewReader { scrollProxy in
             ScrollView {
