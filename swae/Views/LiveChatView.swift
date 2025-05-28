@@ -47,9 +47,39 @@ struct LiveChatView: View {
     }
 
     var body: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                // Top header
+                topHeader
+                    .offset(y: hideTopBar ? -topHeaderHeight*2 : 0)
+                    .zIndex(1)
+                
+                // Chat messages
+                chatMessagesView
+                
+                // Chat input bar
+                chatInputBar
+            }
+            .padding(.bottom, keyboardObserver.keyboardHeight > 0 ? keyboardObserver.keyboardHeight : geometry.safeAreaInsets.bottom + max(20, geometry.safeAreaInsets.bottom / 2))
+            .animation(.easeOut(duration: 0.25), value: keyboardObserver.keyboardHeight)
+            .onAppear {
+                safeAreaInsets = geometry.safeAreaInsets
+                viewModel.appState = appState
+                subscribeToLiveChat()
+            }
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .dismissKeyboardOnTap()
+    }
+    
+    private var chatInputBarHeight: CGFloat {
+        return 60 // Approximate height of the input bar
+    }
+    
+    private var chatMessagesView: some View {
         ScrollViewReader { scrollProxy in
             ScrollView {
-                VStack(alignment: .leading) {
+                LazyVStack(alignment: .leading, spacing: 12) {
                     GeometryReader { geo in
                         Color.clear
                             .preference(
@@ -60,94 +90,136 @@ struct LiveChatView: View {
                     .frame(height: 0)
                     
                     ForEach(Array(liveChatMessages.enumerated()), id: \.offset) { index, message in
-                        HStack {
-                            ProfilePicView(pubkey: message.pubkey, size: 45, profile: appState.metadataEvents[message.pubkey]?.userMetadata)
-                            
-                            VStack(alignment: .leading) {
-                                ProfileNameView(publicKeyHex: message.pubkey)
-                                
-                                Text(message.content)
-                                    .padding(10)
-                                    .background(Color.gray.opacity(0.2))
-                                    .cornerRadius(8)
-                                    .id(index)
-                                    .onAppear {
-                                        if index == 0, hasMoreMessages, !isLoadingPage {
-                                            loadMoreMessages()
-                                        }
-                                    }
-                            }
-                        }
+                        chatMessageRow(message: message, index: index)
                     }
+                    
+                    // Spacer to ensure last message is visible above input
+                    Color.clear
+                        .frame(height: 20)
+                        .id("chat_list_bottom")
                 }
-                // A marker at the bottom for auto-scrolling.
-                EmptyView().id("chat_list_bottom")
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
             .scrollDismissesKeyboard(.interactively)
             .defaultScrollAnchor(.bottom)
             .coordinateSpace(name: "livechat_scroll")
             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { newOffset in
-                DispatchQueue.main.async {
-                    let delta = newOffset - lastScrollOffset
-                    if delta < -15 {
-                        // Scrolling down: show the top bar.
-                        hide_top_bar(false)
-                    } else if delta > 15 {
-                        // Pause autoscroll when user scrolls up
-                        autoScrollEnabled = false
-                        // Scrolling up: hide the top bar.
-                        hide_top_bar(true)
-                    }
-                    lastScrollOffset = newOffset
-                }
+                handleScrollOffset(newOffset)
             }
-            // Auto-scroll to the bottom when new messages arrive.
+            // Auto-scroll to the bottom when new messages arrive or keyboard appears
             .onChange(of: liveChatMessages) { _, messages in
-                if autoScrollEnabled,
-                   !isPaginating,
-                   let _ = messages.indices.last {
-                    withAnimation {
+                if autoScrollEnabled && !isPaginating && !messages.isEmpty {
+                    withAnimation(.easeOut(duration: 0.3)) {
                         scrollProxy.scrollTo("chat_list_bottom", anchor: .bottom)
                     }
                 }
             }
+            .onChange(of: keyboardObserver.keyboardHeight) { _, keyboardHeight in
+                print("Keyboard height changed to: \(keyboardHeight)")
+//                if keyboardHeight > 0 && autoScrollEnabled {
+//                    // Small delay to ensure the view has adjusted to keyboard
+//                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+//                        withAnimation(.easeOut(duration: 0.3)) {
+//                            scrollProxy.scrollTo("chat_list_bottom", anchor: .bottom)
+//                        }
+//                    }
+//                }
+            }
         }
-        .safeAreaInset(edge: .top) {
-            topHeader
-                .offset(y: hideTopBar ? -topHeaderHeight*2 : keyboardObserver.keyboardHeight>0 ?  -topHeaderHeight*2 : 0)
+    }
+    
+    private func chatMessageRow(message: LiveChatMessageEvent, index: Int) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ProfilePicView(
+                pubkey: message.pubkey,
+                size: 40,
+                profile: appState.metadataEvents[message.pubkey]?.userMetadata
+            )
+            
+            VStack(alignment: .leading, spacing: 4) {
+                ProfileNameView(publicKeyHex: message.pubkey)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(message.content)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .safeAreaInset(edge: .bottom) {
-            chatInputBar
-        }
+        .id(index)
         .onAppear {
-            viewModel.appState = appState
-            subscribeToLiveChat()
+            if index == 0, hasMoreMessages, !isLoadingPage {
+                loadMoreMessages()
+            }
         }
-        .dismissKeyboardOnTap()
+    }
+    
+    private func handleScrollOffset(_ newOffset: CGFloat) {
+        DispatchQueue.main.async {
+            let delta = newOffset - lastScrollOffset
+            if delta < -15 {
+                // Scrolling down: show the top bar.
+                hide_top_bar(false)
+            } else if delta > 15 {
+                // Pause autoscroll when user scrolls up
+                autoScrollEnabled = false
+                // Scrolling up: hide the top bar.
+                hide_top_bar(true)
+            }
+            lastScrollOffset = newOffset
+        }
     }
     
     private var chatInputBar: some View {
-        HStack {
-            TextField("Type a message...", text: $viewModel.messageText)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+        VStack(spacing: 0) {
+            // Subtle separator
+            Rectangle()
+                .fill(Color(.separator))
+                .frame(height: 0.5)
             
-            Button(action: {
-                if viewModel.saveLiveChatMessageEvent() {
-                    viewModel.messageText = ""
-                    autoScrollEnabled = true
+            HStack(spacing: 12) {
+                TextField("Type a message...", text: $viewModel.messageText, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(20)
+                    .lineLimit(1...4)
+                    .onSubmit {
+                        sendMessage()
+                    }
+                
+                Button(action: sendMessage) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(viewModel.messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?
+                                      Color(.systemGray4) : Color.purple)
+                        )
                 }
-            }) {
-                Image(systemName: "paperplane.fill")
-                    .foregroundColor(.white)
-                    .padding(8)
-                    .background(Color.purple)
-                    .clipShape(Circle())
+                .disabled(viewModel.messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(.regularMaterial)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
-        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: -2)
+        .ignoresSafeArea(.keyboard)
+    }
+    
+    private func sendMessage() {
+        guard !viewModel.messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        if viewModel.saveLiveChatMessageEvent() {
+            viewModel.messageText = ""
+            autoScrollEnabled = true
+        }
     }
     
     private var topHeader: some View {
@@ -159,37 +231,58 @@ struct LiveChatView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(liveActivitiesEvent.title ?? "no title")
                     .font(.body)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.primary)
                     .lineLimit(2)
                 
-                Text(liveActivitiesEvent.status == .ended ? "ENDED" : "LIVE")
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(liveActivitiesEvent.status == .ended ? Color.gray : Color.red)
+                        .frame(width: 8, height: 8)
+                    
+                    Text(liveActivitiesEvent.status == .ended ? "ENDED" : "LIVE")
+                        .font(.caption)
+                        .foregroundColor(liveActivitiesEvent.status == .ended ? .gray : .red)
+                        .fontWeight(.medium)
+                }
             }
-            .frame(maxWidth: .infinity,  alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             
             zapAmount
         }
         .frame(height: topHeaderHeight)
-        .padding(.horizontal, 5)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, 16)
+        .background(.regularMaterial)
+        .overlay(
+            Rectangle()
+                .fill(Color(.separator))
+                .frame(height: 0.5),
+            alignment: .bottom
+        )
     }
     
     private var zapAmount: some View {
-        HStack {
+        HStack(spacing: 4) {
             let coordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value ?? ""
             let zapAmount = (appState.eventZapTotals[coordinates] ?? 0) / 1000
             
+            Image(systemName: "bolt.fill")
+                .font(.caption)
+                .foregroundColor(.orange)
+            
             Text("\(zapAmount.formatted()) \(pluralize("sat", count: zapAmount))")
+                .font(.caption)
+                .fontWeight(.medium)
                 .foregroundColor(.orange)
         }
-        .padding()
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.orange.opacity(0.15))
+        .cornerRadius(8)
     }
     
     /// Call this method with `true` to slide the top bar offscreen, or `false` to reveal it.
     func hide_top_bar(_ shouldHide: Bool) {
-        withAnimation(.easeInOut(duration: 0.15)) {
+        withAnimation(.easeInOut(duration: 0.25)) {
             hideTopBar = shouldHide
         }
     }
@@ -202,7 +295,6 @@ struct LiveChatView: View {
         let coordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value ?? ""
         
         // Subscribe to incoming live chat messages.
-        // (Assume that appState.liveChatMessagesEvents[coordinates] is a full, chronologically sorted array.)
         appState.$liveChatMessagesEvents
             .map { $0[coordinates] ?? [] }
             .receive(on: DispatchQueue.main)
@@ -266,7 +358,7 @@ struct LiveChatView: View {
         }
         
         isLoadingPage = true
-        isPaginating = true  // Mark that we are paginating so auto-scroll won’t trigger.
+        isPaginating = true  // Mark that we are paginating so auto-scroll won't trigger.
         
         // Determine how many messages precede the current first (oldest) message.
         let remainingMessagesCount = currentFirstIndex // because allMessages is sorted oldest → newest
@@ -338,7 +430,6 @@ struct LiveChatView: View {
         return merged
     }
 }
-
 
 struct ScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
