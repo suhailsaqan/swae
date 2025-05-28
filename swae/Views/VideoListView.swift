@@ -48,35 +48,17 @@ struct VideoListView: View, MetadataCoding {
     
     
     var body: some View {
-//        NavigationStack {
-            customTabView()
-                .edgesIgnoringSafeArea([.bottom])
-                .onAppear {
-                    filteredEvents = events(timeTabFilter)
-                }
-                .onChange(of: appState.liveActivitiesEvents) { _, newValue in
-                    filteredEvents = events(timeTabFilter)
-                }
-                .onChange(of: timeTabFilter) { _, newValue in
-                    filteredEvents = events(newValue)
-                }
-            //            .searchable(text: $searchViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "search here")
-            //            .overlay {
-            //                if let currentItem = selectedEvent, showDetailPage {
-            //                    DetailView(item: currentItem)
-            ////                        .edgesIgnoringSafeArea([.bottom])
-            ////                        .ignoresSafeArea(.container, edges: orientationMonitor.isLandscape ? [.top, .bottom] : [.leading, .trailing])
-            //                }
-            //            }
-            //            .background(alignment: .top) {
-            //                Rectangle()
-            //                    .fill(Color(UIColor.systemBackground))
-            //                    .frame(height: animateView ? nil : 250, alignment: .top)
-            //                    .scaleEffect(animateView ? 1 : 0.93)
-            //                    .opacity(animateView ? 1 : 0)
-            //                    .ignoresSafeArea()
-            //            }
-//        }
+        customTabView()
+            .edgesIgnoringSafeArea([.bottom])
+            .onAppear {
+                filteredEvents = events(timeTabFilter)
+            }
+            .onChange(of: appState.liveActivitiesEvents) { _, newValue in
+                filteredEvents = events(timeTabFilter)
+            }
+            .onChange(of: timeTabFilter) { _, newValue in
+                filteredEvents = events(newValue)
+            }
     }
     
     /// Computes the total height of our top bar: safe area inset + content height.
@@ -93,8 +75,11 @@ struct VideoListView: View, MetadataCoding {
             TabView(selection: $selectedIndex) {
                 Text("hi")
                     .tag(0)
-                vidListView()
-                    .tag(1)
+                NavigationStack {
+                    vidListView()
+                        .navigationBarHidden(true)
+                }
+                .tag(1)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             .edgesIgnoringSafeArea([.top, .bottom])
