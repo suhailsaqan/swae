@@ -26,7 +26,7 @@ struct IngestView: View {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             }
             .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(.easeInOut(duration: 0.1)) {
                     isControlsVisible.toggle()
                 }
             }
@@ -43,14 +43,14 @@ struct IngestView: View {
             GeometryReader { geometry in
                 VStack {
                     TopControlBar(viewModel: viewModel)
-                        .padding(.top, geometry.safeAreaInsets.top + 10)
+                        .padding(.top, ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.top ?? 0) + 10)
                         .opacity(isControlsVisible ? 1 : 0)
                         .offset(y: isControlsVisible ? 0 : -100)
                     
                     Spacer()
                     
                     BottomControlBar(viewModel: viewModel, zoomFactor: $zoomFactor)
-                        .padding(.bottom, geometry.safeAreaInsets.bottom + 10)
+                        .padding(.bottom, ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom ?? 0) + 10)
                         .opacity(isControlsVisible ? 1 : 0)
                         .offset(y: isControlsVisible ? 0 : 100)
                 }
