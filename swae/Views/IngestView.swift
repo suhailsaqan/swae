@@ -38,7 +38,7 @@ struct IngestView: View {
             )
             .allowsHitTesting(false)
             .opacity(isControlsVisible ? 1 : 0)
-            .animation(.easeInOut(duration: 0.3), value: isControlsVisible)
+            .animation(.easeInOut(duration: 0.1), value: isControlsVisible)
 
             VStack {
                 TopControlBar(viewModel: viewModel)
