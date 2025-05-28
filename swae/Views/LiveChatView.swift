@@ -21,7 +21,7 @@ struct LiveChatView: View {
     // Create the view model as a StateObject.
     @StateObject private var viewModel: ViewModel
     
-    @ObservedObject private var keyboardObserver = KeyboardObserver()
+    // Remove the manual keyboard observer - we'll use SwiftUI's native handling
     @State private var safeAreaInsets = EdgeInsets()
     
     // Chat state
@@ -40,6 +40,11 @@ struct LiveChatView: View {
     
     @State private var pubkeysToPullMetadata = Set<String>()
     @State private var metadataPullCancellable: AnyCancellable?
+    
+    // Add keyboard tracking for smooth interactions
+    @State private var keyboardHeight: CGFloat = 0
+    @State private var isKeyboardVisible: Bool = false
+    @FocusState private var isTextFieldFocused: Bool
 
     init(liveActivitiesEvent: LiveActivitiesEvent) {
         self.liveActivitiesEvent = liveActivitiesEvent
@@ -48,24 +53,41 @@ struct LiveChatView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Top header
-                topHeader
-                    .offset(y: hideTopBar ? -topHeaderHeight*2 : 0)
-                    .zIndex(1)
+            ZStack(alignment: .bottom) {
+                // Main content
+                VStack(spacing: 0) {
+                    // Top header
+                    topHeader
+                        .offset(y: hideTopBar ? -topHeaderHeight*2 : 0)
+                        .zIndex(1)
+                    
+                    // Chat messages - adjust bottom padding for input bar
+                    chatMessagesView
+                        .clipped()
+                        .padding(.bottom, 60 + (keyboardHeight > 0 ? keyboardHeight : geometry.safeAreaInsets.bottom + 20))
+                        .animation(.easeInOut(duration: 0.25), value: keyboardHeight)
+                }
                 
-                // Chat messages
-                chatMessagesView
-                
-                // Chat input bar
-                chatInputBar
+                // Chat input bar with expanded tap area - positioned above keyboard or safe area
+                VStack(spacing: 0) {
+                    // Invisible tappable area above input bar
+                    Color.clear
+                        .frame(height: 20)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            focusTextField()
+                        }
+                    
+                    chatInputBar
+                }
+                .offset(y: keyboardHeight > 0 ? -keyboardHeight : -(geometry.safeAreaInsets.bottom + 20))
+                .animation(.easeInOut(duration: 0.25), value: keyboardHeight)
             }
-            .padding(.bottom, keyboardObserver.keyboardHeight > 0 ? keyboardObserver.keyboardHeight : geometry.safeAreaInsets.bottom + max(20, geometry.safeAreaInsets.bottom / 2))
-            .animation(.easeOut(duration: 0.25), value: keyboardObserver.keyboardHeight)
             .onAppear {
                 safeAreaInsets = geometry.safeAreaInsets
                 viewModel.appState = appState
                 subscribeToLiveChat()
+                setupKeyboardObserver()
             }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -90,6 +112,7 @@ struct LiveChatView: View {
                     }
                     
                     // Spacer to ensure last message is visible above input
+                    // Dynamic spacing based on keyboard state
                     Color.clear
                         .frame(height: 20)
                         .id("chat_list_bottom")
@@ -97,15 +120,28 @@ struct LiveChatView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
             }
+            // Key change: Use interactively dismiss mode for iMessage-like behavior
             .scrollDismissesKeyboard(.interactively)
             .defaultScrollAnchor(.bottom)
             .coordinateSpace(name: "livechat_scroll")
             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { newOffset in
                 handleScrollOffset(newOffset)
             }
-            // Auto-scroll to the bottom when new messages arrive or keyboard appears
+            // Smoother auto-scroll behavior
             .onChange(of: liveChatMessages) { _, messages in
                 if autoScrollEnabled && !isPaginating && !messages.isEmpty {
+                    // Use a slight delay to ensure layout is complete
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            scrollProxy.scrollTo("chat_list_bottom", anchor: .bottom)
+                        }
+                    }
+                }
+            }
+            // Re-enable auto-scroll when keyboard appears
+            .onChange(of: isKeyboardVisible) { _, visible in
+                if visible && !autoScrollEnabled {
+                    autoScrollEnabled = true
                     withAnimation(.easeOut(duration: 0.3)) {
                         scrollProxy.scrollTo("chat_list_bottom", anchor: .bottom)
                     }
@@ -146,13 +182,21 @@ struct LiveChatView: View {
     private func handleScrollOffset(_ newOffset: CGFloat) {
         DispatchQueue.main.async {
             let delta = newOffset - lastScrollOffset
-            if delta < -15 {
-                // Scrolling down: show the top bar.
+            let threshold: CGFloat = 15
+            
+            if delta < -threshold {
+                // Scrolling down: show the top bar, enable auto-scroll
                 hide_top_bar(false)
-            } else if delta > 15 {
-                // Pause autoscroll when user scrolls up
+                if !autoScrollEnabled {
+                    // Check if we're near the bottom to re-enable auto-scroll
+                    let isNearBottom = abs(newOffset) < 100 // Adjust threshold as needed
+                    if isNearBottom {
+                        autoScrollEnabled = true
+                    }
+                }
+            } else if delta > threshold {
+                // Scrolling up: disable auto-scroll, hide top bar
                 autoScrollEnabled = false
-                // Scrolling up: hide the top bar.
                 hide_top_bar(true)
             }
             lastScrollOffset = newOffset
@@ -174,6 +218,7 @@ struct LiveChatView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(20)
                     .lineLimit(1...4)
+                    .focused($isTextFieldFocused)
                     .onSubmit {
                         sendMessage()
                     }
@@ -195,7 +240,7 @@ struct LiveChatView: View {
             .padding(.vertical, 12)
             .background(.regularMaterial)
         }
-        .ignoresSafeArea(.keyboard)
+        .background(.regularMaterial)
     }
     
     private func sendMessage() {
@@ -205,6 +250,10 @@ struct LiveChatView: View {
             viewModel.messageText = ""
             autoScrollEnabled = true
         }
+    }
+    
+    private func focusTextField() {
+        isTextFieldFocused = true
     }
     
     private var topHeader: some View {
@@ -270,6 +319,31 @@ struct LiveChatView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             hideTopBar = shouldHide
         }
+    }
+    
+    // MARK: - Keyboard Observer Setup
+    
+    private func setupKeyboardObserver() {
+        let keyboardWillShow = NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+            .map { notification -> (CGFloat, Bool) in
+                guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
+                    return (0, false)
+                }
+                return (keyboardFrame.height, true)
+            }
+        
+        let keyboardWillHide = NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+            .map { _ in (CGFloat(0), false) }
+        
+        Publishers.Merge(keyboardWillShow, keyboardWillHide)
+            .receive(on: DispatchQueue.main)
+            .sink { (height, visible) in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self.keyboardHeight = height
+                    self.isKeyboardVisible = visible
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Live Chat Subscription and Pagination
