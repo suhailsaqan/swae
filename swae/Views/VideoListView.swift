@@ -48,7 +48,7 @@ struct VideoListView: View, MetadataCoding {
     
     
     var body: some View {
-        NavigationStack {
+//        NavigationStack {
             customTabView()
                 .edgesIgnoringSafeArea([.bottom])
                 .onAppear {
@@ -76,7 +76,7 @@ struct VideoListView: View, MetadataCoding {
             //                    .opacity(animateView ? 1 : 0)
             //                    .ignoresSafeArea()
             //            }
-        }
+//        }
     }
     
     /// Computes the total height of our top bar: safe area inset + content height.
