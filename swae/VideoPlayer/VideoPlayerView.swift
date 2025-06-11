@@ -122,12 +122,12 @@ struct VideoPlayerView: View {
                         }
                     }
                     .overlay(alignment: .bottomLeading) {
-                        SeekerThumbnailView(videoSize)
+                        SeekerThumbnailView(computedSize)
                             .offset(y: orientationMonitor.isLandscape ? -85 : -60)
                     }
                     .overlay(alignment: .bottom) {
-                        VideoSeekerView(videoSize)
-                            .offset(y: orientationMonitor.isLandscape ? -15 : 0)
+                        VideoSeekerView(computedSize)
+                            .offset(y: orientationMonitor.isLandscape ? -35 : 0)
                             .opacity(viewModel.showPlayerControls ? 1 : 0)
                     }
             } else {
@@ -273,6 +273,7 @@ struct VideoPlayerView: View {
         ZStack(alignment: .leading) {
             Rectangle()
                 .fill(.gray)
+                .frame(width: max(videoSize.width, 0))
 
             Rectangle()
                 .fill(.purple)
@@ -281,7 +282,7 @@ struct VideoPlayerView: View {
                         videoSize.width * (viewModel.progress.isFinite ? viewModel.progress : 0), 0)
                 )
         }
-        .frame(height: 3)
+        .frame(width: videoSize.width, height: 3)
         .overlay(alignment: .leading) {
             Circle()
                 .fill(.purple)
