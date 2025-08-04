@@ -53,7 +53,7 @@ struct ContentView: View {
                         let size = geometry.size
                         
                         if appState.playerConfig.showMiniPlayer {
-                            PlayerView(size: size, playerConfig: $appState.playerConfig) {
+                            StreamPlayerView(size: size, playerConfig: $appState.playerConfig) {
                                 withAnimation(.easeInOut(duration: 0.3), completionCriteria: .logicallyComplete) {
                                     appState.playerConfig.showMiniPlayer = false
                                 } completion: {
@@ -114,7 +114,7 @@ struct ContentView: View {
 //            }
                 
             if selected_tab == .live {
-                IngestView()
+                CameraMainView()
                     .setupTab(.live)
             }
             

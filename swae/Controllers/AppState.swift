@@ -776,13 +776,55 @@ extension AppState: EventVerifying, RelayDelegate {
         }
     }
     
+    func sendZap(to recipient: PublicKey, event: LiveActivitiesEvent, amount: Int64, message: String = "") {
+        guard let keypair = self.keypair else {
+            print("No keypair available for sending zap")
+            return
+        }
+        
+        guard let wallet = self.wallet else {
+            print("No wallet connected for sending zap")
+            return
+        }
+        
+        do {
+            // Create zap request using NostrSDK function
+            let zapRequestEvent = try zapRequest(
+                content: message,
+                recipient: recipient,
+                eventId: event.id,
+                relays: ["wss://relay.damus.io", "wss://nos.lol"],
+                amount: amount,
+                signedBy: keypair
+            )
+            
+            // Send the zap request
+            relayWritePool.send(event: zapRequestEvent)
+            print("Sent zap request: \(amount) sats to \(recipient.hex)")
+        } catch {
+            print("Failed to send zap request: \(error)")
+        }
+    }
+    
+    private func didReceiveZapRequestEvent(_ zapRequest: NostrEvent) {
+        // Handle incoming zap requests (for wallet integration)
+        print("Received zap request from \(zapRequest.pubkey.hex) for \(zapRequest.content)")
+        
+        // Here you could integrate with Lightning wallets to process the zap
+        // For now, we'll just log the request
+        DispatchQueue.main.async {
+            // You could show a notification or handle the zap request
+            // depending on your wallet integration
+        }
+    }
+    
     func subscribeToLiveChat(for event: LiveActivitiesEvent) {
         guard let eventCoordinate = event.replaceableEventCoordinates()?.tag.value,
               !liveChatSubscriptionCounts.values.contains(eventCoordinate) else { return }
         
         // Create filter with proper tag structure
         guard let filter = Filter(
-            kinds: [EventKind.liveChatMessage.rawValue, /*EventKind.zapRequest.rawValue,*/ EventKind.zapReceipt.rawValue],
+            kinds: [EventKind.liveChatMessage.rawValue, EventKind.zapRequest.rawValue, EventKind.zapReceipt.rawValue],
             tags: ["a": [eventCoordinate]],  // Note the array of arrays
             since: 0
         ) else {
@@ -945,6 +987,8 @@ extension AppState: EventVerifying, RelayDelegate {
             self.didReceiveLiveChatMessage(liveChatMessageEvent)
         case let zapReceiptEvent as LightningZapsReceiptEvent:
             self.didReceiveZapReceiptEvent(zapReceiptEvent)
+        case let zapRequestEvent as NostrEvent where zapRequestEvent.kind == EventKind.zapRequest.rawValue:
+            self.didReceiveZapRequestEvent(zapRequestEvent)
         case let deletionEvent as DeletionEvent:
             self.didReceiveDeletionEvent(deletionEvent)
         default:

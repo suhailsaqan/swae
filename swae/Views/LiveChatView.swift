@@ -45,6 +45,11 @@ struct LiveChatView: View {
     @State private var keyboardHeight: CGFloat = 0
     @State private var isKeyboardVisible: Bool = false
     @FocusState private var isTextFieldFocused: Bool
+    
+    // Zap functionality
+    @State private var showingZapSheet: Bool = false
+    @State private var zapAmount: String = ""
+    @State private var zapMessage: String = ""
 
     init(liveActivitiesEvent: LiveActivitiesEvent) {
         self.liveActivitiesEvent = liveActivitiesEvent
@@ -92,6 +97,14 @@ struct LiveChatView: View {
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .dismissKeyboardOnTap()
+        .sheet(isPresented: $showingZapSheet) {
+            ZapSheetView(
+                event: liveActivitiesEvent,
+                amount: $zapAmount,
+                message: $zapMessage,
+                onSendZap: sendZap
+            )
+        }
     }
     
     private var chatMessagesView: some View {
@@ -223,6 +236,18 @@ struct LiveChatView: View {
                         sendMessage()
                     }
                 
+                // Zap button
+                Button(action: showZapSheet) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(Color.orange)
+                        )
+                }
+                
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
                         .font(.system(size: 16, weight: .medium))
@@ -254,6 +279,33 @@ struct LiveChatView: View {
     
     private func focusTextField() {
         isTextFieldFocused = true
+    }
+    
+    private func showZapSheet() {
+        showingZapSheet = true
+    }
+    
+    private func sendZap() {
+        guard let amount = Int64(zapAmount), amount > 0 else { return }
+        
+        // Get the host's public key
+        guard let hostPubkey = liveActivitiesEvent.participants.first(where: { $0.role == "host" })?.pubkey else {
+            print("No host found for zap")
+            return
+        }
+        
+        // Actually send the zap
+        appState.sendZap(
+            to: hostPubkey,
+            event: liveActivitiesEvent,
+            amount: amount,
+            message: zapMessage
+        )
+        
+        // Reset form
+        zapAmount = ""
+        zapMessage = ""
+        showingZapSheet = false
     }
     
     private var topHeader: some View {
@@ -312,6 +364,10 @@ struct LiveChatView: View {
         .padding(.vertical, 4)
         .background(Color.orange.opacity(0.15))
         .cornerRadius(8)
+        .onTapGesture {
+            print("Zap amount tapped - coordinates: \(liveActivitiesEvent.replaceableEventCoordinates()?.tag.value ?? "none")")
+            print("Total zaps: \(appState.eventZapTotals)")
+        }
     }
     
     /// Call this method with `true` to slide the top bar offscreen, or `false` to reveal it.

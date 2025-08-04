@@ -11,7 +11,7 @@ import NostrSDK
 import Kingfisher
 //import KSPlayer
 
-struct PlayerView: View {
+struct StreamPlayerView: View {
     @EnvironmentObject var orientationMonitor: OrientationMonitor
     @EnvironmentObject var appState: AppState
     
