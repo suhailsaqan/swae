@@ -1,0 +1,361 @@
+import SwiftUI
+
+private struct PermissionsSettingsView: View {
+    @ObservedObject var permissions: SettingsChatBotPermissionsCommand
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Moderators", isOn: $permissions.moderatorsEnabled)
+                Toggle("Subscribers", isOn: $permissions.subscribersEnabled)
+                Picker("Minimum subscriber tier", selection: $permissions.minimumSubscriberTier) {
+                    ForEach([3, 2, 1], id: \.self) { tier in
+                        Text(String(tier))
+                    }
+                }
+                Toggle("Others", isOn: $permissions.othersEnabled)
+            } header: {
+                Text("Permissions")
+            }
+            Section {
+                Picker("Cooldown", selection: $permissions.cooldown) {
+                    Text("-- None --")
+                        .tag(nil as Int?)
+                    ForEach([1, 2, 3, 5, 10, 15, 30, 60], id: \.self) { cooldown in
+                        Text("\(cooldown)s")
+                            .tag(cooldown as Int?)
+                    }
+                }
+            } footer: {
+                Text("Does not apply to you and your moderators.")
+            }
+            Section {
+                Toggle("Send chat responses", isOn: $permissions.sendChatMessages)
+            } footer: {
+                Text(
+                    """
+                    Typically sends a chat message if the user is not allowed to execute the command. Some \
+                    commands responds on success as well.
+                    """)
+            }
+        }
+        .navigationTitle("Command")
+    }
+}
+
+private struct ChatBotCommandsSettingsView: View {
+    @EnvironmentObject var model: Model
+
+    private var permissions: SettingsChatBotPermissions {
+        model.database.chat.botCommandPermissions
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.fix)
+                } label: {
+                    Text("!swae obs fix")
+                }
+            } footer: {
+                Text("Fix OBS input.")
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.alert)
+                } label: {
+                    Text("!swae alert <name>")
+                }
+            } footer: {
+                Text("Trigger alerts. Configure alert names in alert widgets.")
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.fax)
+                } label: {
+                    Text("!swae fax <url>")
+                }
+            } footer: {
+                Text("Fax the streamer images.")
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.snapshot)
+                } label: {
+                    Text("!swae snapshot <optional message>")
+                }
+            } footer: {
+                Text("Take snapshot.")
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.reaction)
+                } label: {
+                    Text("!swae reaction <reaction>")
+                }
+            } footer: {
+                VStack(alignment: .leading) {
+                    Text("Perform Apple reaction.")
+                    Text("")
+                    Text("<reaction> is hearts, fireworks, balloons, confetti or lasers.")
+                }
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.filter)
+                } label: {
+                    Text("!swae filter <filter> <on/off>")
+                }
+            } footer: {
+                VStack(alignment: .leading) {
+                    Text("Turn a filter on or off.")
+                    Text("")
+                    Text("<filter> is movie, grayscale, sepia, triple, pixellate or 4:3.")
+                    Text("")
+                    Text("<on/off> is on or off.")
+                }
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.scene)
+                } label: {
+                    Text("!swae scene <name>")
+                }
+            } footer: {
+                Text("Switch to given scene.")
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.stream)
+                } label: {
+                    Text("!swae stream ...")
+                }
+            } footer: {
+                VStack(alignment: .leading) {
+                    Text("!swae stream title <title>")
+                    Text("Set stream title.")
+                    Text("")
+                    Text("!swae stream category <category name>")
+                    Text("Set stream category.")
+                }
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.widget)
+                } label: {
+                    Text("!swae widget <name> ...")
+                }
+            } footer: {
+                VStack(alignment: .leading) {
+                    Text("!swae widget <name> timer <number> add <seconds>")
+                    Text("Change timer value.")
+                }
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.map)
+                } label: {
+                    Text("!swae map zoom out")
+                }
+            } footer: {
+                Text("Zoom out map widget temporarily.")
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.tts)
+                } label: {
+                    Text("!swae tts/say ...")
+                }
+            } footer: {
+                VStack(alignment: .leading) {
+                    Text("!swae tts on")
+                    Text("Turn on chat text to speech.")
+                    Text("")
+                    Text("!swae tts off")
+                    Text("Turn off chat text to speech.")
+                    Text("")
+                    Text("!swae say <message>")
+                    Text("Say given message.")
+                }
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.audio)
+                } label: {
+                    Text("!swae mute/unmute")
+                }
+            } footer: {
+                VStack(alignment: .leading) {
+                    Text("!swae mute")
+                    Text("Mute audio.")
+                    Text("")
+                    Text("!swae unmute")
+                    Text("Unmute audio.")
+                }
+            }
+            Section {
+                NavigationLink {
+                    PermissionsSettingsView(permissions: permissions.tesla)
+                } label: {
+                    Text("!swae tesla ...")
+                }
+            } footer: {
+                VStack(alignment: .leading) {
+                    Text("!swae tesla trunk open")
+                    Text("Open the trunk.")
+                    Text("")
+                    Text("!swae tesla trunk close")
+                    Text("Close the trunk.")
+                    Text("")
+                    Text("!swae tesla media next")
+                    Text("Next track.")
+                    Text("")
+                    Text("!swae tesla media previous")
+                    Text("Previous track.")
+                    Text("")
+                    Text("!swae tesla media toggle-playback")
+                    Text("Toggle playback.")
+                }
+            }
+        }
+        .navigationTitle("Commands")
+    }
+}
+
+private struct ChatBotAliasSettingsView: View {
+    @ObservedObject var alias: SettingsChatBotAlias
+
+    private func onAliasChange(value: String) -> String? {
+        guard !value.isEmpty else {
+            return String(localized: "The alias must not be empty.")
+        }
+        guard value.starts(with: "!") else {
+            return String(localized: "The alias must start with !.")
+        }
+        guard value.count > 1 else {
+            return String(localized: "The alias is too short.")
+        }
+        guard !value.starts(with: "!swae") else {
+            return String(localized: "The alias must not start with !swae.")
+        }
+        guard value.split(separator: " ").count == 1 else {
+            return String(localized: "The alias must be exactly one word.")
+        }
+        return nil
+    }
+
+    private func onReplacementChange(value: String) -> String? {
+        guard !value.isEmpty else {
+            return String(localized: "The replacement must not be empty.")
+        }
+        guard value.starts(with: "!swae") else {
+            return String(localized: "The replacement must start with !swae.")
+        }
+        guard value.split(separator: " ").count > 1 else {
+            return String(localized: "The replacement must be more than one word.")
+        }
+        return nil
+    }
+
+    var body: some View {
+        NavigationLink {
+            Form {
+                Section {
+                    NavigationLink {
+                        TextEditView(
+                            title: String(localized: "Alias"), value: alias.alias,
+                            onChange: onAliasChange
+                        ) {
+                            alias.alias = $0
+                        }
+                    } label: {
+                        TextItemView(name: String(localized: "Alias"), value: alias.alias)
+                    }
+                    NavigationLink {
+                        TextEditView(
+                            title: String(localized: "Replacement"),
+                            value: alias.replacement,
+                            onChange: onReplacementChange
+                        ) {
+                            alias.replacement = $0
+                        }
+                    } label: {
+                        TextItemView(
+                            name: String(localized: "Replacement"), value: alias.replacement)
+                    }
+                }
+            }
+            .navigationTitle("Alias")
+        } label: {
+            HStack {
+                Text(alias.alias)
+                Spacer()
+                Text(alias.replacement)
+                    .lineLimit(1)
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+}
+
+private struct ChatBotAliasesSettingsView: View {
+    @ObservedObject var chat: SettingsChat
+
+    var body: some View {
+        Form {
+            Section {
+                List {
+                    ForEach(chat.aliases) { alias in
+                        ChatBotAliasSettingsView(alias: alias)
+                    }
+                    .onMove { froms, to in
+                        chat.aliases.move(fromOffsets: froms, toOffset: to)
+                    }
+                    .onDelete { offsets in
+                        chat.aliases.remove(atOffsets: offsets)
+                    }
+                }
+                CreateButtonView {
+                    chat.aliases.append(SettingsChatBotAlias())
+                }
+            }
+        }
+        .navigationTitle("Aliases")
+    }
+}
+
+struct ChatBotSettingsView: View {
+    @EnvironmentObject var model: Model
+
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink {
+                    ChatBotCommandsSettingsView()
+                } label: {
+                    Text("Commands")
+                }
+                NavigationLink {
+                    ChatBotAliasesSettingsView(chat: model.database.chat)
+                } label: {
+                    Text("Aliases")
+                }
+            }
+            Section {
+                Toggle(
+                    isOn: Binding(
+                        get: {
+                            model.database.chat.botSendLowBatteryWarning
+                        },
+                        set: { value in
+                            model.database.chat.botSendLowBatteryWarning = value
+                        }),
+                    label: {
+                        Text("Send low battery message")
+                    })
+            }
+        }
+        .navigationTitle("Bot")
+    }
+}
