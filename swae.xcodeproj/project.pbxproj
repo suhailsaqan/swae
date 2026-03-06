@@ -1,0 +1,1613 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		820A1AA42F458D1B00B872A1 /* simulator_camera_feed.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 820A1A952F458D1B00B872A1 /* simulator_camera_feed.mp4 */; };
+		821826A82F3DD7A5001AEC7B /* fallback_city.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 821826A62F3DD7A5001AEC7B /* fallback_city.ktx */; };
+		821826A92F3DD7A5001AEC7B /* earth_dark.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 821826A42F3DD7A5001AEC7B /* earth_dark.ktx */; };
+		821826AA2F3DD7A5001AEC7B /* earth_lights.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 821826A52F3DD7A5001AEC7B /* earth_lights.ktx */; };
+		8281910C2F517B0B0059F1EC /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 8281910B2F517B0B0059F1EC /* WebRTC */; };
+		828199072F517D3E0059F1EC /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 828199062F517D3E0059F1EC /* WebRTC */; };
+		BA2162272E54447700255D05 /* AlertToast in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162262E54447700255D05 /* AlertToast */; };
+		BA21622A2E5444B300255D05 /* AppleGPUInfo in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162292E5444B300255D05 /* AppleGPUInfo */; };
+		BA21622C2E5444B300255D05 /* gpuinfo in Frameworks */ = {isa = PBXBuildFile; productRef = BA21622B2E5444B300255D05 /* gpuinfo */; };
+		BA21622F2E5444D200255D05 /* BlackSharkLib in Frameworks */ = {isa = PBXBuildFile; productRef = BA21622E2E5444D200255D05 /* BlackSharkLib */; };
+		BA2162322E5444E900255D05 /* CrcSwift in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162312E5444E900255D05 /* CrcSwift */; };
+		BA2162432E54461200255D05 /* MetalPetal in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162422E54461200255D05 /* MetalPetal */; };
+		BA2162462E54468200255D05 /* NWWebSocket in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162452E54468200255D05 /* NWWebSocket */; };
+		BA2162492E5446BD00255D05 /* Rist in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162482E5446BD00255D05 /* Rist */; };
+		BA21624B2E5446BD00255D05 /* librist in Frameworks */ = {isa = PBXBuildFile; productRef = BA21624A2E5446BD00255D05 /* librist */; };
+		BA21624E2E5446DB00255D05 /* SDWebImage in Frameworks */ = {isa = PBXBuildFile; productRef = BA21624D2E5446DB00255D05 /* SDWebImage */; };
+		BA2162502E5446DB00255D05 /* SDWebImageMapKit in Frameworks */ = {isa = PBXBuildFile; productRef = BA21624F2E5446DB00255D05 /* SDWebImageMapKit */; };
+		BA2162532E54470500255D05 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162522E54470500255D05 /* SDWebImageSwiftUI */; };
+		BA2162562E54472600255D05 /* SDWebImageWebPCoder in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162552E54472600255D05 /* SDWebImageWebPCoder */; };
+		BA2162652E5447D200255D05 /* BitCollections in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162642E5447D200255D05 /* BitCollections */; };
+		BA2162672E5447D200255D05 /* Collections in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162662E5447D200255D05 /* Collections */; };
+		BA2162692E5447D200255D05 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162682E5447D200255D05 /* DequeModule */; };
+		BA21626B2E5447D200255D05 /* HashTreeCollections in Frameworks */ = {isa = PBXBuildFile; productRef = BA21626A2E5447D200255D05 /* HashTreeCollections */; };
+		BA21626D2E5447D200255D05 /* HeapModule in Frameworks */ = {isa = PBXBuildFile; productRef = BA21626C2E5447D200255D05 /* HeapModule */; };
+		BA2162772E544AFD00255D05 /* CryptoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162762E544AFD00255D05 /* CryptoSwift */; };
+		BA34E1752D7D013800FC97F0 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA34E1742D7D013800FC97F0 /* NostrSDK */; };
+		BA59D3852D7BE70000A66AB3 /* CodeScanner in Frameworks */ = {isa = PBXBuildFile; productRef = BA59D3842D7BE70000A66AB3 /* CodeScanner */; };
+		BA7A670A2E54587200ABBD73 /* CMSampleBuffer+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67012E54587200ABBD73 /* CMSampleBuffer+Extension.swift */; };
+		BA7A670B2E54587200ABBD73 /* CMBlockBuffer+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FF2E54587200ABBD73 /* CMBlockBuffer+Extension.swift */; };
+		BA7A670C2E54587200ABBD73 /* AVAudioPCMBuffer+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FE2E54587200ABBD73 /* AVAudioPCMBuffer+Extension.swift */; };
+		BA7A670D2E54587200ABBD73 /* ThermalStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67062E54587200ABBD73 /* ThermalStateView.swift */; };
+		BA7A670E2E54587200ABBD73 /* CMFormatDescription+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67002E54587200ABBD73 /* CMFormatDescription+Extension.swift */; };
+		BA7A670F2E54587200ABBD73 /* StreamOverlayTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67052E54587200ABBD73 /* StreamOverlayTextView.swift */; };
+		BA7A67102E54587200ABBD73 /* StreamOverlayIconAndTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67042E54587200ABBD73 /* StreamOverlayIconAndTextView.swift */; };
+		BA7A67112E54587200ABBD73 /* CommonUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67022E54587200ABBD73 /* CommonUtils.swift */; };
+		BA7A67122E54587200ABBD73 /* AudioLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FD2E54587200ABBD73 /* AudioLevel.swift */; };
+		BA7A67152E54594300ABBD73 /* VRMKit in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A67142E54594300ABBD73 /* VRMKit */; };
+		BA7A67172E54594300ABBD73 /* VRMSceneKit in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A67162E54594300ABBD73 /* VRMSceneKit */; };
+		BA7A671A2E5459A700ABBD73 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A67192E5459A700ABBD73 /* SwiftProtobuf */; };
+		BA7A671C2E5459A700ABBD73 /* SwiftProtobufPluginLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A671B2E5459A700ABBD73 /* SwiftProtobufPluginLibrary */; };
+		BA7A671E2E5459A700ABBD73 /* protoc-gen-swift in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A671D2E5459A700ABBD73 /* protoc-gen-swift */; };
+		BA7A67202E545A0000ABBD73 /* TrueTime in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A671F2E545A0000ABBD73 /* TrueTime */; };
+		BA7A67222E545A3300ABBD73 /* SwiftCube in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A67212E545A3300ABBD73 /* SwiftCube */; };
+		BA7A67242E545A7700ABBD73 /* WrappingHStack in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A67232E545A7700ABBD73 /* WrappingHStack */; };
+		BA7A67262E545AB700ABBD73 /* XMLCoder in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A67252E545AB700ABBD73 /* XMLCoder */; };
+		BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050B2D4560CA00B35D04 /* SwiftTrie */; };
+		BA8A050F2D45618000B35D04 /* Logboard in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050E2D45618000B35D04 /* Logboard */; };
+		BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = BABEA7CC2D4F164B0062668E /* Kingfisher */; };
+		BAFB46F32E56CB950045C5D3 /* Swae Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = BAFB46D32E56CB910045C5D3 /* Swae Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BAFB47212E5839DF0045C5D3 /* ReplayKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAFB47202E5839DE0045C5D3 /* ReplayKit.framework */; };
+		BAFB47372E5839DF0045C5D3 /* Swae Screen Recording.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BAFB471E2E5839DE0045C5D3 /* Swae Screen Recording.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BAFB474E2E583BB70045C5D3 /* Collections in Frameworks */ = {isa = PBXBuildFile; productRef = BAFB474D2E583BB70045C5D3 /* Collections */; };
+		BAFB474F2E583C230045C5D3 /* AudioLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FD2E54587200ABBD73 /* AudioLevel.swift */; };
+		BAFB47502E583C230045C5D3 /* AVAudioPCMBuffer+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FE2E54587200ABBD73 /* AVAudioPCMBuffer+Extension.swift */; };
+		BAFB47512E583C230045C5D3 /* CMBlockBuffer+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FF2E54587200ABBD73 /* CMBlockBuffer+Extension.swift */; };
+		BAFB47522E583C230045C5D3 /* CMFormatDescription+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67002E54587200ABBD73 /* CMFormatDescription+Extension.swift */; };
+		BAFB47532E583C230045C5D3 /* CMSampleBuffer+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67012E54587200ABBD73 /* CMSampleBuffer+Extension.swift */; };
+		BAFB47542E583C230045C5D3 /* CommonUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67022E54587200ABBD73 /* CommonUtils.swift */; };
+		BAFB47562E583CAF0045C5D3 /* WrappingHStack in Frameworks */ = {isa = PBXBuildFile; productRef = BAFB47552E583CAF0045C5D3 /* WrappingHStack */; };
+		BAFB47572E5849F80045C5D3 /* AudioLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FD2E54587200ABBD73 /* AudioLevel.swift */; };
+		BAFB47582E5849FC0045C5D3 /* CommonUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67022E54587200ABBD73 /* CommonUtils.swift */; };
+		BAFB47592E584A060045C5D3 /* CMBlockBuffer+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FF2E54587200ABBD73 /* CMBlockBuffer+Extension.swift */; };
+		BAFB475A2E584A150045C5D3 /* StreamOverlayIconAndTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67042E54587200ABBD73 /* StreamOverlayIconAndTextView.swift */; };
+		BAFB475B2E584A150045C5D3 /* StreamOverlayTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67052E54587200ABBD73 /* StreamOverlayTextView.swift */; };
+		BAFB475C2E584A150045C5D3 /* ThermalStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A67062E54587200ABBD73 /* ThermalStateView.swift */; };
+		BAFB475D2E584A440045C5D3 /* AVAudioPCMBuffer+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA7A66FE2E54587200ABBD73 /* AVAudioPCMBuffer+Extension.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BA8A03672D455F8800B35D04 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA8A034C2D455F8400B35D04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA8A03532D455F8400B35D04;
+			remoteInfo = swae;
+		};
+		BA8A03712D455F8900B35D04 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA8A034C2D455F8400B35D04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA8A03532D455F8400B35D04;
+			remoteInfo = swae;
+		};
+		BAFB46F12E56CB950045C5D3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA8A034C2D455F8400B35D04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BAFB46D22E56CB910045C5D3;
+			remoteInfo = "Swae Watch Watch App";
+		};
+		BAFB47352E5839DF0045C5D3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA8A034C2D455F8400B35D04 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BAFB471D2E5839DE0045C5D3;
+			remoteInfo = "Swae Screen Recording";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BAFB46F72E56CB950045C5D3 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				BAFB46F32E56CB950045C5D3 /* Swae Watch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAFB47402E5839E00045C5D3 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BAFB47372E5839DF0045C5D3 /* Swae Screen Recording.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		820A1A952F458D1B00B872A1 /* simulator_camera_feed.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = simulator_camera_feed.mp4; sourceTree = "<group>"; };
+		821826A42F3DD7A5001AEC7B /* earth_dark.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = earth_dark.ktx; sourceTree = "<group>"; };
+		821826A52F3DD7A5001AEC7B /* earth_lights.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = earth_lights.ktx; sourceTree = "<group>"; };
+		821826A62F3DD7A5001AEC7B /* fallback_city.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = fallback_city.ktx; sourceTree = "<group>"; };
+		BA7A66FD2E54587200ABBD73 /* AudioLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLevel.swift; sourceTree = "<group>"; };
+		BA7A66FE2E54587200ABBD73 /* AVAudioPCMBuffer+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AVAudioPCMBuffer+Extension.swift"; sourceTree = "<group>"; };
+		BA7A66FF2E54587200ABBD73 /* CMBlockBuffer+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMBlockBuffer+Extension.swift"; sourceTree = "<group>"; };
+		BA7A67002E54587200ABBD73 /* CMFormatDescription+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMFormatDescription+Extension.swift"; sourceTree = "<group>"; };
+		BA7A67012E54587200ABBD73 /* CMSampleBuffer+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMSampleBuffer+Extension.swift"; sourceTree = "<group>"; };
+		BA7A67022E54587200ABBD73 /* CommonUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonUtils.swift; sourceTree = "<group>"; };
+		BA7A67042E54587200ABBD73 /* StreamOverlayIconAndTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamOverlayIconAndTextView.swift; sourceTree = "<group>"; };
+		BA7A67052E54587200ABBD73 /* StreamOverlayTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamOverlayTextView.swift; sourceTree = "<group>"; };
+		BA7A67062E54587200ABBD73 /* ThermalStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalStateView.swift; sourceTree = "<group>"; };
+		BA8A03542D455F8400B35D04 /* swae.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = swae.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA8A03662D455F8800B35D04 /* swaeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swaeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA8A03702D455F8900B35D04 /* swaeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = swaeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BAFB46D32E56CB910045C5D3 /* Swae Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Swae Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BAFB471E2E5839DE0045C5D3 /* Swae Screen Recording.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Swae Screen Recording.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BAFB47202E5839DE0045C5D3 /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = System/Library/Frameworks/ReplayKit.framework; sourceTree = SDKROOT; };
+		BAFB472C2E5839DF0045C5D3 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		BABED9782D4F058B0043ED34 /* Exceptions for "swae" folder in "swae" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = BA8A03532D455F8400B35D04 /* swae */;
+		};
+		BAFB47192E582BC80045C5D3 /* Exceptions for "Swae Watch Watch App" folder in "swae" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/WatchProtocol.swift,
+				Shared/WatchSettings.swift,
+			);
+			target = BA8A03532D455F8400B35D04 /* swae */;
+		};
+		BAFB473F2E5839E00045C5D3 /* Exceptions for "Swae Screen Recording" folder in "Swae Screen Recording" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				Shared/SampleBufferReceiver.swift,
+			);
+			target = BAFB471D2E5839DE0045C5D3 /* Swae Screen Recording */;
+		};
+		BAFB474C2E583A840045C5D3 /* Exceptions for "Swae Screen Recording" folder in "swae" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/SampleBufferCommon.swift,
+				Shared/SampleBufferReceiver.swift,
+			);
+			target = BA8A03532D455F8400B35D04 /* swae */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		BA8A03562D455F8400B35D04 /* swae */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BABED9782D4F058B0043ED34 /* Exceptions for "swae" folder in "swae" target */,
+			);
+			path = swae;
+			sourceTree = "<group>";
+		};
+		BA8A03692D455F8800B35D04 /* swaeTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = swaeTests;
+			sourceTree = "<group>";
+		};
+		BA8A03732D455F8900B35D04 /* swaeUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = swaeUITests;
+			sourceTree = "<group>";
+		};
+		BAFB46D42E56CB910045C5D3 /* Swae Watch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BAFB47192E582BC80045C5D3 /* Exceptions for "Swae Watch Watch App" folder in "swae" target */,
+			);
+			path = "Swae Watch Watch App";
+			sourceTree = "<group>";
+		};
+		BAFB47222E5839DF0045C5D3 /* Swae Screen Recording */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BAFB474C2E583A840045C5D3 /* Exceptions for "Swae Screen Recording" folder in "swae" target */,
+				BAFB473F2E5839E00045C5D3 /* Exceptions for "Swae Screen Recording" folder in "Swae Screen Recording" target */,
+			);
+			path = "Swae Screen Recording";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BA8A03512D455F8400B35D04 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */,
+				BA7A67172E54594300ABBD73 /* VRMSceneKit in Frameworks */,
+				BA2162272E54447700255D05 /* AlertToast in Frameworks */,
+				BA21624E2E5446DB00255D05 /* SDWebImage in Frameworks */,
+				BA2162672E5447D200255D05 /* Collections in Frameworks */,
+				BA2162692E5447D200255D05 /* DequeModule in Frameworks */,
+				BA34E1752D7D013800FC97F0 /* NostrSDK in Frameworks */,
+				BA7A671E2E5459A700ABBD73 /* protoc-gen-swift in Frameworks */,
+				BA7A67242E545A7700ABBD73 /* WrappingHStack in Frameworks */,
+				BA21622F2E5444D200255D05 /* BlackSharkLib in Frameworks */,
+				8281910C2F517B0B0059F1EC /* WebRTC in Frameworks */,
+				BA2162532E54470500255D05 /* SDWebImageSwiftUI in Frameworks */,
+				828199072F517D3E0059F1EC /* WebRTC in Frameworks */,
+				BA8A050F2D45618000B35D04 /* Logboard in Frameworks */,
+				BA21626B2E5447D200255D05 /* HashTreeCollections in Frameworks */,
+				BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */,
+				BA2162322E5444E900255D05 /* CrcSwift in Frameworks */,
+				BA7A67202E545A0000ABBD73 /* TrueTime in Frameworks */,
+				BA7A671C2E5459A700ABBD73 /* SwiftProtobufPluginLibrary in Frameworks */,
+				BA21626D2E5447D200255D05 /* HeapModule in Frameworks */,
+				BA2162432E54461200255D05 /* MetalPetal in Frameworks */,
+				BA2162562E54472600255D05 /* SDWebImageWebPCoder in Frameworks */,
+				BA21624B2E5446BD00255D05 /* librist in Frameworks */,
+				BA21622C2E5444B300255D05 /* gpuinfo in Frameworks */,
+				BA7A67152E54594300ABBD73 /* VRMKit in Frameworks */,
+				BA7A67222E545A3300ABBD73 /* SwiftCube in Frameworks */,
+				BA2162772E544AFD00255D05 /* CryptoSwift in Frameworks */,
+				BA7A671A2E5459A700ABBD73 /* SwiftProtobuf in Frameworks */,
+				BA21622A2E5444B300255D05 /* AppleGPUInfo in Frameworks */,
+				BA7A67262E545AB700ABBD73 /* XMLCoder in Frameworks */,
+				BA2162502E5446DB00255D05 /* SDWebImageMapKit in Frameworks */,
+				BA2162652E5447D200255D05 /* BitCollections in Frameworks */,
+				BA59D3852D7BE70000A66AB3 /* CodeScanner in Frameworks */,
+				BA2162492E5446BD00255D05 /* Rist in Frameworks */,
+				BA2162462E54468200255D05 /* NWWebSocket in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA8A03632D455F8800B35D04 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA8A036D2D455F8900B35D04 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAFB46D02E56CB910045C5D3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BAFB47562E583CAF0045C5D3 /* WrappingHStack in Frameworks */,
+				BAFB474E2E583BB70045C5D3 /* Collections in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAFB471B2E5839DE0045C5D3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BAFB47212E5839DF0045C5D3 /* ReplayKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		821826A72F3DD7A5001AEC7B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				821826A42F3DD7A5001AEC7B /* earth_dark.ktx */,
+				821826A52F3DD7A5001AEC7B /* earth_lights.ktx */,
+				821826A62F3DD7A5001AEC7B /* fallback_city.ktx */,
+			);
+			name = Resources;
+			path = swae/Controllers/Onboarding/GlobeZoom/Resources;
+			sourceTree = "<group>";
+		};
+		BA7A67032E54587200ABBD73 /* Various */ = {
+			isa = PBXGroup;
+			children = (
+				BA7A66FD2E54587200ABBD73 /* AudioLevel.swift */,
+				BA7A66FE2E54587200ABBD73 /* AVAudioPCMBuffer+Extension.swift */,
+				BA7A66FF2E54587200ABBD73 /* CMBlockBuffer+Extension.swift */,
+				BA7A67002E54587200ABBD73 /* CMFormatDescription+Extension.swift */,
+				BA7A67012E54587200ABBD73 /* CMSampleBuffer+Extension.swift */,
+				BA7A67022E54587200ABBD73 /* CommonUtils.swift */,
+			);
+			path = Various;
+			sourceTree = "<group>";
+		};
+		BA7A67072E54587200ABBD73 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				BA7A67042E54587200ABBD73 /* StreamOverlayIconAndTextView.swift */,
+				BA7A67052E54587200ABBD73 /* StreamOverlayTextView.swift */,
+				BA7A67062E54587200ABBD73 /* ThermalStateView.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		BA7A67092E54587200ABBD73 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				BA7A67032E54587200ABBD73 /* Various */,
+				BA7A67072E54587200ABBD73 /* View */,
+			);
+			path = Common;
+			sourceTree = "<group>";
+		};
+		BA8A034B2D455F8400B35D04 = {
+			isa = PBXGroup;
+			children = (
+				BA7A67092E54587200ABBD73 /* Common */,
+				BA8A03562D455F8400B35D04 /* swae */,
+				BA8A03692D455F8800B35D04 /* swaeTests */,
+				BA8A03732D455F8900B35D04 /* swaeUITests */,
+				BAFB46D42E56CB910045C5D3 /* Swae Watch Watch App */,
+				BAFB47222E5839DF0045C5D3 /* Swae Screen Recording */,
+				BAFB471F2E5839DE0045C5D3 /* Frameworks */,
+				BA8A03552D455F8400B35D04 /* Products */,
+				821826A72F3DD7A5001AEC7B /* Resources */,
+				820A1A952F458D1B00B872A1 /* simulator_camera_feed.mp4 */,
+			);
+			sourceTree = "<group>";
+		};
+		BA8A03552D455F8400B35D04 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BA8A03542D455F8400B35D04 /* swae.app */,
+				BA8A03662D455F8800B35D04 /* swaeTests.xctest */,
+				BA8A03702D455F8900B35D04 /* swaeUITests.xctest */,
+				BAFB46D32E56CB910045C5D3 /* Swae Watch Watch App.app */,
+				BAFB471E2E5839DE0045C5D3 /* Swae Screen Recording.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BAFB471F2E5839DE0045C5D3 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BAFB47202E5839DE0045C5D3 /* ReplayKit.framework */,
+				BAFB472C2E5839DF0045C5D3 /* UIKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BA8A03532D455F8400B35D04 /* swae */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA8A037A2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swae" */;
+			buildPhases = (
+				BA8A03502D455F8400B35D04 /* Sources */,
+				BA8A03512D455F8400B35D04 /* Frameworks */,
+				BA8A03522D455F8400B35D04 /* Resources */,
+				BAFB46F72E56CB950045C5D3 /* Embed Watch Content */,
+				BAFB47402E5839E00045C5D3 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BAFB46F22E56CB950045C5D3 /* PBXTargetDependency */,
+				BAFB47362E5839DF0045C5D3 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BA8A03562D455F8400B35D04 /* swae */,
+			);
+			name = swae;
+			packageProductDependencies = (
+				BA8A050B2D4560CA00B35D04 /* SwiftTrie */,
+				BA8A050E2D45618000B35D04 /* Logboard */,
+				BABEA7CC2D4F164B0062668E /* Kingfisher */,
+				BA59D3842D7BE70000A66AB3 /* CodeScanner */,
+				BA34E1742D7D013800FC97F0 /* NostrSDK */,
+				BA2162262E54447700255D05 /* AlertToast */,
+				BA2162292E5444B300255D05 /* AppleGPUInfo */,
+				BA21622B2E5444B300255D05 /* gpuinfo */,
+				BA21622E2E5444D200255D05 /* BlackSharkLib */,
+				BA2162312E5444E900255D05 /* CrcSwift */,
+				BA2162422E54461200255D05 /* MetalPetal */,
+				BA2162452E54468200255D05 /* NWWebSocket */,
+				BA2162482E5446BD00255D05 /* Rist */,
+				BA21624A2E5446BD00255D05 /* librist */,
+				BA21624D2E5446DB00255D05 /* SDWebImage */,
+				BA21624F2E5446DB00255D05 /* SDWebImageMapKit */,
+				BA2162522E54470500255D05 /* SDWebImageSwiftUI */,
+				BA2162552E54472600255D05 /* SDWebImageWebPCoder */,
+				BA2162642E5447D200255D05 /* BitCollections */,
+				BA2162662E5447D200255D05 /* Collections */,
+				BA2162682E5447D200255D05 /* DequeModule */,
+				BA21626A2E5447D200255D05 /* HashTreeCollections */,
+				BA21626C2E5447D200255D05 /* HeapModule */,
+				BA2162762E544AFD00255D05 /* CryptoSwift */,
+				BA7A67142E54594300ABBD73 /* VRMKit */,
+				BA7A67162E54594300ABBD73 /* VRMSceneKit */,
+				BA7A67192E5459A700ABBD73 /* SwiftProtobuf */,
+				BA7A671B2E5459A700ABBD73 /* SwiftProtobufPluginLibrary */,
+				BA7A671D2E5459A700ABBD73 /* protoc-gen-swift */,
+				BA7A671F2E545A0000ABBD73 /* TrueTime */,
+				BA7A67212E545A3300ABBD73 /* SwiftCube */,
+				BA7A67232E545A7700ABBD73 /* WrappingHStack */,
+				BA7A67252E545AB700ABBD73 /* XMLCoder */,
+				8281910B2F517B0B0059F1EC /* WebRTC */,
+				828199062F517D3E0059F1EC /* WebRTC */,
+			);
+			productName = swae;
+			productReference = BA8A03542D455F8400B35D04 /* swae.app */;
+			productType = "com.apple.product-type.application";
+		};
+		BA8A03652D455F8800B35D04 /* swaeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA8A037D2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swaeTests" */;
+			buildPhases = (
+				BA8A03622D455F8800B35D04 /* Sources */,
+				BA8A03632D455F8800B35D04 /* Frameworks */,
+				BA8A03642D455F8800B35D04 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BA8A03682D455F8800B35D04 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BA8A03692D455F8800B35D04 /* swaeTests */,
+			);
+			name = swaeTests;
+			packageProductDependencies = (
+			);
+			productName = swaeTests;
+			productReference = BA8A03662D455F8800B35D04 /* swaeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		BA8A036F2D455F8900B35D04 /* swaeUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA8A03802D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swaeUITests" */;
+			buildPhases = (
+				BA8A036C2D455F8900B35D04 /* Sources */,
+				BA8A036D2D455F8900B35D04 /* Frameworks */,
+				BA8A036E2D455F8900B35D04 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BA8A03722D455F8900B35D04 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BA8A03732D455F8900B35D04 /* swaeUITests */,
+			);
+			name = swaeUITests;
+			packageProductDependencies = (
+			);
+			productName = swaeUITests;
+			productReference = BA8A03702D455F8900B35D04 /* swaeUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		BAFB46D22E56CB910045C5D3 /* Swae Watch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BAFB46F42E56CB950045C5D3 /* Build configuration list for PBXNativeTarget "Swae Watch Watch App" */;
+			buildPhases = (
+				BAFB46CF2E56CB910045C5D3 /* Sources */,
+				BAFB46D02E56CB910045C5D3 /* Frameworks */,
+				BAFB46D12E56CB910045C5D3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BAFB46D42E56CB910045C5D3 /* Swae Watch Watch App */,
+			);
+			name = "Swae Watch Watch App";
+			packageProductDependencies = (
+				BAFB474D2E583BB70045C5D3 /* Collections */,
+				BAFB47552E583CAF0045C5D3 /* WrappingHStack */,
+			);
+			productName = "Swae Watch Watch App";
+			productReference = BAFB46D32E56CB910045C5D3 /* Swae Watch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		BAFB471D2E5839DE0045C5D3 /* Swae Screen Recording */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BAFB473C2E5839E00045C5D3 /* Build configuration list for PBXNativeTarget "Swae Screen Recording" */;
+			buildPhases = (
+				BAFB471A2E5839DE0045C5D3 /* Sources */,
+				BAFB471B2E5839DE0045C5D3 /* Frameworks */,
+				BAFB471C2E5839DE0045C5D3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BAFB47222E5839DF0045C5D3 /* Swae Screen Recording */,
+			);
+			name = "Swae Screen Recording";
+			packageProductDependencies = (
+			);
+			productName = "Swae Screen Recording";
+			productReference = BAFB471E2E5839DE0045C5D3 /* Swae Screen Recording.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BA8A034C2D455F8400B35D04 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					BA8A03532D455F8400B35D04 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					BA8A03652D455F8800B35D04 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = BA8A03532D455F8400B35D04;
+					};
+					BA8A036F2D455F8900B35D04 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = BA8A03532D455F8400B35D04;
+					};
+					BAFB46D22E56CB910045C5D3 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					BAFB471D2E5839DE0045C5D3 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+				};
+			};
+			buildConfigurationList = BA8A034F2D455F8400B35D04 /* Build configuration list for PBXProject "swae" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = BA8A034B2D455F8400B35D04;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BA8A050A2D4560CA00B35D04 /* XCRemoteSwiftPackageReference "swift-trie" */,
+				BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */,
+				BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				BA59D3832D7BE70000A66AB3 /* XCRemoteSwiftPackageReference "CodeScanner" */,
+				BA34E1732D7D013800FC97F0 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */,
+				BA2162252E54447700255D05 /* XCRemoteSwiftPackageReference "AlertToast" */,
+				BA2162282E5444B300255D05 /* XCRemoteSwiftPackageReference "applegpuinfo" */,
+				BA21622D2E5444D200255D05 /* XCRemoteSwiftPackageReference "BlackSharkLib" */,
+				BA2162302E5444E900255D05 /* XCRemoteSwiftPackageReference "CrcSwift" */,
+				BA2162412E54461200255D05 /* XCRemoteSwiftPackageReference "MetalPetal" */,
+				BA2162442E54468200255D05 /* XCRemoteSwiftPackageReference "NWWebSocket" */,
+				BA2162472E5446BD00255D05 /* XCRemoteSwiftPackageReference "Rist" */,
+				BA21624C2E5446DB00255D05 /* XCRemoteSwiftPackageReference "SDWebImage" */,
+				BA2162512E54470500255D05 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
+				BA2162542E54472600255D05 /* XCRemoteSwiftPackageReference "SDWebImageWebPCoder" */,
+				BA2162632E5447D200255D05 /* XCRemoteSwiftPackageReference "swift-collections" */,
+				BA21626F2E54483700255D05 /* XCRemoteSwiftPackageReference "SwiftCube" */,
+				BA2162702E54485B00255D05 /* XCRemoteSwiftPackageReference "TrueTime" */,
+				BA2162722E5448CB00255D05 /* XCRemoteSwiftPackageReference "VRMKit" */,
+				BA2162732E5448F300255D05 /* XCRemoteSwiftPackageReference "WrappingHStack" */,
+				BA2162742E54491A00255D05 /* XCRemoteSwiftPackageReference "XMLCoder" */,
+				BA2162752E544AFD00255D05 /* XCRemoteSwiftPackageReference "CryptoSwift" */,
+				BA7A67182E5459A700ABBD73 /* XCRemoteSwiftPackageReference "swift-protobuf" */,
+				828199052F517D3E0059F1EC /* XCRemoteSwiftPackageReference "WebRTC" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = BA8A03552D455F8400B35D04 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BA8A03532D455F8400B35D04 /* swae */,
+				BA8A03652D455F8800B35D04 /* swaeTests */,
+				BA8A036F2D455F8900B35D04 /* swaeUITests */,
+				BAFB46D22E56CB910045C5D3 /* Swae Watch Watch App */,
+				BAFB471D2E5839DE0045C5D3 /* Swae Screen Recording */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BA8A03522D455F8400B35D04 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				820A1AA42F458D1B00B872A1 /* simulator_camera_feed.mp4 in Resources */,
+				821826A82F3DD7A5001AEC7B /* fallback_city.ktx in Resources */,
+				821826A92F3DD7A5001AEC7B /* earth_dark.ktx in Resources */,
+				821826AA2F3DD7A5001AEC7B /* earth_lights.ktx in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA8A03642D455F8800B35D04 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA8A036E2D455F8900B35D04 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAFB46D12E56CB910045C5D3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAFB471C2E5839DE0045C5D3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BA8A03502D455F8400B35D04 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA7A670A2E54587200ABBD73 /* CMSampleBuffer+Extension.swift in Sources */,
+				BA7A670B2E54587200ABBD73 /* CMBlockBuffer+Extension.swift in Sources */,
+				BA7A670C2E54587200ABBD73 /* AVAudioPCMBuffer+Extension.swift in Sources */,
+				BA7A670D2E54587200ABBD73 /* ThermalStateView.swift in Sources */,
+				BA7A670E2E54587200ABBD73 /* CMFormatDescription+Extension.swift in Sources */,
+				BA7A670F2E54587200ABBD73 /* StreamOverlayTextView.swift in Sources */,
+				BA7A67102E54587200ABBD73 /* StreamOverlayIconAndTextView.swift in Sources */,
+				BA7A67112E54587200ABBD73 /* CommonUtils.swift in Sources */,
+				BA7A67122E54587200ABBD73 /* AudioLevel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA8A03622D455F8800B35D04 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA8A036C2D455F8900B35D04 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAFB46CF2E56CB910045C5D3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BAFB475D2E584A440045C5D3 /* AVAudioPCMBuffer+Extension.swift in Sources */,
+				BAFB475A2E584A150045C5D3 /* StreamOverlayIconAndTextView.swift in Sources */,
+				BAFB475B2E584A150045C5D3 /* StreamOverlayTextView.swift in Sources */,
+				BAFB475C2E584A150045C5D3 /* ThermalStateView.swift in Sources */,
+				BAFB47592E584A060045C5D3 /* CMBlockBuffer+Extension.swift in Sources */,
+				BAFB47582E5849FC0045C5D3 /* CommonUtils.swift in Sources */,
+				BAFB47572E5849F80045C5D3 /* AudioLevel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAFB471A2E5839DE0045C5D3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BAFB474F2E583C230045C5D3 /* AudioLevel.swift in Sources */,
+				BAFB47502E583C230045C5D3 /* AVAudioPCMBuffer+Extension.swift in Sources */,
+				BAFB47512E583C230045C5D3 /* CMBlockBuffer+Extension.swift in Sources */,
+				BAFB47522E583C230045C5D3 /* CMFormatDescription+Extension.swift in Sources */,
+				BAFB47532E583C230045C5D3 /* CMSampleBuffer+Extension.swift in Sources */,
+				BAFB47542E583C230045C5D3 /* CommonUtils.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BA8A03682D455F8800B35D04 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA8A03532D455F8400B35D04 /* swae */;
+			targetProxy = BA8A03672D455F8800B35D04 /* PBXContainerItemProxy */;
+		};
+		BA8A03722D455F8900B35D04 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA8A03532D455F8400B35D04 /* swae */;
+			targetProxy = BA8A03712D455F8900B35D04 /* PBXContainerItemProxy */;
+		};
+		BAFB46F22E56CB950045C5D3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BAFB46D22E56CB910045C5D3 /* Swae Watch Watch App */;
+			targetProxy = BAFB46F12E56CB950045C5D3 /* PBXContainerItemProxy */;
+		};
+		BAFB47362E5839DF0045C5D3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BAFB471D2E5839DE0045C5D3 /* Swae Screen Recording */;
+			targetProxy = BAFB47352E5839DF0045C5D3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		BA8A03782D455F8900B35D04 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		BA8A03792D455F8900B35D04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		BA8A037B2D455F8900B35D04 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"swae/Preview Content\"";
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = "$(SRCROOT)/swae/VideoEffects/MetalPetal/**";
+				INFOPLIST_FILE = swae/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Swae;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Swae communicates with DJI cameras using Bluetooth.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "For live streaming";
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Swae uses localhost as input and output to SRT library.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app uses location to display your position on the map widget during streaming.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app uses location to display your position on the map widget during streaming.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "For live streaming";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Swae shows selected images as overlays.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Swae shows selected images as overlays.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Swae can add transcription to the stream.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeRight UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.swae;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BA8A037C2D455F8900B35D04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"swae/Preview Content\"";
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = "$(SRCROOT)/swae/VideoEffects/MetalPetal/**";
+				INFOPLIST_FILE = swae/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Swae;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Swae communicates with DJI cameras using Bluetooth.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "For live streaming";
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Swae uses localhost as input and output to SRT library.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This app uses location to display your position on the map widget during streaming.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This app uses location to display your position on the map widget during streaming.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "For live streaming";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Swae shows selected images as overlays.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Swae shows selected images as overlays.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Swae can add transcription to the stream.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeRight UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.swae;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BA8A037E2D455F8900B35D04 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swaeTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/swae.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/swae";
+			};
+			name = Debug;
+		};
+		BA8A037F2D455F8900B35D04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swaeTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/swae.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/swae";
+			};
+			name = Release;
+		};
+		BA8A03812D455F8900B35D04 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swaeUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = swae;
+			};
+			name = Debug;
+		};
+		BA8A03822D455F8900B35D04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.scwirl.swaeUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = swae;
+			};
+			name = Release;
+		};
+		BAFB46F52E56CB950045C5D3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Swae Watch";
+				INFOPLIST_KEY_CFBundleIconFiles = "icon-48.png icon-55.png icon-58.png icon-66.png icon-87.png icon-172.png icon-196.png icon-216.png icon-234.png icon-258.png logo-square.png";
+				INFOPLIST_KEY_CFBundleIconName = AppIcon;
+				INFOPLIST_KEY_NSCameraUsageDescription = Yes;
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = Yes;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = Yes;
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = Yes;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.suhail.swae;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.swae.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Debug;
+		};
+		BAFB46F62E56CB950045C5D3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Swae Watch";
+				INFOPLIST_KEY_CFBundleIconFiles = "icon-48.png icon-55.png icon-58.png icon-66.png icon-87.png icon-172.png icon-196.png icon-216.png icon-234.png icon-258.png logo-square.png";
+				INFOPLIST_KEY_CFBundleIconName = AppIcon;
+				INFOPLIST_KEY_NSCameraUsageDescription = Yes;
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Swae can show your heart rate on stream.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = Yes;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = Yes;
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = Yes;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.suhail.swae;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.suhail.swae.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.5;
+			};
+			name = Release;
+		};
+		BAFB473D2E5839E00045C5D3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Swae Screen Recording/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Swae Screen Recording";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.suhail.swae.Swae-Screen-Recording";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BAFB473E2E5839E00045C5D3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 57S869M9UN;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Swae Screen Recording/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Swae Screen Recording";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.suhail.swae.Swae-Screen-Recording";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BA8A034F2D455F8400B35D04 /* Build configuration list for PBXProject "swae" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA8A03782D455F8900B35D04 /* Debug */,
+				BA8A03792D455F8900B35D04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA8A037A2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swae" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA8A037B2D455F8900B35D04 /* Debug */,
+				BA8A037C2D455F8900B35D04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA8A037D2D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swaeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA8A037E2D455F8900B35D04 /* Debug */,
+				BA8A037F2D455F8900B35D04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA8A03802D455F8900B35D04 /* Build configuration list for PBXNativeTarget "swaeUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA8A03812D455F8900B35D04 /* Debug */,
+				BA8A03822D455F8900B35D04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BAFB46F42E56CB950045C5D3 /* Build configuration list for PBXNativeTarget "Swae Watch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BAFB46F52E56CB950045C5D3 /* Debug */,
+				BAFB46F62E56CB950045C5D3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BAFB473C2E5839E00045C5D3 /* Build configuration list for PBXNativeTarget "Swae Screen Recording" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BAFB473D2E5839E00045C5D3 /* Debug */,
+				BAFB473E2E5839E00045C5D3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		BA34E1732D7D013800FC97F0 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../nostr-sdk-ios";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		828199052F517D3E0059F1EC /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC";
+			requirement = {
+				kind = exactVersion;
+				version = 139.0.0;
+			};
+		};
+		BA2162252E54447700255D05 /* XCRemoteSwiftPackageReference "AlertToast" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/elai950/AlertToast.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+		BA2162282E5444B300255D05 /* XCRemoteSwiftPackageReference "applegpuinfo" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/philipturner/applegpuinfo";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		BA21622D2E5444D200255D05 /* XCRemoteSwiftPackageReference "BlackSharkLib" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Spillmaker/BlackSharkLib.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.1;
+			};
+		};
+		BA2162302E5444E900255D05 /* XCRemoteSwiftPackageReference "CrcSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ivanesik/CrcSwift.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+		BA2162412E54461200255D05 /* XCRemoteSwiftPackageReference "MetalPetal" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/eerimoq/MetalPetal";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+		BA2162442E54468200255D05 /* XCRemoteSwiftPackageReference "NWWebSocket" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/eerimoq/NWWebSocket";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		BA2162472E5446BD00255D05 /* XCRemoteSwiftPackageReference "Rist" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/eerimoq/Rist";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		BA21624C2E5446DB00255D05 /* XCRemoteSwiftPackageReference "SDWebImage" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SDWebImage/SDWebImage.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.21.1;
+			};
+		};
+		BA2162512E54470500255D05 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SDWebImage/SDWebImageSwiftUI.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.1;
+			};
+		};
+		BA2162542E54472600255D05 /* XCRemoteSwiftPackageReference "SDWebImageWebPCoder" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SDWebImage/SDWebImageWebPCoder";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.14.0;
+			};
+		};
+		BA2162632E5447D200255D05 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-collections.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		BA21626F2E54483700255D05 /* XCRemoteSwiftPackageReference "SwiftCube" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/eerimoq/SwiftCube";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		BA2162702E54485B00255D05 /* XCRemoteSwiftPackageReference "TrueTime" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Gisman4ik/TrueTime.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.2.0;
+			};
+		};
+		BA2162722E5448CB00255D05 /* XCRemoteSwiftPackageReference "VRMKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/eerimoq/VRMKit";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		BA2162732E5448F300255D05 /* XCRemoteSwiftPackageReference "WrappingHStack" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ksemianov/WrappingHStack";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.3;
+			};
+		};
+		BA2162742E54491A00255D05 /* XCRemoteSwiftPackageReference "XMLCoder" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CoreOffice/XMLCoder";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.17.1;
+			};
+		};
+		BA2162752E544AFD00255D05 /* XCRemoteSwiftPackageReference "CryptoSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/krzyzanowskim/CryptoSwift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.8.4;
+			};
+		};
+		BA59D3832D7BE70000A66AB3 /* XCRemoteSwiftPackageReference "CodeScanner" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/twostraws/CodeScanner.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.2;
+			};
+		};
+		BA7A67182E5459A700ABBD73 /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-protobuf.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.28.2;
+			};
+		};
+		BA8A050A2D4560CA00B35D04 /* XCRemoteSwiftPackageReference "swift-trie" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tyiu/swift-trie.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.2;
+			};
+		};
+		BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/shogo4405/Logboard.git";
+			requirement = {
+				kind = revision;
+				revision = 272976e1f3e8873e60ffe4b08fe50df48a93751b;
+			};
+		};
+		BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher";
+			requirement = {
+				kind = revision;
+				revision = fa3609d1975791c0a6e6f75a56dc20a957967769;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8281910B2F517B0B0059F1EC /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WebRTC;
+		};
+		828199062F517D3E0059F1EC /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 828199052F517D3E0059F1EC /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
+		};
+		BA2162262E54447700255D05 /* AlertToast */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162252E54447700255D05 /* XCRemoteSwiftPackageReference "AlertToast" */;
+			productName = AlertToast;
+		};
+		BA2162292E5444B300255D05 /* AppleGPUInfo */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162282E5444B300255D05 /* XCRemoteSwiftPackageReference "applegpuinfo" */;
+			productName = AppleGPUInfo;
+		};
+		BA21622B2E5444B300255D05 /* gpuinfo */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162282E5444B300255D05 /* XCRemoteSwiftPackageReference "applegpuinfo" */;
+			productName = gpuinfo;
+		};
+		BA21622E2E5444D200255D05 /* BlackSharkLib */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA21622D2E5444D200255D05 /* XCRemoteSwiftPackageReference "BlackSharkLib" */;
+			productName = BlackSharkLib;
+		};
+		BA2162312E5444E900255D05 /* CrcSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162302E5444E900255D05 /* XCRemoteSwiftPackageReference "CrcSwift" */;
+			productName = CrcSwift;
+		};
+		BA2162422E54461200255D05 /* MetalPetal */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162412E54461200255D05 /* XCRemoteSwiftPackageReference "MetalPetal" */;
+			productName = MetalPetal;
+		};
+		BA2162452E54468200255D05 /* NWWebSocket */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162442E54468200255D05 /* XCRemoteSwiftPackageReference "NWWebSocket" */;
+			productName = NWWebSocket;
+		};
+		BA2162482E5446BD00255D05 /* Rist */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162472E5446BD00255D05 /* XCRemoteSwiftPackageReference "Rist" */;
+			productName = Rist;
+		};
+		BA21624A2E5446BD00255D05 /* librist */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162472E5446BD00255D05 /* XCRemoteSwiftPackageReference "Rist" */;
+			productName = librist;
+		};
+		BA21624D2E5446DB00255D05 /* SDWebImage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA21624C2E5446DB00255D05 /* XCRemoteSwiftPackageReference "SDWebImage" */;
+			productName = SDWebImage;
+		};
+		BA21624F2E5446DB00255D05 /* SDWebImageMapKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA21624C2E5446DB00255D05 /* XCRemoteSwiftPackageReference "SDWebImage" */;
+			productName = SDWebImageMapKit;
+		};
+		BA2162522E54470500255D05 /* SDWebImageSwiftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162512E54470500255D05 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */;
+			productName = SDWebImageSwiftUI;
+		};
+		BA2162552E54472600255D05 /* SDWebImageWebPCoder */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162542E54472600255D05 /* XCRemoteSwiftPackageReference "SDWebImageWebPCoder" */;
+			productName = SDWebImageWebPCoder;
+		};
+		BA2162642E5447D200255D05 /* BitCollections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162632E5447D200255D05 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = BitCollections;
+		};
+		BA2162662E5447D200255D05 /* Collections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162632E5447D200255D05 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = Collections;
+		};
+		BA2162682E5447D200255D05 /* DequeModule */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162632E5447D200255D05 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = DequeModule;
+		};
+		BA21626A2E5447D200255D05 /* HashTreeCollections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162632E5447D200255D05 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = HashTreeCollections;
+		};
+		BA21626C2E5447D200255D05 /* HeapModule */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162632E5447D200255D05 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = HeapModule;
+		};
+		BA2162762E544AFD00255D05 /* CryptoSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162752E544AFD00255D05 /* XCRemoteSwiftPackageReference "CryptoSwift" */;
+			productName = CryptoSwift;
+		};
+		BA34E1742D7D013800FC97F0 /* NostrSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = NostrSDK;
+		};
+		BA59D3842D7BE70000A66AB3 /* CodeScanner */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA59D3832D7BE70000A66AB3 /* XCRemoteSwiftPackageReference "CodeScanner" */;
+			productName = CodeScanner;
+		};
+		BA7A67142E54594300ABBD73 /* VRMKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162722E5448CB00255D05 /* XCRemoteSwiftPackageReference "VRMKit" */;
+			productName = VRMKit;
+		};
+		BA7A67162E54594300ABBD73 /* VRMSceneKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162722E5448CB00255D05 /* XCRemoteSwiftPackageReference "VRMKit" */;
+			productName = VRMSceneKit;
+		};
+		BA7A67192E5459A700ABBD73 /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA7A67182E5459A700ABBD73 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		BA7A671B2E5459A700ABBD73 /* SwiftProtobufPluginLibrary */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA7A67182E5459A700ABBD73 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobufPluginLibrary;
+		};
+		BA7A671D2E5459A700ABBD73 /* protoc-gen-swift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA7A67182E5459A700ABBD73 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = "protoc-gen-swift";
+		};
+		BA7A671F2E545A0000ABBD73 /* TrueTime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162702E54485B00255D05 /* XCRemoteSwiftPackageReference "TrueTime" */;
+			productName = TrueTime;
+		};
+		BA7A67212E545A3300ABBD73 /* SwiftCube */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA21626F2E54483700255D05 /* XCRemoteSwiftPackageReference "SwiftCube" */;
+			productName = SwiftCube;
+		};
+		BA7A67232E545A7700ABBD73 /* WrappingHStack */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162732E5448F300255D05 /* XCRemoteSwiftPackageReference "WrappingHStack" */;
+			productName = WrappingHStack;
+		};
+		BA7A67252E545AB700ABBD73 /* XMLCoder */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162742E54491A00255D05 /* XCRemoteSwiftPackageReference "XMLCoder" */;
+			productName = XMLCoder;
+		};
+		BA8A050B2D4560CA00B35D04 /* SwiftTrie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA8A050A2D4560CA00B35D04 /* XCRemoteSwiftPackageReference "swift-trie" */;
+			productName = SwiftTrie;
+		};
+		BA8A050E2D45618000B35D04 /* Logboard */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */;
+			productName = Logboard;
+		};
+		BABEA7CC2D4F164B0062668E /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+		BAFB474D2E583BB70045C5D3 /* Collections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162632E5447D200255D05 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = Collections;
+		};
+		BAFB47552E583CAF0045C5D3 /* WrappingHStack */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA2162732E5448F300255D05 /* XCRemoteSwiftPackageReference "WrappingHStack" */;
+			productName = WrappingHStack;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = BA8A034C2D455F8400B35D04 /* Project object */;
+}
