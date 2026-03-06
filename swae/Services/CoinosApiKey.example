@@ -1,0 +1,9 @@
+//
+//  CoinosApiKey.swift
+//  swae
+//
+//  Copy this file to CoinosApiKey.swift and replace the placeholder with the real key.
+//  CoinosApiKey.swift is gitignored and will not be committed.
+//
+
+let coinosApiKey = "YOUR_API_KEY_HERE"
