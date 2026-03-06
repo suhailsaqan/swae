@@ -1,0 +1,111 @@
+# Xcode
+#
+# gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
+
+## Build generated
+build/
+DerivedData/
+
+## Various settings
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+
+## Other
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+## Obj-C/Swift specific
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+#
+# Add this line if you want to avoid checking in source code from Swift Package Manager dependencies.
+# Packages/
+# Package.pins
+# Package.resolved
+.build/
+
+# CocoaPods
+#
+# We recommend against adding the Pods directory to your .gitignore. However
+# you should judge for yourself, the pros and cons are mentioned at:
+# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
+#
+# Pods/
+
+# Carthage
+#
+# Add this line if you want to avoid checking in source code from Carthage dependencies.
+# Carthage/Checkouts
+
+Carthage/Build
+
+# fastlane
+#
+# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
+# screenshots whenever they are needed.
+# For more information about the recommended setup visit:
+# https://docs.fastlane.tools/best-practices/source-control/#source-control
+
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+.DS_Store
+
+# Secrets (API keys)
+swae/Services/CoinosApiKey.swift
+
+# Root-level development artifacts & textures
+BlackMarble_2016_01deg.jpg
+BlueMarbleNG-TB_2004-07.PNG
+earth_dark.ktx
+earth_dark.png
+earth_desat.png
+earth_lights.ktx
+earth_lights.png
+earth_lights_resized.png
+earth_resized.png
+fallback_city.ktx
+fallback_city.png
+fallback_city_height.png
+heightmap_raw.png
+manhattan_gray-0.png
+manhattan_gray-1.png
+manhattan_gray-2.png
+manhattan_gray.png
+manhattan_satellite.tiff
+person_raw.png
+person_topdown.png
+simulator_camera_feed.mp4
+swae-icon-1024x1024.png
+swae-particle-1600x400.png
+
+# Root-level scratch/reference files
+liquidglass.swift
+map_snapshot.swift
+VideoListViewController.backup.swift
+LiquidGlass-Doc.md
+Zap_Stream_API_Docs.md
+error.txt
+
+# Kiro/IDE/CI
+.kiro/
+.vscode/
+.github/
