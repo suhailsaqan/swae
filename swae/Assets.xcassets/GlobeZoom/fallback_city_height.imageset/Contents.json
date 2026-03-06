@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "fallback_city_height.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
