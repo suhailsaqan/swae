@@ -89,6 +89,7 @@ extension Model {
                 if coordinate != self.nostrChatBridgeCoordinate {
                     print("🔌 NostrChatBridge: Found live event, coordinate=\(coordinate)")
                     self.nostrChatBridgeCoordinate = coordinate
+                    self.nostrChatBridgeSessionStart = event.startsAt ?? event.createdDate
                     appState.subscribeToLiveChat(for: event)
                 }
             }
@@ -141,6 +142,7 @@ extension Model {
         }
         nostrChatBridgeCancellables.removeAll()
         nostrChatBridgeCoordinate = nil
+        nostrChatBridgeSessionStart = nil
     }
 
     /// Converts raw AppState events directly to NostrChatDisplayItems.
@@ -151,10 +153,25 @@ extension Model {
     ) {
         guard !nostrChatEffects.isEmpty else { return }
 
-        var displayItems: [NostrChatDisplayItem] = []
-        displayItems.reserveCapacity(messages.count + zaps.count)
+        // Client-side filter: only include messages from the current session.
+        // Defense in depth — the relay filter already uses `since`, but some
+        // relays may not fully respect it, or locally cached events may predate it.
+        let sessionStartEpoch: Int64 = {
+            guard let sessionStart = nostrChatBridgeSessionStart else { return 0 }
+            return max(0, Int64(sessionStart.timeIntervalSince1970) - 60)
+        }()
 
-        for msg in messages {
+        let filteredMessages = sessionStartEpoch > 0
+            ? messages.filter { $0.createdAt >= sessionStartEpoch }
+            : messages
+        let filteredZaps = sessionStartEpoch > 0
+            ? zaps.filter { $0.createdAt >= sessionStartEpoch }
+            : zaps
+
+        var displayItems: [NostrChatDisplayItem] = []
+        displayItems.reserveCapacity(filteredMessages.count + filteredZaps.count)
+
+        for msg in filteredMessages {
             // Extract NIP-30 custom emoji map from event tags
             let emojiMap: [String: URL] = {
                 var map: [String: URL] = [:]
@@ -173,7 +190,7 @@ extension Model {
             ))
         }
 
-        for zap in zaps {
+        for zap in filteredZaps {
             let senderPubkey = zap.zapSenderPubkey ?? zap.pubkey
             let zapAmount = parseZapAmount(from: zap)
             let zapMessage = zap.zapRequest?.content ?? ""
