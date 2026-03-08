@@ -116,6 +116,7 @@ class InlineWidgetsView: UIView {
         titleLabel.text = "WIDGETS"
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
         addSubview(titleLabel)
 
         // Hint label (one-time)
@@ -177,7 +178,7 @@ class InlineWidgetsView: UIView {
             backButton.heightAnchor.constraint(equalToConstant: 32),
 
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
             hintLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
             hintLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),

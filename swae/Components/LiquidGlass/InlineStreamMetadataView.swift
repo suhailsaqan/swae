@@ -58,6 +58,7 @@ class InlineStreamMetadataView: UIView {
         titleLabel.text = "STREAM DETAILS"
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
         addSubview(titleLabel)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -89,7 +90,7 @@ class InlineStreamMetadataView: UIView {
             backButton.heightAnchor.constraint(equalToConstant: 32),
 
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
             scrollView.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 8),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -143,7 +144,9 @@ class InlineStreamMetadataView: UIView {
         nsfwToggle.isOn = isNSFW
         publicToggle.isOn = isPublic
         protocolSegment.selectedSegmentIndex = preferredProtocol
-        updateButton.isHidden = !isLive
+        // Always show the Update button so the user explicitly confirms changes
+        updateButton.isHidden = false
+        updateButton.setTitle(isLive ? "Update" : "Save", for: .normal)
     }
 
     // MARK: - Row Builders
@@ -273,20 +276,37 @@ class InlineStreamMetadataView: UIView {
     // MARK: - Actions
 
     @objc private func backTapped() { onBack?() }
-    @objc private func titleChanged() { onTitleChanged?(titleField.text ?? "") }
-    @objc private func descChanged() { onDescriptionChanged?(descriptionField.text ?? "") }
-    @objc private func tagsChanged() { onTagsChanged?(tagsField.text ?? "") }
-    @objc private func nsfwChanged() { onNSFWChanged?(nsfwToggle.isOn) }
-    @objc private func publicChanged() { onPublicChanged?(publicToggle.isOn) }
-    @objc private func protocolChanged() { onProtocolChanged?(protocolSegment.selectedSegmentIndex) }
+
+    // Field change handlers are no-ops — edits stay local in the text fields
+    // until the user taps Save/Update.
+    @objc private func titleChanged() {}
+    @objc private func descChanged() {}
+    @objc private func tagsChanged() {}
+    @objc private func nsfwChanged() {}
+    @objc private func publicChanged() {}
+    @objc private func protocolChanged() {}
 
     @objc private func updateTapped() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+        // Commit all field values to the model at once
+        onTitleChanged?(titleField.text ?? "")
+        onDescriptionChanged?(descriptionField.text ?? "")
+        onTagsChanged?(tagsField.text ?? "")
+        onNSFWChanged?(nsfwToggle.isOn)
+        onPublicChanged?(publicToggle.isOn)
+        onProtocolChanged?(protocolSegment.selectedSegmentIndex)
+
+        // Push to server if live
+        onUpdateTapped?()
+
+        // Flash confirmation then navigate back
         let original = updateButton.backgroundColor
         UIView.animate(withDuration: 0.1, animations: { self.updateButton.backgroundColor = .white }) { _ in
-            UIView.animate(withDuration: 0.2) { self.updateButton.backgroundColor = original }
+            UIView.animate(withDuration: 0.2, animations: { self.updateButton.backgroundColor = original }) { _ in
+                self.onBack?()
+            }
         }
-        onUpdateTapped?()
     }
 }
 

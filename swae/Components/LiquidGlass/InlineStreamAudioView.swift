@@ -53,6 +53,7 @@ class InlineStreamAudioView: UIView {
         titleLabel.text = "AUDIO"
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
         addSubview(titleLabel)
 
         headerLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -97,7 +98,7 @@ class InlineStreamAudioView: UIView {
             backButton.heightAnchor.constraint(equalToConstant: 32),
 
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
             headerLabel.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 20),
             headerLabel.leadingAnchor.constraint(equalTo: leadingAnchor),

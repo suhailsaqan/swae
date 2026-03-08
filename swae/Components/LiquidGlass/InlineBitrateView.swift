@@ -43,6 +43,7 @@ class InlineBitrateView: UIView {
         titleLabel.text = "BITRATE"
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
         addSubview(titleLabel)
 
         containerStack.translatesAutoresizingMaskIntoConstraints = false
@@ -66,7 +67,7 @@ class InlineBitrateView: UIView {
             backButton.heightAnchor.constraint(equalToConstant: 32),
 
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
             containerStack.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 16),
             containerStack.leadingAnchor.constraint(equalTo: leadingAnchor),

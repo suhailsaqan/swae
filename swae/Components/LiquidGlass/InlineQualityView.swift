@@ -49,6 +49,7 @@ class InlineQualityView: UIView {
         titleLabel.text = "QUALITY"
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
         addSubview(titleLabel)
         
         // Pill grid (2×2, centered)
@@ -74,7 +75,7 @@ class InlineQualityView: UIView {
             backButton.heightAnchor.constraint(equalToConstant: 32),
             
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             
             pillStack.centerYAnchor.constraint(equalTo: centerYAnchor),
             pillStack.centerXAnchor.constraint(equalTo: centerXAnchor),

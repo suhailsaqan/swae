@@ -1,7 +1,7 @@
 import UIKit
 
 /// Inline scene configuration view — shows current scene's key settings
-class InlineSceneView: UIView {
+class InlineSceneView: UIView, UITextFieldDelegate {
 
     // MARK: - Data
 
@@ -21,14 +21,22 @@ class InlineSceneView: UIView {
     var onWidgetToggled: ((UUID, Bool) -> Void)?
     var onAddWidgetTapped: (() -> Void)?
     var onAddSceneTapped: (() -> Void)?
+    var onSceneRenamed: ((String) -> Void)?
 
     // MARK: - Views
 
     private let backButton = UIButton(type: .system)
     private let titleLabel = UILabel()
+    private let renameField = UITextField()
+    private var isRenaming = false
+    private var currentName = ""
     private let scrollView = UIScrollView()
     private let stack = UIStackView()
     private let addSceneButton = UIButton(type: .system)
+
+    // Dynamic scroll top constraints (swap when rename field is shown/hidden)
+    private var scrollTopToTitle: NSLayoutConstraint!
+    private var scrollTopToRenameField: NSLayoutConstraint!
 
     // MARK: - Init
 
@@ -57,7 +65,30 @@ class InlineSceneView: UIView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
+        titleLabel.isUserInteractionEnabled = true
+        titleLabel.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(titleTapped)))
         addSubview(titleLabel)
+
+        renameField.translatesAutoresizingMaskIntoConstraints = false
+        renameField.font = .systemFont(ofSize: 16, weight: .regular)
+        renameField.textColor = .white
+        renameField.backgroundColor = UIColor(white: 1.0, alpha: 0.1)
+        renameField.layer.cornerRadius = 12
+        renameField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 0))
+        renameField.leftViewMode = .always
+        renameField.rightView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 0))
+        renameField.rightViewMode = .always
+        renameField.returnKeyType = .done
+        renameField.delegate = self
+        renameField.autocorrectionType = .no
+        renameField.autocapitalizationType = .sentences
+        renameField.attributedPlaceholder = NSAttributedString(
+            string: "Scene name",
+            attributes: [.foregroundColor: UIColor(white: 1.0, alpha: 0.3)]
+        )
+        renameField.alpha = 0
+        addSubview(renameField)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.showsVerticalScrollIndicator = false
@@ -90,10 +121,20 @@ class InlineSceneView: UIView {
             backButton.heightAnchor.constraint(equalToConstant: 32),
 
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
-            scrollView.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 12),
+            renameField.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 8),
+            renameField.leadingAnchor.constraint(equalTo: leadingAnchor),
+            renameField.trailingAnchor.constraint(equalTo: trailingAnchor),
+            renameField.heightAnchor.constraint(equalToConstant: 44),
+        ])
+
+        // scrollView top depends on rename state — start anchored to backButton
+        scrollTopToTitle = scrollView.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 12)
+        scrollTopToRenameField = scrollView.topAnchor.constraint(equalTo: renameField.bottomAnchor, constant: 8)
+        scrollTopToTitle.isActive = true
+
+        NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: addSceneButton.topAnchor, constant: -8),
@@ -114,7 +155,9 @@ class InlineSceneView: UIView {
     // MARK: - Public
 
     func configure(data: SceneData) {
-        titleLabel.text = "SCENE: \(data.name.uppercased())"
+        currentName = data.name
+        titleLabel.text = "\(data.name.uppercased())"
+        hideRenameField(animated: false)
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         // Camera row (tappable)
@@ -268,7 +311,67 @@ class InlineSceneView: UIView {
 
     // MARK: - Actions
 
-    @objc private func backTapped() { onBack?() }
+    @objc private func backTapped() {
+        commitRenameIfNeeded()
+        onBack?()
+    }
     @objc private func addWidgetTapped() { onAddWidgetTapped?() }
     @objc private func addSceneTapped() { onAddSceneTapped?() }
+
+    // MARK: - Inline Rename
+
+    @objc private func titleTapped() {
+        showRenameField()
+    }
+
+    private func showRenameField() {
+        guard !isRenaming else { return }
+        isRenaming = true
+        renameField.text = currentName
+
+        scrollTopToTitle.isActive = false
+        scrollTopToRenameField.isActive = true
+
+        UIView.animate(withDuration: 0.25) {
+            self.renameField.alpha = 1
+            self.layoutIfNeeded()
+        } completion: { _ in
+            self.renameField.becomeFirstResponder()
+        }
+    }
+
+    private func hideRenameField(animated: Bool) {
+        isRenaming = false
+        renameField.resignFirstResponder()
+
+        scrollTopToRenameField.isActive = false
+        scrollTopToTitle.isActive = true
+
+        if animated {
+            UIView.animate(withDuration: 0.25) {
+                self.renameField.alpha = 0
+                self.layoutIfNeeded()
+            }
+        } else {
+            renameField.alpha = 0
+        }
+    }
+
+    private func commitRenameIfNeeded() {
+        guard isRenaming else { return }
+        let newName = (renameField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !newName.isEmpty && newName != currentName {
+            currentName = newName
+            titleLabel.text = "\(newName.uppercased())"
+            onSceneRenamed?(newName)
+        }
+        hideRenameField(animated: true)
+    }
+
+    // MARK: - UITextFieldDelegate
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        commitRenameIfNeeded()
+        return true
+    }
 }

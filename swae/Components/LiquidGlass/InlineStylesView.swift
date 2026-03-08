@@ -53,6 +53,7 @@ class InlineStylesView: UIView {
         titleLabel.text = "STYLES"
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
         addSubview(titleLabel)
         
         // Vertical scroll view for wrapping pills
@@ -76,7 +77,7 @@ class InlineStylesView: UIView {
             backButton.heightAnchor.constraint(equalToConstant: 32),
             
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             
             scrollView.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 20),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),

@@ -85,6 +85,7 @@ class InlineCollabInviteView: UIView, UITextFieldDelegate, UITableViewDataSource
         titleLabel.text = "INVITE GUEST"
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
         addSubview(titleLabel)
 
         // Spinner
@@ -146,7 +147,7 @@ class InlineCollabInviteView: UIView, UITextFieldDelegate, UITableViewDataSource
             backButton.heightAnchor.constraint(equalToConstant: 32),
 
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
             spinnerView.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             spinnerView.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),

@@ -351,6 +351,11 @@ class MorphingGlassModal: UIView {
         set { expandedContent.onSceneAddSceneTapped = newValue }
     }
 
+    var onSceneRenamed: ((String) -> Void)? {
+        get { expandedContent.onSceneRenamed }
+        set { expandedContent.onSceneRenamed = newValue }
+    }
+
     var onCreateScene: ((String, String) -> Void)? {
         get { expandedContent.onCreateScene }
         set { expandedContent.onCreateScene = newValue }

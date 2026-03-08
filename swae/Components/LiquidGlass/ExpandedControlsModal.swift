@@ -143,6 +143,7 @@ class ExpandedControlsModal: UIView {
     var onSceneMicTapped: (() -> Void)?
     var onSceneMicSelected: ((String) -> Void)?
     var onSceneAddSceneTapped: (() -> Void)?
+    var onSceneRenamed: ((String) -> Void)?
     var onCreateScene: ((String, String) -> Void)?  // (name, cameraId)
     var onCreateSceneFullConfig: (() -> Void)?
 
@@ -236,6 +237,11 @@ class ExpandedControlsModal: UIView {
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = .clear
+
+        // Tap anywhere outside a text field to dismiss the keyboard
+        let dismissTap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        dismissTap.cancelsTouchesInView = false
+        addGestureRecognizer(dismissTap)
 
         // Home indicator at top
         homeIndicator.translatesAutoresizingMaskIntoConstraints = false
@@ -426,6 +432,7 @@ class ExpandedControlsModal: UIView {
     @objc private func widgetsTapped() { onWidgetsTapped?() }
     @objc private func micCardTapped() { onMicCardTapped?() }
     @objc private func sceneButtonTapped() { onSceneButtonTapped?() }
+    @objc private func dismissKeyboard() { endEditing(true) }
 
     // MARK: - State Updates
 
@@ -641,6 +648,7 @@ class ExpandedControlsModal: UIView {
                 sv.onCameraTapped = { [weak self] in self?.onSceneCameraTapped?() }
                 sv.onMicTapped = { [weak self] in self?.onSceneMicTapped?() }
                 sv.onAddSceneTapped = { [weak self] in self?.onSceneAddSceneTapped?() }
+                sv.onSceneRenamed = { [weak self] name in self?.onSceneRenamed?(name) }
                 addSubview(sv)
                 pinInlineView(sv)
                 sceneView = sv

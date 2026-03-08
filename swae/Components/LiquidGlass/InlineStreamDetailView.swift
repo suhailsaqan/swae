@@ -167,6 +167,7 @@ class InlineStreamDetailView: UIView {
         titleLabel.text = "STREAM INFO"
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = UIColor(white: 1.0, alpha: 0.88)
+        titleLabel.textAlignment = .center
         addSubview(titleLabel)
 
         // Scroll view
@@ -222,8 +223,7 @@ class InlineStreamDetailView: UIView {
             backButton.heightAnchor.constraint(equalToConstant: 32),
 
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 4),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
 
             scrollView.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 8),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -690,8 +690,9 @@ class InlineStreamDetailView: UIView {
         bitrateValueLabel.textColor = data.bitrateColor
         viewerValueLabel.text = data.viewerCount
 
-        // Bottom buttons: show Update when live + zap stream
-        updateButton.isHidden = !(data.isLive && data.isZapStream)
+        // Bottom buttons: show Update/Save when zap stream is enabled
+        updateButton.isHidden = !data.isZapStream
+        updateButton.setTitle(data.isLive ? "Update" : "Save", for: .normal)
 
         // Navigation rows
         // Stream Details row: only for Zap Stream
