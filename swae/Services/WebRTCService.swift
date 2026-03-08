@@ -233,9 +233,6 @@ final class WebRTCService: NSObject {
                 // Flush any ICE candidates that arrived before the remote description
                 let pending = self.pendingIceCandidates
                 self.pendingIceCandidates.removeAll()
-                if !pending.isEmpty {
-                    print("🔔 [PIP] Flushing \(pending.count) queued ICE candidates")
-                }
                 for candidate in pending {
                     self.peerConnection?.add(candidate) { error in
                         if let error {
@@ -254,7 +251,6 @@ final class WebRTCService: NSObject {
         } else {
             // Queue until remote description is set
             pendingIceCandidates.append(candidate)
-            print("🔔 [PIP] Queued ICE candidate (no remote description yet), queue size=\(pendingIceCandidates.count)")
             completion(nil)
         }
     }
@@ -581,12 +577,6 @@ final class VideoUnitBridgeCapturer: RTCVideoCapturer {
             lastWidth = w
             lastHeight = h
             videoSource.adaptOutputFormat(toWidth: 1280, height: 720, fps: 30)
-            print("🔔 [PIP] Frame dimensions changed to \(w)x\(h) — re-adapted to 1280x720")
-        }
-
-        // Log first few frames and periodically for diagnostics
-        if frameCount <= 5 * frameSkip || frameCount % (50 * frameSkip) == 0 {
-            print("🔔 [PIP] BridgeCapturer.pushFrame #\(frameCount) — \(w)x\(h), ts=\(String(format: "%.3f", timestamp.seconds))")
         }
 
         let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
