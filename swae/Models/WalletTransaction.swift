@@ -19,6 +19,41 @@ struct WalletTransaction: Identifiable, Hashable {
     let settledAt: Int64?
     let expiresAt: Int64?
 
+    // Enriched zap data (populated when transaction is identified as a zap)
+    let senderPubkey: String?
+    let recipientPubkey: String?
+    let zapMessage: String?
+    let zappedEventId: String?
+    let zappedEventCoordinate: String?
+    let bolt11Invoice: String?
+    let isZap: Bool
+
+    init(id: String, type: TransactionType, amount: Int64, description: String?,
+         createdAt: Int64, paymentHash: String?, preimage: String?,
+         feesPaid: Int64?, settledAt: Int64?, expiresAt: Int64?,
+         senderPubkey: String? = nil, recipientPubkey: String? = nil,
+         zapMessage: String? = nil, zappedEventId: String? = nil,
+         zappedEventCoordinate: String? = nil, bolt11Invoice: String? = nil,
+         isZap: Bool = false) {
+        self.id = id
+        self.type = type
+        self.amount = amount
+        self.description = description
+        self.createdAt = createdAt
+        self.paymentHash = paymentHash
+        self.preimage = preimage
+        self.feesPaid = feesPaid
+        self.settledAt = settledAt
+        self.expiresAt = expiresAt
+        self.senderPubkey = senderPubkey
+        self.recipientPubkey = recipientPubkey
+        self.zapMessage = zapMessage
+        self.zappedEventId = zappedEventId
+        self.zappedEventCoordinate = zappedEventCoordinate
+        self.bolt11Invoice = bolt11Invoice
+        self.isZap = isZap
+    }
+
     enum TransactionType: String, CaseIterable {
         case incoming = "incoming"
         case outgoing = "outgoing"
@@ -69,9 +104,19 @@ struct WalletTransaction: Identifiable, Hashable {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
+    var counterpartyPubkey: String? {
+        isIncoming ? senderPubkey : recipientPubkey
+    }
+
     var displayDescription: String {
+        if let zapMessage = zapMessage, !zapMessage.isEmpty {
+            return zapMessage
+        }
         if let description = description, !description.isEmpty {
             return description
+        }
+        if isZap {
+            return isIncoming ? "Received Zap" : "Sent Zap"
         }
         return isIncoming ? "Received" : "Sent"
     }
