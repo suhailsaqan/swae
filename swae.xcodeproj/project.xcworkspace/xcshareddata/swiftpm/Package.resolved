@@ -1,5 +1,5 @@
 {
-  "originHash" : "009c0beed05490997de8228fe3a4f4459dfda0d8b25841045e10cae2f2909156",
+  "originHash" : "7c330bcc968459eb803be28d1b2b7038c67049c7476a6f5e9edb6697c9936a2d",
   "pins" : [
     {
       "identity" : "alerttoast",
@@ -87,6 +87,15 @@
       "location" : "https://github.com/shogo4405/Logboard.git",
       "state" : {
         "revision" : "272976e1f3e8873e60ffe4b08fe50df48a93751b"
+      }
+    },
+    {
+      "identity" : "meta-wearables-dat-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/facebook/meta-wearables-dat-ios.git",
+      "state" : {
+        "revision" : "b67454b6f081373f757476ecb3b4973bf33bc326",
+        "version" : "0.4.0"
       }
     },
     {

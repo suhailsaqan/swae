@@ -42,6 +42,7 @@ let builtinFrontCameraId = UUID(uuidString: "00000000-cafe-dead-beef-00000000000
 let externalCameraId = UUID(uuidString: "00000000-cafe-dead-beef-000000000002")!
 let noneCamera = "None"
 let screenCaptureCamera = "Screen capture"
+let metaGlassesCamera = "Meta Glasses"
 private let backTripleLowEnergyCamera = "Back Triple (low power)"
 private let backDualLowEnergyCamera = "Back Dual (low power)"
 private let backWideDualLowEnergyCamera = "Back Wide dual (low power)"
@@ -511,6 +512,7 @@ extension Model {
             ($0.0.uuidString, $0.1)
         }
         cameras.append((screenCaptureCamera, screenCaptureCamera))
+        cameras.append((metaGlassesCamera, metaGlassesCamera))
         cameras.append((noneCamera, noneCamera))
         return cameras
     }
@@ -568,6 +570,8 @@ extension Model {
             return .front(id: cameraId)
         } else if isScreenCaptureCamera(cameraId: cameraId) {
             return .screenCapture
+        } else if isMetaGlassesCamera(cameraId: cameraId) {
+            return .metaGlasses
         } else if isBackTripleLowEnergyAutoCamera(cameraId: cameraId) {
             return .backTripleLowEnergy
         } else if isBackDualLowEnergyAutoCamera(cameraId: cameraId) {
@@ -604,6 +608,8 @@ extension Model {
             return id
         case .screenCapture:
             return screenCaptureCamera
+        case .metaGlasses:
+            return metaGlassesCamera
         case .backTripleLowEnergy:
             return backTripleLowEnergyCamera
         case .backDualLowEnergy:
@@ -666,6 +672,8 @@ extension Model {
             }
         case .screenCapture:
             return screenCaptureCamera
+        case .metaGlasses:
+            return metaGlassesCamera
         case .backTripleLowEnergy:
             return backTripleLowEnergyCamera
         case .backDualLowEnergy:
@@ -780,6 +788,8 @@ extension Model {
             return id
         case .screenCapture:
             return screenCaptureCameraId
+        case .metaGlasses:
+            return metaGlassesCameraId
         case let .back(id: id):
             return getBuiltinCameraId(id)
         case let .front(id: id):

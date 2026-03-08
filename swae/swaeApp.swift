@@ -127,7 +127,17 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate {
             }
         }
 
-        // Handle deep links
+        // Handle deep links — check for Meta Wearables callback first
+        for context in connectionOptions.urlContexts {
+            if let components = URLComponents(url: context.url, resolvingAgainstBaseURL: false),
+               components.queryItems?.contains(where: { $0.name == "metaWearablesAction" }) == true
+            {
+                Task {
+                    await AppCoordinator.shared.model.metaGlassesManager?.handleUrl(context.url)
+                }
+                return
+            }
+        }
         AppCoordinator.shared.model.handleSettingsUrls(urls: connectionOptions.urlContexts)
     }
 
@@ -136,6 +146,17 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate {
     }
 
     func scene(_ scene: UIScene, openURLContexts urlContexts: Set<UIOpenURLContext>) {
+        // Check for Meta Wearables SDK callback first
+        for context in urlContexts {
+            if let components = URLComponents(url: context.url, resolvingAgainstBaseURL: false),
+               components.queryItems?.contains(where: { $0.name == "metaWearablesAction" }) == true
+            {
+                Task {
+                    await AppCoordinator.shared.model.metaGlassesManager?.handleUrl(context.url)
+                }
+                return
+            }
+        }
         AppCoordinator.shared.model.handleSettingsUrls(urls: urlContexts)
     }
 }

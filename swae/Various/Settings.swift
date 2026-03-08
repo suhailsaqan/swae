@@ -1222,6 +1222,7 @@ enum SettingsSceneCameraPosition: String, Codable, CaseIterable {
     case backTripleLowEnergy = "Back triple"
     case backDualLowEnergy = "Back dual"
     case backWideDualLowEnergy = "Back wide dual"
+    case metaGlasses = "Meta Glasses"
     case none = "None"
 
     init(from decoder: Decoder) throws {
@@ -1254,6 +1255,7 @@ enum SettingsCameraId {
     case mediaPlayer(id: UUID)
     case external(id: String, name: String)
     case screenCapture
+    case metaGlasses
     case none
     case backTripleLowEnergy
     case backDualLowEnergy
@@ -1419,6 +1421,8 @@ class SettingsScene: Codable, Identifiable, Equatable, ObservableObject, Named {
             return .backDualLowEnergy
         case .backWideDualLowEnergy:
             return .backWideDualLowEnergy
+        case .metaGlasses:
+            return .metaGlasses
         case .none:
             return .none
         }
@@ -1459,6 +1463,8 @@ class SettingsScene: Codable, Identifiable, Equatable, ObservableObject, Named {
             cameraPosition = .backDualLowEnergy
         case .backWideDualLowEnergy:
             cameraPosition = .backWideDualLowEnergy
+        case .metaGlasses:
+            cameraPosition = .metaGlasses
         case .none:
             cameraPosition = .none
         }
@@ -2442,6 +2448,8 @@ class SettingsWidgetVideoSource: Codable, ObservableObject {
             return .backDualLowEnergy
         case .backWideDualLowEnergy:
             return .backWideDualLowEnergy
+        case .metaGlasses:
+            return .metaGlasses
         case .none:
             return .none
         }
@@ -2482,6 +2490,8 @@ class SettingsWidgetVideoSource: Codable, ObservableObject {
             cameraPosition = .backDualLowEnergy
         case .backWideDualLowEnergy:
             cameraPosition = .backWideDualLowEnergy
+        case .metaGlasses:
+            cameraPosition = .metaGlasses
         case .none:
             cameraPosition = .none
         }
@@ -2965,6 +2975,8 @@ class SettingsWidgetVTuber: Codable, ObservableObject {
             return .backDualLowEnergy
         case .backWideDualLowEnergy:
             return .backWideDualLowEnergy
+        case .metaGlasses:
+            return .metaGlasses
         case .none:
             return .none
         }
@@ -3005,6 +3017,8 @@ class SettingsWidgetVTuber: Codable, ObservableObject {
             cameraPosition = .backDualLowEnergy
         case .backWideDualLowEnergy:
             cameraPosition = .backWideDualLowEnergy
+        case .metaGlasses:
+            cameraPosition = .metaGlasses
         case .none:
             cameraPosition = .none
         }
@@ -3105,6 +3119,8 @@ class SettingsWidgetPngTuber: Codable, ObservableObject {
             return .backDualLowEnergy
         case .backWideDualLowEnergy:
             return .backWideDualLowEnergy
+        case .metaGlasses:
+            return .metaGlasses
         case .none:
             return .none
         }
@@ -3145,6 +3161,8 @@ class SettingsWidgetPngTuber: Codable, ObservableObject {
             cameraPosition = .backDualLowEnergy
         case .backWideDualLowEnergy:
             cameraPosition = .backWideDualLowEnergy
+        case .metaGlasses:
+            cameraPosition = .metaGlasses
         case .none:
             cameraPosition = .none
         }

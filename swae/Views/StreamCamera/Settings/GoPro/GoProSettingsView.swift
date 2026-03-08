@@ -328,22 +328,20 @@ private struct GoProLaunchLiveStream: View {
 
     var body: some View {
         Section {
-            List {
-                ForEach(goPro.launchLiveStream) { launchLiveStream in
-                    GoProLaunchLiveStreamSettingsEntryView(
-                        goPro: goPro, launchLiveStream: launchLiveStream)
-                }
-                .onMove { froms, to in
-                    goPro.launchLiveStream.move(fromOffsets: froms, toOffset: to)
-                }
-                .onDelete { offsets in
-                    goPro.launchLiveStream.remove(atOffsets: offsets)
-                    if !goPro.launchLiveStream.contains(where: {
-                        $0.id == goPro.selectedLaunchLiveStream
-                    }) {
-                        goPro.selectedLaunchLiveStream = goPro.launchLiveStream.first?.id
-                        goProState.launchLiveStreamSelection = goPro.selectedLaunchLiveStream
-                    }
+            ForEach(goPro.launchLiveStream) { launchLiveStream in
+                GoProLaunchLiveStreamSettingsEntryView(
+                    goPro: goPro, launchLiveStream: launchLiveStream)
+            }
+            .onMove { froms, to in
+                goPro.launchLiveStream.move(fromOffsets: froms, toOffset: to)
+            }
+            .onDelete { offsets in
+                goPro.launchLiveStream.remove(atOffsets: offsets)
+                if !goPro.launchLiveStream.contains(where: {
+                    $0.id == goPro.selectedLaunchLiveStream
+                }) {
+                    goPro.selectedLaunchLiveStream = goPro.launchLiveStream.first?.id
+                    goProState.launchLiveStreamSelection = goPro.selectedLaunchLiveStream
                 }
             }
             CreateButtonView {
@@ -372,22 +370,20 @@ private struct GoProWifiCredentials: View {
 
     var body: some View {
         Section {
-            List {
-                ForEach(goPro.wifiCredentials) { wifiCredentials in
-                    GoProWifiCredentialsSettingsEntryView(
-                        goPro: goPro, wifiCredentials: wifiCredentials)
-                }
-                .onMove { froms, to in
-                    goPro.wifiCredentials.move(fromOffsets: froms, toOffset: to)
-                }
-                .onDelete { offsets in
-                    goPro.wifiCredentials.remove(atOffsets: offsets)
-                    if !goPro.wifiCredentials.contains(where: {
-                        $0.id == goPro.selectedWifiCredentials
-                    }) {
-                        goPro.selectedWifiCredentials = goPro.wifiCredentials.first?.id
-                        goProState.wifiCredentialsSelection = goPro.selectedWifiCredentials
-                    }
+            ForEach(goPro.wifiCredentials) { wifiCredentials in
+                GoProWifiCredentialsSettingsEntryView(
+                    goPro: goPro, wifiCredentials: wifiCredentials)
+            }
+            .onMove { froms, to in
+                goPro.wifiCredentials.move(fromOffsets: froms, toOffset: to)
+            }
+            .onDelete { offsets in
+                goPro.wifiCredentials.remove(atOffsets: offsets)
+                if !goPro.wifiCredentials.contains(where: {
+                    $0.id == goPro.selectedWifiCredentials
+                }) {
+                    goPro.selectedWifiCredentials = goPro.wifiCredentials.first?.id
+                    goProState.wifiCredentialsSelection = goPro.selectedWifiCredentials
                 }
             }
             CreateButtonView {
@@ -417,19 +413,17 @@ private struct GoProRtmpUrls: View {
 
     var body: some View {
         Section {
-            List {
-                ForEach(goPro.rtmpUrls) { rtmpUrl in
-                    GoProRtmpUrlSettingsEntryView(goPro: goPro, status: status, rtmpUrl: rtmpUrl)
-                }
-                .onMove { froms, to in
-                    goPro.rtmpUrls.move(fromOffsets: froms, toOffset: to)
-                }
-                .onDelete { offsets in
-                    goPro.rtmpUrls.remove(atOffsets: offsets)
-                    if !goPro.rtmpUrls.contains(where: { $0.id == goPro.selectedRtmpUrl }) {
-                        goPro.selectedRtmpUrl = goPro.rtmpUrls.first?.id
-                        goProState.rtmpUrlSelection = goPro.selectedRtmpUrl
-                    }
+            ForEach(goPro.rtmpUrls) { rtmpUrl in
+                GoProRtmpUrlSettingsEntryView(goPro: goPro, status: status, rtmpUrl: rtmpUrl)
+            }
+            .onMove { froms, to in
+                goPro.rtmpUrls.move(fromOffsets: froms, toOffset: to)
+            }
+            .onDelete { offsets in
+                goPro.rtmpUrls.remove(atOffsets: offsets)
+                if !goPro.rtmpUrls.contains(where: { $0.id == goPro.selectedRtmpUrl }) {
+                    goPro.selectedRtmpUrl = goPro.rtmpUrls.first?.id
+                    goProState.rtmpUrlSelection = goPro.selectedRtmpUrl
                 }
             }
             CreateButtonView {
@@ -477,24 +471,24 @@ struct GoProSettingsView: View {
             } footer: {
                 Text("Connect to GoPro cameras via Bluetooth. Works on stock firmware (HERO9+).")
             }
-            Section {
-                DisclosureGroup(
-                    isExpanded: $showManualSetup,
-                    content: {
-                        VStack(spacing: 0) {
-                            GoProLaunchLiveStream(goPro: model.database.goPro, goProState: model.goPro)
-                            GoProWifiCredentials(goPro: model.database.goPro, goProState: model.goPro)
-                            GoProRtmpUrls(
-                                status: model.statusOther, goPro: model.database.goPro, goProState: model.goPro)
-                        }
-                    },
-                    label: {
-                        Text("Manual Setup with QR Codes")
-                    }
-                )
-            } footer: {
-                Text("Generate QR codes to configure GoPro streaming manually. Scan codes with your GoPro camera.")
-            }
+            // Section {
+            //     DisclosureGroup(
+            //         isExpanded: $showManualSetup,
+            //         content: {
+            //             VStack(spacing: 0) {
+            //                 GoProLaunchLiveStream(goPro: model.database.goPro, goProState: model.goPro)
+            //                 GoProWifiCredentials(goPro: model.database.goPro, goProState: model.goPro)
+            //                 GoProRtmpUrls(
+            //                     status: model.statusOther, goPro: model.database.goPro, goProState: model.goPro)
+            //             }
+            //         },
+            //         label: {
+            //             Text("Manual Setup with QR Codes")
+            //         }
+            //     )
+            // } footer: {
+            //     Text("Generate QR codes to configure GoPro streaming manually. Scan codes with your GoPro camera.")
+            // }
         }
         .navigationTitle("GoPro")
         .settingsCloseButton()

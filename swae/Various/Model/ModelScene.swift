@@ -935,6 +935,7 @@ extension Model {
     func attachSingleLayout(scene: SettingsScene) {
         streamOverlay.isFrontCameraSelected = false
         deactivateAllMediaPlayers()
+        let wasMetaGlasses = scene.cameraPosition == .metaGlasses
         switch scene.cameraPosition {
         case .back:
             attachCamera(scene: scene, position: .back)
@@ -956,6 +957,8 @@ extension Model {
             attachExternalCamera(scene: scene)
         case .screenCapture:
             attachBufferedCamera(cameraId: screenCaptureCameraId, scene: scene)
+        case .metaGlasses:
+            attachMetaGlassesCamera(scene: scene)
         case .backTripleLowEnergy:
             attachBackTripleLowEnergyCamera()
         case .backDualLowEnergy:
@@ -964,6 +967,13 @@ extension Model {
             attachBackWideDualLowEnergyCamera()
         case .none:
             attachBufferedCamera(cameraId: noneCameraId, scene: scene)
+        }
+        // If we switched away from Meta Glasses, re-evaluate whether the stream should stop
+        if !wasMetaGlasses, scene.cameraPosition != .metaGlasses {
+            // Scene didn't involve Meta Glasses at all — no action needed
+        } else if scene.cameraPosition != .metaGlasses {
+            // Switched AWAY from Meta Glasses — let reference counting decide
+            updateMetaGlassesStreamState()
         }
     }
 

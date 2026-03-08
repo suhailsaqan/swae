@@ -13,6 +13,9 @@
 		821826AA2F3DD7A5001AEC7B /* earth_lights.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 821826A52F3DD7A5001AEC7B /* earth_lights.ktx */; };
 		8281910C2F517B0B0059F1EC /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 8281910B2F517B0B0059F1EC /* WebRTC */; };
 		828199072F517D3E0059F1EC /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 828199062F517D3E0059F1EC /* WebRTC */; };
+		82AE89372F5CF33200554F8E /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = 82AE89362F5CF33200554F8E /* MWDATCamera */; };
+		82AE89392F5CF33200554F8E /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 82AE89382F5CF33200554F8E /* MWDATCore */; };
+		82AE893B2F5CF33200554F8E /* MWDATMockDevice in Frameworks */ = {isa = PBXBuildFile; productRef = 82AE893A2F5CF33200554F8E /* MWDATMockDevice */; };
 		BA2162272E54447700255D05 /* AlertToast in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162262E54447700255D05 /* AlertToast */; };
 		BA21622A2E5444B300255D05 /* AppleGPUInfo in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162292E5444B300255D05 /* AppleGPUInfo */; };
 		BA21622C2E5444B300255D05 /* gpuinfo in Frameworks */ = {isa = PBXBuildFile; productRef = BA21622B2E5444B300255D05 /* gpuinfo */; };
@@ -239,6 +242,7 @@
 				BA2162692E5447D200255D05 /* DequeModule in Frameworks */,
 				BA34E1752D7D013800FC97F0 /* NostrSDK in Frameworks */,
 				BA7A671E2E5459A700ABBD73 /* protoc-gen-swift in Frameworks */,
+				82AE89392F5CF33200554F8E /* MWDATCore in Frameworks */,
 				BA7A67242E545A7700ABBD73 /* WrappingHStack in Frameworks */,
 				BA21622F2E5444D200255D05 /* BlackSharkLib in Frameworks */,
 				8281910C2F517B0B0059F1EC /* WebRTC in Frameworks */,
@@ -252,6 +256,7 @@
 				BA7A671C2E5459A700ABBD73 /* SwiftProtobufPluginLibrary in Frameworks */,
 				BA21626D2E5447D200255D05 /* HeapModule in Frameworks */,
 				BA2162432E54461200255D05 /* MetalPetal in Frameworks */,
+				82AE89372F5CF33200554F8E /* MWDATCamera in Frameworks */,
 				BA2162562E54472600255D05 /* SDWebImageWebPCoder in Frameworks */,
 				BA21624B2E5446BD00255D05 /* librist in Frameworks */,
 				BA21622C2E5444B300255D05 /* gpuinfo in Frameworks */,
@@ -262,6 +267,7 @@
 				BA21622A2E5444B300255D05 /* AppleGPUInfo in Frameworks */,
 				BA7A67262E545AB700ABBD73 /* XMLCoder in Frameworks */,
 				BA2162502E5446DB00255D05 /* SDWebImageMapKit in Frameworks */,
+				82AE893B2F5CF33200554F8E /* MWDATMockDevice in Frameworks */,
 				BA2162652E5447D200255D05 /* BitCollections in Frameworks */,
 				BA59D3852D7BE70000A66AB3 /* CodeScanner in Frameworks */,
 				BA2162492E5446BD00255D05 /* Rist in Frameworks */,
@@ -442,6 +448,9 @@
 				BA7A67252E545AB700ABBD73 /* XMLCoder */,
 				8281910B2F517B0B0059F1EC /* WebRTC */,
 				828199062F517D3E0059F1EC /* WebRTC */,
+				82AE89362F5CF33200554F8E /* MWDATCamera */,
+				82AE89382F5CF33200554F8E /* MWDATCore */,
+				82AE893A2F5CF33200554F8E /* MWDATMockDevice */,
 			);
 			productName = swae;
 			productReference = BA8A03542D455F8400B35D04 /* swae.app */;
@@ -602,6 +611,7 @@
 				BA2162752E544AFD00255D05 /* XCRemoteSwiftPackageReference "CryptoSwift" */,
 				BA7A67182E5459A700ABBD73 /* XCRemoteSwiftPackageReference "swift-protobuf" */,
 				828199052F517D3E0059F1EC /* XCRemoteSwiftPackageReference "WebRTC" */,
+				82AE89352F5CF33200554F8E /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA8A03552D455F8400B35D04 /* Products */;
@@ -871,7 +881,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"swae/Preview Content\"";
-				DEVELOPMENT_TEAM = 57S869M9UN;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"HEADER_SEARCH_PATHS[arch=*]" = "$(SRCROOT)/swae/VideoEffects/MetalPetal/**";
@@ -925,7 +935,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"swae/Preview Content\"";
-				DEVELOPMENT_TEAM = 57S869M9UN;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"HEADER_SEARCH_PATHS[arch=*]" = "$(SRCROOT)/swae/VideoEffects/MetalPetal/**";
@@ -1245,6 +1255,14 @@
 				version = 139.0.0;
 			};
 		};
+		82AE89352F5CF33200554F8E /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.0;
+			};
+		};
 		BA2162252E54447700255D05 /* XCRemoteSwiftPackageReference "AlertToast" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/elai950/AlertToast.git";
@@ -1432,6 +1450,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 828199052F517D3E0059F1EC /* XCRemoteSwiftPackageReference "WebRTC" */;
 			productName = WebRTC;
+		};
+		82AE89362F5CF33200554F8E /* MWDATCamera */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 82AE89352F5CF33200554F8E /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCamera;
+		};
+		82AE89382F5CF33200554F8E /* MWDATCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 82AE89352F5CF33200554F8E /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCore;
+		};
+		82AE893A2F5CF33200554F8E /* MWDATMockDevice */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 82AE89352F5CF33200554F8E /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATMockDevice;
 		};
 		BA2162262E54447700255D05 /* AlertToast */ = {
 			isa = XCSwiftPackageProductDependency;

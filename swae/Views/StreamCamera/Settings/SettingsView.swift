@@ -210,6 +210,11 @@ struct SettingsView: View {
                 } label: {
                     Label("GoPro", systemImage: "appletvremote.gen1")
                 }
+                NavigationLink {
+                    MetaGlassesSettingsView()
+                } label: {
+                    Label("Meta Glasses", systemImage: "eyeglasses")
+                }
             }
             if database.showAllSettings {
                 Section {
