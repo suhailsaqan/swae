@@ -215,9 +215,16 @@ class WalletModel: ObservableObject {
             let transactions = nwcTransactions.map { NWCClient.convertToWalletTransaction($0) }
             print("✅ Wallet: Transactions loaded: \(transactions.count)")
             
+            // Enrich transactions that weren't enriched by description parsing (Strategy B fallback)
+            let enrichedTransactions = await MainActor.run {
+                enrichTransactionsWithZapReceipts(transactions)
+            }
+            
             await MainActor.run {
-                self.transactions = transactions
+                self.transactions = enrichedTransactions
                 self.isLoading = false
+                // Fetch profile metadata for counterparties
+                self.fetchMissingProfileMetadata(for: enrichedTransactions)
             }
         } catch is CancellationError {
             print("⚠️ Wallet: Task cancelled during transaction load")
@@ -254,10 +261,15 @@ class WalletModel: ObservableObject {
             try await client.connect()
             let nwcTransactions = try await client.listTransactions(limit: limit)
             let transactions = nwcTransactions.map { NWCClient.convertToWalletTransaction($0) }
+            
+            let enrichedTransactions = await MainActor.run {
+                enrichTransactionsWithZapReceipts(transactions)
+            }
 
             await MainActor.run {
-                self.transactions = transactions
+                self.transactions = enrichedTransactions
                 self.isLoading = false
+                self.fetchMissingProfileMetadata(for: enrichedTransactions)
             }
         } catch is CancellationError {
             print("⚠️ Wallet: Transaction refresh cancelled")
@@ -276,6 +288,64 @@ class WalletModel: ObservableObject {
         transactions = nil
         isLoading = false
         error = nil
+    }
+    
+    // MARK: - Zap Enrichment
+    
+    /// Enriches transactions that weren't already enriched by description parsing (Strategy A).
+    /// Falls back to matching against AppState zap receipts by bolt11 invoice (Strategy B).
+    @MainActor
+    private func enrichTransactionsWithZapReceipts(_ transactions: [WalletTransaction]) -> [WalletTransaction] {
+        let unenriched = transactions.filter { !$0.isZap && $0.bolt11Invoice != nil }
+        guard !unenriched.isEmpty else { return transactions }
+        
+        // Build bolt11 → receipt index from global zapReceipts + per-stream zapReceiptEvents
+        var receiptsByBolt11: [String: LightningZapsReceiptEvent] = [:]
+        for receipt in appState.zapReceipts {
+            if let bolt11 = receipt.bolt11 {
+                receiptsByBolt11[bolt11.lowercased()] = receipt
+            }
+        }
+        for (_, receipts) in appState.zapReceiptEvents {
+            for receipt in receipts {
+                if let bolt11 = receipt.bolt11 {
+                    receiptsByBolt11[bolt11.lowercased()] = receipt
+                }
+            }
+        }
+        
+        return transactions.map { tx in
+            guard !tx.isZap,
+                  let bolt11 = tx.bolt11Invoice?.lowercased(),
+                  let receipt = receiptsByBolt11[bolt11] else {
+                return tx
+            }
+            
+            let zapRequest = receipt.description
+            return WalletTransaction(
+                id: tx.id, type: tx.type, amount: tx.amount,
+                description: tx.description, createdAt: tx.createdAt,
+                paymentHash: tx.paymentHash, preimage: tx.preimage,
+                feesPaid: tx.feesPaid, settledAt: tx.settledAt, expiresAt: tx.expiresAt,
+                senderPubkey: receipt.zapSenderPubkey ?? zapRequest?.pubkey,
+                recipientPubkey: receipt.recipientPubkey,
+                zapMessage: zapRequest?.content,
+                zappedEventId: receipt.eventId,
+                zappedEventCoordinate: receipt.eventCoordinate,
+                bolt11Invoice: tx.bolt11Invoice,
+                isZap: true
+            )
+        }
+    }
+    
+    /// Fetches profile metadata for counterparty pubkeys not yet in cache.
+    @MainActor
+    private func fetchMissingProfileMetadata(for transactions: [WalletTransaction]) {
+        let pubkeys = Set(transactions.compactMap { $0.counterpartyPubkey })
+        let missingPubkeys = pubkeys.filter { appState.metadataEvents[$0] == nil }
+        if !missingPubkeys.isEmpty {
+            appState.pullMissingEventsFromPubkeysAndFollows(Array(missingPubkeys))
+        }
     }
     
     // MARK: - NWC Client Access
