@@ -239,7 +239,7 @@ class GenericPlayerView: UIView {
     private var currentProgress: CGFloat = 0
 
     /// Transparent hit area for scrubbing — always on top for the thin bar
-    private let progressHitArea: UIView = {
+    let progressHitArea: UIView = {
         let view = UIView()
         view.backgroundColor = .clear
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -480,8 +480,6 @@ class GenericPlayerView: UIView {
         let scrubPan = UIPanGestureRecognizer(target: self, action: #selector(handleProgressPan(_:)))
         progressHitArea.addGestureRecognizer(scrubPan)
         progressHitArea.isUserInteractionEnabled = true
-        let scrubTap = UITapGestureRecognizer(target: self, action: #selector(handleProgressTap(_:)))
-        progressHitArea.addGestureRecognizer(scrubTap)
     }
 
     private func setupActions() {
