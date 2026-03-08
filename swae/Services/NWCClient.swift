@@ -568,6 +568,15 @@ private class NIP04EncryptionHelper: NIP04Encryption {
 // MARK: - WalletTransaction Conversion Extension
 
 extension NWCClient {
+    /// Intermediate struct for zap data extracted from NWC transaction description
+    struct ZapEnrichmentData {
+        let senderPubkey: String
+        let recipientPubkey: String?
+        let message: String?
+        let eventId: String?
+        let eventCoordinate: String?
+    }
+
     /// Converts NWCTransaction to WalletTransaction for the app
     static func convertToWalletTransaction(_ nwcTransaction: NWCTransaction) -> WalletTransaction {
         let transactionType: WalletTransaction.TransactionType =
@@ -581,6 +590,9 @@ extension NWCClient {
             preimageValue = nil
         }
         
+        // Strategy A: Try to parse raw description as zap request JSON (kind 9734)
+        let zapData = parseZapRequestFromDescription(nwcTransaction.description)
+        
         return WalletTransaction(
             id: nwcTransaction.paymentHash ?? UUID().uuidString,
             type: transactionType,
@@ -591,7 +603,43 @@ extension NWCClient {
             preimage: preimageValue,
             feesPaid: nwcTransaction.feesPaid.map { Int64($0) },
             settledAt: nwcTransaction.paid ? Int64(nwcTransaction.createdAt) : nil,
-            expiresAt: nwcTransaction.expiresAt.map { Int64($0) }
+            expiresAt: nwcTransaction.expiresAt.map { Int64($0) },
+            senderPubkey: zapData?.senderPubkey,
+            recipientPubkey: zapData?.recipientPubkey,
+            zapMessage: zapData?.message,
+            zappedEventId: zapData?.eventId,
+            zappedEventCoordinate: zapData?.eventCoordinate,
+            bolt11Invoice: nwcTransaction.invoice,
+            isZap: zapData != nil
+        )
+    }
+    
+    /// Attempts to decode the NWC transaction description as a zap request event (kind 9734).
+    /// Per NIP-57, the LNURL service sets the bolt11 invoice description to the zap request JSON.
+    /// NWC wallets return this in the description field of list_transactions.
+    private static func parseZapRequestFromDescription(_ description: String?) -> ZapEnrichmentData? {
+        guard let description = description,
+              description.hasPrefix("{"),
+              let data = description.data(using: .utf8) else {
+            return nil
+        }
+        
+        // Try to decode as LightningZapRequestEvent
+        guard let zapRequest = try? JSONDecoder().decode(LightningZapRequestEvent.self, from: data) else {
+            return nil
+        }
+        
+        // Verify it's actually a kind 9734 event
+        guard zapRequest.kind == .zapRequest else {
+            return nil
+        }
+        
+        return ZapEnrichmentData(
+            senderPubkey: zapRequest.pubkey,
+            recipientPubkey: zapRequest.recipientPubkey,
+            message: zapRequest.content.isEmpty ? nil : zapRequest.content,
+            eventId: zapRequest.eventId,
+            eventCoordinate: zapRequest.eventCoordinate
         )
     }
     
