@@ -32,7 +32,7 @@ class GoProWifiScanner: NSObject, ObservableObject {
         isScanning = true
         logger.info("gopro-wifi-scanner: Starting scan for device \(deviceId)")
         timeoutTimer.startSingleShot(timeout: 30) { [weak self] in
-            logger.info("gopro-wifi-scanner: Scan timed out")
+            logger.error("gopro-wifi-scanner: Scan timed out — subscribedCount=\(self?.subscribedCount ?? -1)/\(self?.expectedSubscriptions ?? -1) scanCommandSent=\(self?.scanCommandSent ?? false) networkMgmtCommandChar=\(self?.networkMgmtCommandChar != nil ? "found" : "nil") networkMgmtResponseChar=\(self?.networkMgmtResponseChar != nil ? "found" : "nil")")
             self?.error = "Scan timed out"
             self?.stop()
         }
@@ -98,12 +98,19 @@ class GoProWifiScanner: NSObject, ObservableObject {
     }
 
     private func handleResponse(data: Data) {
-        guard data.count >= 2 else { return }
+        guard data.count >= 2 else {
+            logger.error("gopro-wifi-scanner: Response too short (\(data.count) bytes): \(data.map { String(format: "%02x", $0) }.joined(separator: " "))")
+            return
+        }
+        let featureId = data[0]
         let actionId = data[1]
         let payload = data.count > 2 ? Data(data[2...]) : Data()
         let fields = GoProProtobuf.decodeFields(data: payload)
 
-        logger.debug("gopro-wifi-scanner: Response actionId=0x\(String(actionId, radix: 16))")
+        logger.info("gopro-wifi-scanner: Response featureId=0x\(String(featureId, radix: 16)) actionId=0x\(String(actionId, radix: 16)) payloadSize=\(payload.count) fieldCount=\(fields.count)")
+        for (i, field) in fields.enumerated() {
+            logger.debug("gopro-wifi-scanner:   field[\(i)] number=\(field.fieldNumber) wireType=\(field.wireType) dataSize=\(field.data.count)")
+        }
 
         // ResponseStartScanning
         if actionId == 0x82 {
@@ -122,22 +129,26 @@ class GoProWifiScanner: NSObject, ObservableObject {
         if actionId == 0x0B {
             if let stateField = fields.first(where: { $0.fieldNumber == 1 }) {
                 let scanState = Int(GoProProtobuf.getVarintValue(field: stateField))
-                logger.info("gopro-wifi-scanner: Scan state=\(scanState)")
+                let totalEntries = fields.first(where: { $0.fieldNumber == 3 }).map { Int(GoProProtobuf.getVarintValue(field: $0)) }
+                logger.info("gopro-wifi-scanner: Scan state=\(scanState) totalEntries=\(totalEntries ?? -1)")
                 if scanState == 5 { // SCANNING_SUCCESS
                     if let scanIdField = fields.first(where: { $0.fieldNumber == 2 }) {
                         currentScanId = Int32(GoProProtobuf.getVarintValue(field: scanIdField))
-                        logger.info("gopro-wifi-scanner: Scan complete, scanId=\(currentScanId)")
+                        logger.info("gopro-wifi-scanner: Scan complete, scanId=\(currentScanId), totalEntries=\(totalEntries ?? -1)")
                         sendGetApEntries(scanId: currentScanId)
                     } else {
-                        logger.error("gopro-wifi-scanner: Scan succeeded but no scan_id in notification")
+                        logger.error("gopro-wifi-scanner: Scan succeeded but no scan_id in notification. Fields: \(fields.map { "f\($0.fieldNumber)=\($0.wireType)" }.joined(separator: ", "))")
                         error = "Scan completed but no results ID received"
                         stop()
                     }
                 } else if scanState >= 3 {
+                    logger.error("gopro-wifi-scanner: Scan failed with state=\(scanState)")
                     error = "WiFi scan failed (state=\(scanState))"
                     stop()
                 }
                 // States 0, 1, 2 are transitional — keep waiting
+            } else {
+                logger.error("gopro-wifi-scanner: NotifStartScanning missing state field. Fields: \(fields.map { "f\($0.fieldNumber)=\($0.wireType)" }.joined(separator: ", "))")
             }
             return
         }
@@ -152,11 +163,16 @@ class GoProWifiScanner: NSObject, ObservableObject {
                     stop()
                     return
                 }
+            } else {
+                logger.warning("gopro-wifi-scanner: GetApEntries response missing result field")
             }
+            let field3Count = fields.filter({ $0.fieldNumber == 3 && $0.wireType == 2 }).count
+            logger.info("gopro-wifi-scanner: GetApEntries payload has \(fields.count) fields, \(field3Count) are ScanEntry (field 3, wireType 2)")
+            logger.info("gopro-wifi-scanner: Raw payload hex (\(payload.count) bytes): \(payload.prefix(200).map { String(format: "%02x", $0) }.joined(separator: " "))")
             scanEntries = GoProProtobuf.parseScanEntries(data: payload)
-            logger.info("gopro-wifi-scanner: Found \(scanEntries.count) networks")
+            logger.info("gopro-wifi-scanner: Parsed \(scanEntries.count) networks")
             for entry in scanEntries {
-                logger.info("  \(entry.ssid) bars=\(entry.signalStrengthBars) configured=\(entry.isConfigured) associated=\(entry.isAssociated)")
+                logger.info("  \(entry.ssid) bars=\(entry.signalStrengthBars) freq=\(entry.signalFrequencyMhz) flags=0x\(String(entry.flags, radix: 16)) configured=\(entry.isConfigured) associated=\(entry.isAssociated) requiresAuth=\(entry.requiresAuth)")
             }
             isScanning = false
             timeoutTimer.stop()
@@ -263,7 +279,12 @@ extension GoProWifiScanner: CBPeripheralDelegate {
             return
         }
         guard let value = characteristic.value, !value.isEmpty else { return }
-        guard characteristic.uuid == networkMgmtResponseUUID else { return }
+        guard characteristic.uuid == networkMgmtResponseUUID else {
+            logger.debug("gopro-wifi-scanner: Ignoring notification from non-network-mgmt char \(characteristic.uuid)")
+            return
+        }
+
+        logger.debug("gopro-wifi-scanner: Raw BLE notification (\(value.count) bytes): \(value.prefix(40).map { String(format: "%02x", $0) }.joined(separator: " "))")
 
         let header = value[0]
         let headerType = (header & 0x60) >> 5
