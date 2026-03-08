@@ -9,6 +9,7 @@ import Foundation
 
 enum PendingChatStatus: Equatable {
     case sending
+    case confirmed   // Relay accepted (OK received), waiting for echo-back
     case failed(error: String)
 }
 

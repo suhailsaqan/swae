@@ -317,6 +317,14 @@ class LiveChatMessageCell: UITableViewCell {
             retryLabel.isHidden = true
             contentView.backgroundColor = .clear
             
+        case .confirmed:
+            contentView.alpha = 0.85
+            statusIcon.image = UIImage(systemName: "checkmark.circle")
+            statusIcon.tintColor = .systemGreen
+            statusIcon.isHidden = false
+            retryLabel.isHidden = true
+            contentView.backgroundColor = .clear
+            
         case .failed:
             contentView.alpha = 1.0
             statusIcon.image = UIImage(systemName: "exclamationmark.circle.fill")
@@ -873,6 +881,15 @@ class LiveChatZapCell: UITableViewCell {
             retryLabel.isHidden = true
             containerView.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.2)
             containerView.layer.borderColor = UIColor.systemYellow.cgColor
+            
+        case .confirmed:
+            containerView.alpha = 0.85
+            statusIcon.image = UIImage(systemName: "checkmark.circle")
+            statusIcon.tintColor = .systemGreen
+            statusIcon.isHidden = false
+            retryLabel.isHidden = true
+            containerView.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.2)
+            containerView.layer.borderColor = UIColor.systemGreen.cgColor
             
         case .failed:
             containerView.alpha = 1.0

@@ -43,8 +43,8 @@ class LiveChatViewModel: ObservableObject, EventCreating {
             )
             
             if let liveActivitiesEventCoordinates = liveActivitiesEvent.replaceableEventCoordinates()?.tag.value {
-                // Publish the event.
-                appState.relayWritePool.publishEvent(liveChatMessageEvent)
+                // Publish the event (write pool + read pool for echo-back guarantee).
+                appState.publishEventToAllRelays(liveChatMessageEvent)
                 return true
             }
         } catch {
