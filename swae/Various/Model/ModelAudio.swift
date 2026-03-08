@@ -70,6 +70,24 @@ extension Model {
         }
     }
 
+    /// Lightweight audio session for the feed/viewer screen.
+    /// Uses .playback + .mixWithOthers so background music from other apps
+    /// continues playing. Does NOT activate the microphone.
+    func setupFeedAudioSession() {
+        processorControlQueue.async {
+            let session = AVAudioSession.sharedInstance()
+            do {
+                try session.setCategory(
+                    .playback,
+                    options: [.mixWithOthers]
+                )
+                try session.setActive(true)
+            } catch {
+                logger.error("app: Feed audio session error \(error)")
+            }
+        }
+    }
+
     func teardownAudioSession() {
         processorControlQueue.async {
             do {
@@ -279,12 +297,15 @@ extension Model {
             logger.info("audio: Session interruption ended")
             // Always restore audio session when interruption ends, regardless of
             // .shouldResume flag. Some interruptions (Siri, brief phone calls) may
-            // not set .shouldResume, leaving audio dead. setupAudioSession() handles
-            // failures gracefully via try/catch.
-            setupAudioSession()
+            // not set .shouldResume, leaving audio dead.
+            // Only use the full .playAndRecord session if actively streaming;
+            // otherwise restore the lightweight .playback session.
             if isLive || streaming {
+                setupAudioSession()
                 media.attachDefaultAudioDevice(
                     builtinDelay: database.debug.builtinAudioAndVideoDelay)
+            } else {
+                setupFeedAudioSession()
             }
         @unknown default: break
         }

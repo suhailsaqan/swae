@@ -410,6 +410,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     var nostrChatEffects: [UUID: NostrChatEffect] = [:]
     var nostrChatBridgeCancellables: Set<AnyCancellable> = []
     var nostrChatBridgeCoordinate: String?
+    var nostrChatBridgeSessionStart: Date?
 
     // WebRTC collab streaming state
     @Published var collabCallState: CollabCallState = .idle
@@ -552,6 +553,9 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     var currentDjiDeviceSettings: SettingsDjiDevice?
     var djiDeviceWrappers: [UUID: DjiDeviceWrapper] = [:]
     var goProDeviceWrappers: [UUID: GoProDeviceWrapper] = [:]
+    var metaGlassesManager: MetaGlassesManager?
+    var metaGlassesPipCompositor: MetaGlassesCompositor?
+    var metaGlassesPreviewRequested = false
     let autoSceneSwitcher = AutoSceneSwitcherProvider()
     var currentCatPrinterSettings: SettingsCatPrinter?
     var catPrinters: [UUID: CatPrinter] = [:]
@@ -949,7 +953,10 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         updateBatteryLevel()
         setPixelFormat()
         setMetalPetalFilters()
-        setupAudioSession()
+        // Use lightweight .playback session on startup so background music
+        // from other apps isn't interrupted. The full .playAndRecord session
+        // is activated later when the user navigates to the camera screen.
+        setupFeedAudioSession()
         reloadSpeechToText()
         if let cameraDevice = preferredCamera(position: .back) {
             (cameraZoomXMinimum, cameraZoomXMaximum) =
@@ -1381,6 +1388,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     @objc func handleDidEnterBackgroundNotification() {
         store()
         replaysStorage.store()
+        metaGlassesDidEnterBackground()
         guard !isMac() else {
             return
         }
@@ -1396,9 +1404,13 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     @objc func handleRestoreStreamingAudioSession() {
-        setupAudioSession()
+        // Only restore the full .playAndRecord session if actively streaming.
+        // Otherwise fall back to the lightweight .playback session.
         if isLive || streaming {
+            setupAudioSession()
             media.attachDefaultAudioDevice(builtinDelay: database.debug.builtinAudioAndVideoDelay)
+        } else {
+            setupFeedAudioSession()
         }
     }
 
@@ -1406,6 +1418,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         guard !isMac() else {
             return
         }
+        metaGlassesWillEnterForeground()
 
         // Always reconnect Nostr relays when returning to foreground.
         // iOS suspends WebSocket connections during background, leaving
@@ -1430,7 +1443,14 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
             // NOTE: Camera and audio attachment are now managed by ContentView based on navigation state
             // This prevents them from being attached when not needed
             sceneUpdated(attachCamera: false, updateRemoteScene: false)
-            reloadAudioSession()
+            // Only activate the full .playAndRecord session if actively streaming.
+            // Otherwise use the lightweight .playback session to avoid killing
+            // background music from other apps.
+            if isLive || streaming {
+                reloadAudioSession()
+            } else {
+                setupFeedAudioSession()
+            }
             reloadRtmpServer()
             reloadDjiDevices()
             reloadGoProDevices()
@@ -1509,6 +1529,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         stopHeartRateDevices()
         stopRemoteControlAssistant()
         fixedHorizonEffect.stop()
+        stopMetaGlassesCompletely()
     }
 
     func externalMonitorConnected(windowScene: UIWindowScene) {
