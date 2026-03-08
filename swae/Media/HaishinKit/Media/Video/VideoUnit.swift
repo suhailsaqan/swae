@@ -1516,9 +1516,6 @@ final class VideoUnit: NSObject {
                     onRawFrameCaptured(modImageBuffer, pts)
                 }
             }
-        } else if onRawFrameCaptured == nil, collabSendWidgets {
-            // Diagnostic: onRawFrameCaptured was cleared — this should never happen during a call
-            print("🔔 [PIP] ⚠️ onRawFrameCaptured is NIL but collabSendWidgets is true — WebRTC tap lost!")
         }
         // Recordings seems to randomly fail if moved after live stream encoding. Maybe because the
         // sample buffer is copied in appendVideo()
