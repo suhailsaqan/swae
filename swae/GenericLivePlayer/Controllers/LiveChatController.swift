@@ -1023,17 +1023,22 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
             // 2. Insert into chat immediately (optimistic display)
             insertPendingMessage(pending)
 
-            // 3. Publish to relays
-            appState.relayWritePool.publishEvent(liveChatMessageEvent)
+            // 3. Publish to relays (write pool + read pool for echo-back guarantee)
+            appState.publishEventToAllRelays(liveChatMessageEvent)
             
-            // 4. Register OK confirmation callback — extends timeout on relay acceptance
+            // 4. Register OK confirmation callback — relay accepted the event
             appState.registerPendingConfirmation(eventId: liveChatMessageEvent.id) { [weak self] success in
                 guard let self = self,
                       let p = self.pendingMessages[localId],
                       case .sending = p.status else { return }
                 if success {
-                    // Relay accepted — extend timeout (echo should arrive, but keep safety net)
-                    self.schedulePendingTimeout(localId: localId, delay: 60.0)
+                    // Relay accepted — update visual state to confirmed (checkmark)
+                    var confirmed = p
+                    confirmed.status = .confirmed
+                    self.pendingMessages[localId] = confirmed
+                    self.replacePendingItem(localId: localId, with: .pendingMessage(confirmed))
+                    // Shorten safety-net timeout — echo-back should arrive quickly now
+                    self.schedulePendingTimeout(localId: localId, delay: 15.0)
                 }
             }
 
@@ -1576,6 +1581,17 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
         pendingTimeouts[localId]?.invalidate()
         pendingTimeouts.removeValue(forKey: localId)
         
+        // Fix 2: Don't mark as failed if the real event already arrived via the subscription.
+        // This prevents the false "Timed out" failure when the echo-back was processed
+        // but reconciliation didn't clean up the pending item (e.g., during rebuild phase).
+        if let msg = pendingMessages[localId],
+           let eventId = msg.eventId,
+           seenMessageIds.contains(eventId) {
+            cleanupPendingItem(localId: localId)
+            commentsTable.reloadData()
+            return
+        }
+        
         if var msg = pendingMessages[localId] {
             msg.status = .failed(error: error)
             pendingMessages[localId] = msg
@@ -1722,15 +1738,19 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
             pendingMessages[localId] = retryPending
             pendingEventIdMap[event.id] = localId
             
-            appState.relayWritePool.publishEvent(event)
+            appState.publishEventToAllRelays(event)
             
-            // Register OK confirmation callback to extend timeout on relay acceptance
+            // Register OK confirmation callback — relay accepted the event
             appState.registerPendingConfirmation(eventId: event.id) { [weak self] success in
                 guard let self = self,
                       let p = self.pendingMessages[localId],
                       case .sending = p.status else { return }
                 if success {
-                    self.schedulePendingTimeout(localId: localId, delay: 60.0)
+                    var confirmed = p
+                    confirmed.status = .confirmed
+                    self.pendingMessages[localId] = confirmed
+                    self.replacePendingItem(localId: localId, with: .pendingMessage(confirmed))
+                    self.schedulePendingTimeout(localId: localId, delay: 15.0)
                 }
             }
             

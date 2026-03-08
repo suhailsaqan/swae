@@ -1132,6 +1132,30 @@ extension AppState: EventVerifying, RelayDelegate {
         }
     }
 
+    // MARK: - Publish to All Relays (Write + Read)
+    
+    /// Publishes an event to the write pool AND any read-pool relays not already
+    /// in the write pool. This guarantees the echo-back arrives through the read
+    /// subscription even when write and read relay sets don't overlap.
+    /// Use this for chat messages and other events where the sender needs to see
+    /// their own event come back through a subscription.
+    func publishEventToAllRelays(_ event: NostrEvent) {
+        // 1. Publish to all write relays (normal path)
+        relayWritePool.publishEvent(event)
+        
+        // 2. Also publish to read relays that aren't in the write pool
+        //    so the echo-back arrives through the chat subscription
+        let writeURLs = Set(relayWritePool.relays.map { $0.url })
+        for relay in relayReadPool.relays where !writeURLs.contains(relay.url) {
+            do {
+                try relay.publishEvent(event)
+            } catch {
+                // Read relay not connected or rejected — not critical,
+                // the write pool already has the event
+            }
+        }
+    }
+
     // MARK: - Pending Event Confirmation (NIP-20 OK Response)
     
     /// Registers a callback to be invoked when a relay confirms event acceptance.
@@ -1459,6 +1483,18 @@ extension AppState: EventVerifying, RelayDelegate {
             !liveChatSubscriptionCounts.values.contains(eventCoordinate)
         else { return }
 
+        // Use the event's start time to filter out messages from previous sessions.
+        // The `starts` tag (NIP-53) indicates when this streaming session began.
+        // Fall back to createdAt (when the event was last updated to "live" status).
+        // Subtract a small buffer (60s) to catch messages sent just before the
+        // event was published (e.g., early joiners, relay propagation delay).
+        let sessionStartTimestamp: Int? = {
+            if let startsAt = event.startsAt {
+                return max(0, Int(startsAt.timeIntervalSince1970) - 60)
+            }
+            return max(0, Int(event.createdAt) - 60)
+        }()
+
         // Create SEPARATE filters for messages and zaps to ensure balanced loading
         // A single filter with limit would return mostly the most recent event type
         
@@ -1470,6 +1506,7 @@ extension AppState: EventVerifying, RelayDelegate {
                     EventKind.liveStreamRaid.rawValue
                 ],
                 tags: ["a": [eventCoordinate]],
+                since: sessionStartTimestamp,
                 limit: 2000
             )
         else {
@@ -1485,6 +1522,7 @@ extension AppState: EventVerifying, RelayDelegate {
                     EventKind.zapReceipt.rawValue,
                 ],
                 tags: ["a": [eventCoordinate]],
+                since: sessionStartTimestamp,
                 limit: 2000
             )
         else {
