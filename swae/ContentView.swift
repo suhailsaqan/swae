@@ -371,7 +371,11 @@ struct ContentView: View {
 
         print("📷 Attaching camera and audio...")
 
-        // Attach audio first
+        // Activate the full .playAndRecord audio session for microphone access.
+        // This is deferred from app startup to avoid killing background music.
+        model.setupAudioSession()
+
+        // Attach audio device
         if !isAudioAttached {
             model.media.attachDefaultAudioDevice(
                 builtinDelay: model.database.debug.builtinAudioAndVideoDelay)
@@ -404,12 +408,16 @@ struct ContentView: View {
             isCameraAttached = false
         }
 
-        // Detach audio
+        // Detach audio device
         if isAudioAttached {
             model.media.detachDefaultAudioDevice()
             isAudioAttached = false
             print("🎤 Audio detached")
         }
+
+        // Drop back to lightweight .playback session so background music
+        // from other apps isn't interrupted while on the feed screen.
+        model.setupFeedAudioSession()
     }
 
     private func scheduleCameraDetachment() {

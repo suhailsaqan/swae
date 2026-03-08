@@ -112,6 +112,11 @@ class GenericLivePlayerController: UIViewController {
     /// Saves the orientation lock before the player modifies it, so we can restore it on dismiss
     private var previousOrientationLock: UIInterfaceOrientationMask?
     
+    /// Tracks whether we're dismissing to mini player (not a full close).
+    /// When true, viewWillDisappear skips the audio session restoration to avoid
+    /// interrupting the AVPlayer that continues playing in the mini player.
+    private var isDismissingToMiniPlayer = false
+    
     /// Tracks whether the initial setup (safe area + transform) has been done
     private var hasPerformedInitialSetup = false
 
@@ -328,6 +333,7 @@ class GenericLivePlayerController: UIViewController {
         // Add pan gesture for dismissal
         let panGesture = UIPanGestureRecognizer(
             target: self, action: #selector(panGestureHandler(_:)))
+        panGesture.delegate = self
         view.addGestureRecognizer(panGesture)
 
         liveVideoPlayer.delegate = self
@@ -382,10 +388,14 @@ class GenericLivePlayerController: UIViewController {
         // Ensure we start in portrait
         AppDelegate.orientationLock = .portrait
 
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
-        try? AVAudioSession.sharedInstance().setActive(true)
-
-        player?.play()
+        // Only configure audio session and start playback on first presentation.
+        // When re-expanding from mini player, the AVPlayer is already playing
+        // with the correct audio session — changing it would cause a brief pause.
+        if player?.avPlayer.timeControlStatus != .playing {
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+            try? AVAudioSession.sharedInstance().setActive(true)
+            player?.play()
+        }
         
         // NOTE: Anchor point and transform are set in viewDidLayoutSubviews
         // where the frame is guaranteed to be correct
@@ -399,11 +409,15 @@ class GenericLivePlayerController: UIViewController {
             AppDelegate.orientationLock = previous
         }
         
-        // Restore audio session for recording/streaming
-        NotificationCenter.default.post(
-            name: NSNotification.Name("RestoreStreamingAudioSession"),
-            object: nil
-        )
+        // Only restore the streaming audio session on a full dismiss.
+        // When dismissing to mini player, the same AVPlayer keeps playing —
+        // switching the audio category would briefly interrupt playback.
+        if !isDismissingToMiniPlayer {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("RestoreStreamingAudioSession"),
+                object: nil
+            )
+        }
     }
     
     override func viewDidLayoutSubviews() {
@@ -662,7 +676,9 @@ class GenericLivePlayerController: UIViewController {
                 } completion: { _ in
                     RootViewController.instance.livePlayer.alpha = 1
 
+                    self.isDismissingToMiniPlayer = true
                     self.dismiss(animated: false) { [weak self] in
+                        self?.isDismissingToMiniPlayer = false
                         self?.resetDismissTransition()
                     }
                 }
@@ -765,6 +781,8 @@ class GenericLivePlayerController: UIViewController {
         currentVideoRotation = orientation
         setNeedsStatusBarAppearanceUpdate()
 
+        // Save controls visibility before transition so we can restore it after
+        let controlsWereVisible = !liveVideoPlayer.controlsView.isHidden
         liveVideoPlayer.hideControls()
         horizontalVideoPlayer.hideControls()
 
@@ -784,6 +802,10 @@ class GenericLivePlayerController: UIViewController {
                 self.horizontalVideoPlayer.player = nil
                 self.horizontalVideoParent.isHidden = true
                 self.horizontalVideoParent.alpha = 1
+                // Restore controls state after transition
+                if controlsWereVisible {
+                    self.liveVideoPlayer.showControls()
+                }
             }
             
         case .landscapeLeft, .landscapeRight:
@@ -804,6 +826,11 @@ class GenericLivePlayerController: UIViewController {
             UIView.animate(withDuration: 0.35, delay: 0, options: .curveEaseInOut) {
                 self.horizontalVideoParent.alpha = 1
                 self.liveVideoPlayer.playerView.alpha = 0
+            } completion: { _ in
+                // Restore controls state on the landscape player after transition
+                if controlsWereVisible {
+                    self.horizontalVideoPlayer.showControls()
+                }
             }
             
         case .unknown, .portraitUpsideDown, .faceUp, .faceDown:
@@ -910,7 +937,7 @@ class GenericLivePlayerController: UIViewController {
                 self.view.layoutIfNeeded()
             } completion: { _ in
                 self.safeAreaSpacer.isHidden = true
-                self.liveVideoPlayer.showControls()
+                // Don't toggle controls — preserve whatever state they were in
             }
 
             liveVideoPlayer.fullscreenButton.setImage(
@@ -919,7 +946,7 @@ class GenericLivePlayerController: UIViewController {
 
         } else {
             // --- EXITING FULLSCREEN ---
-            liveVideoPlayer.hideControls()
+            // Don't toggle controls — preserve whatever state they were in
 
             // Prepare safe area spacer for animation
             safeAreaSpacer.isHidden = false
@@ -951,7 +978,7 @@ class GenericLivePlayerController: UIViewController {
                 self.view.layoutIfNeeded()
             } completion: { _ in
                 self.chatVC.becomeFirstResponder()
-                self.liveVideoPlayer.showControls()
+                // Don't toggle controls — preserve whatever state they were in
             }
 
             liveVideoPlayer.fullscreenButton.setImage(
@@ -1053,6 +1080,32 @@ class GenericLivePlayerController: UIViewController {
         }
     }
 
+}
+
+// MARK: - UIGestureRecognizerDelegate
+
+extension GenericLivePlayerController: UIGestureRecognizerDelegate {
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Only filter the dismiss pan gesture (not other gestures)
+        guard gestureRecognizer is UIPanGestureRecognizer else { return true }
+
+        let touchPoint = gestureRecognizer.location(in: liveVideoPlayer)
+        let hitArea = liveVideoPlayer.progressHitArea
+
+        // Only block the dismiss gesture in the seeker area when controls are visible.
+        // When controls are hidden, the seeker isn't interactive so swipes should work everywhere.
+        let controlsVisible = !liveVideoPlayer.controlsView.isHidden
+        if controlsVisible, !hitArea.isHidden, hitArea.alpha > 0 {
+            let hitAreaFrame = hitArea.convert(hitArea.bounds, to: liveVideoPlayer)
+            // Add generous vertical padding (20pt above and below) so near-seeker swipes don't trigger dismiss
+            let exclusionZone = hitAreaFrame.insetBy(dx: 0, dy: -20)
+            if exclusionZone.contains(touchPoint) {
+                return false
+            }
+        }
+
+        return true
+    }
 }
 
 extension GenericLivePlayerController: GenericPlayerViewDelegate {
