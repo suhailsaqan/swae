@@ -1083,7 +1083,10 @@ class CameraViewController: UIViewController {
                 model.reloadStream()
                 model.resetSelectedScene(changeScene: false)
                 model.updateOrientation()
+                model.updateOrientationLock()
             }
+            // Sync pill button state with effective orientation
+            self?.morphingGlassModal?.expandedControls.portraitPill.isActive = model.database.portrait
         }
         morphingModal.onStreamDetailBackgroundStreamingChanged = { [weak self] enabled in
             self?.model?.stream.backgroundStreaming = enabled
@@ -1204,6 +1207,8 @@ class CameraViewController: UIViewController {
         // Scene add scene tapped — show create scene view
         morphingModal.onSceneAddSceneTapped = { [weak self] in
             guard let self = self, let model = self.model else { return }
+            // Populate pendingSceneData so back-navigation from createScene to scene view works
+            self.refreshPendingSceneData()
             let defaultName = makeUniqueName(
                 name: SettingsScene.baseName,
                 existingNames: model.database.scenes
@@ -1221,6 +1226,17 @@ class CameraViewController: UIViewController {
             }
             self.morphingGlassModal?.expandedControls.pendingCreateSceneSelectedCameraId = selectedCameraId
             self.morphingGlassModal?.showInlineContent(.createScene)
+        }
+
+        // Scene renamed inline
+        morphingModal.onSceneRenamed = { [weak self] newName in
+            guard let self = self, let model = self.model,
+                  let scene = model.getSelectedScene() else { return }
+            scene.name = newName
+            model.sceneUpdated(updateRemoteScene: false)
+            model.store()
+            self.updateScenes()
+            self.refreshPendingSceneData()
         }
 
         // Create scene confirmed
