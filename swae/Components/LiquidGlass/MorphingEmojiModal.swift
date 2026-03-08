@@ -233,6 +233,14 @@ class MorphingEmojiModal: UIView {
             tf.placeholder = "e.g. KEKW"
             tf.autocorrectionType = .no
             tf.autocapitalizationType = .none
+            // Strip invalid characters as the user types
+            NotificationCenter.default.addObserver(
+                forName: UITextField.textDidChangeNotification,
+                object: tf, queue: .main
+            ) { _ in
+                let filtered = tf.text?.filter { $0.isLetter || $0.isNumber || $0 == "_" } ?? ""
+                if filtered != tf.text { tf.text = filtered }
+            }
         }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Upload", style: .default) { [weak self] _ in
@@ -438,6 +446,10 @@ class MorphingEmojiModal: UIView {
     }
 
     func dismiss() {
+        // Recalculate source frame from live button position (keyboard may have moved it)
+        if let button = sourceButton, let window = self.window {
+            sourceFrame = button.convert(button.bounds, to: window)
+        }
         // searchField.resignFirstResponder()  // Search disabled temporarily
         let animator = UIViewPropertyAnimator(duration: 0.5, dampingRatio: 0.85) {
             self.updateMorphProgress(0)
