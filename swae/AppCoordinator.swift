@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import MWDATCore
 import NostrSDK
 import SwiftData
 import SwiftUI
@@ -60,6 +61,13 @@ final class AppCoordinator: ObservableObject {
         guard !isInitialized else { return }
         isInitialized = true
         
+        // Initialize Meta Wearables SDK (must be before Model creation)
+        do {
+            try Wearables.configure()
+        } catch {
+            print("⚠️ Meta Wearables SDK failed to configure: \(error)")
+        }
+        
         // Register Nostr transformer
         NostrEventValueTransformer.register()
 
@@ -83,6 +91,9 @@ final class AppCoordinator: ObservableObject {
 
         // Set app state reference on model
         model.appState = appState
+        
+        // Initialize Meta Glasses integration
+        model.setupMetaGlasses()
         
         // Set up zap plasma effect callback
         appState.onZapReceived = { [weak model] amount in
