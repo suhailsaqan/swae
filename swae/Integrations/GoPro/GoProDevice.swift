@@ -220,7 +220,14 @@ class GoProDevice: NSObject {
     }
 
     private func connectToWifiFromScanResults() {
-        guard let wifiSsid else { return }
+        guard let wifiSsid else {
+            logger.error("gopro-device: connectToWifiFromScanResults called but wifiSsid is nil")
+            return
+        }
+        logger.info("gopro-device: connectToWifiFromScanResults — looking for '\(wifiSsid)' in \(scanEntries.count) entries")
+        for entry in scanEntries {
+            logger.info("gopro-device:   scan entry: '\(entry.ssid)' flags=0x\(String(entry.flags, radix: 16)) configured=\(entry.isConfigured) associated=\(entry.isAssociated)")
+        }
         // Find the target network in scan results
         if let entry = scanEntries.first(where: { $0.ssid == wifiSsid }) {
             if entry.isAssociated {
@@ -248,7 +255,11 @@ class GoProDevice: NSObject {
     }
 
     private func sendConnectToWifi() {
-        guard let wifiSsid, let wifiPassword else { return }
+        guard let wifiSsid, let wifiPassword else {
+            logger.error("gopro-device: sendConnectToWifi called but wifiSsid=\(wifiSsid ?? "nil") wifiPassword=\(wifiPassword != nil ? "<set>" : "nil")")
+            return
+        }
+        logger.info("gopro-device: sendConnectToWifi isFirstWifiConnect=\(isFirstWifiConnect) ssid='\(wifiSsid)' passwordLength=\(wifiPassword.count)")
         let payload: Data
         if isFirstWifiConnect {
             payload = GoProProtobuf.buildRequestConnectNew(ssid: wifiSsid, password: wifiPassword)
@@ -323,8 +334,26 @@ class GoProDevice: NSObject {
                 self?.sendConnectToWifi()
             }
         } else {
-            logger.info("gopro-device: WiFi retries exhausted")
+            logger.error("gopro-device: WiFi retries exhausted after \(maxWifiRetries) attempts")
             setState(state: .wifiSetupFailed)
+        }
+    }
+
+    private static func provisioningStateName(_ state: Int) -> String {
+        switch state {
+        case 0: return "UNKNOWN"
+        case 1: return "NEVER_STARTED"
+        case 2: return "STARTED"
+        case 3: return "ABORTED_BY_SYSTEM"
+        case 4: return "CANCELLED_BY_USER"
+        case 5: return "SUCCESS_NEW_AP"
+        case 6: return "SUCCESS_OLD_AP"
+        case 7: return "ERROR_FAILED_TO_ASSOCIATE"
+        case 8: return "ERROR_PASSWORD_AUTH"
+        case 9: return "ERROR_EULA_BLOCKING"
+        case 10: return "ERROR_NO_INTERNET"
+        case 11: return "ERROR_UNSUPPORTED_TYPE"
+        default: return "UNKNOWN(\(state))"
         }
     }
 }
@@ -528,13 +557,16 @@ extension GoProDevice {
     }
 
     private func handleNetworkMgmtResponse(data: Data) {
-        guard data.count >= 2 else { return }
+        guard data.count >= 2 else {
+            logger.error("gopro-device: Network mgmt response too short (\(data.count) bytes)")
+            return
+        }
         let featureId = data[0]
         let actionId = data[1]
         let payload = data.count > 2 ? data[2...] : Data()
         let fields = GoProProtobuf.decodeFields(data: Data(payload))
 
-        logger.debug("gopro-device: Network mgmt response F=0x\(String(featureId, radix: 16)) A=0x\(String(actionId, radix: 16))")
+        logger.info("gopro-device: Network mgmt response F=0x\(String(featureId, radix: 16)) A=0x\(String(actionId, radix: 16)) payloadSize=\(payload.count) fieldCount=\(fields.count)")
 
         // Action ID 0x82 = ResponseStartScanning
         if actionId == 0x82 {
@@ -596,8 +628,11 @@ extension GoProDevice {
         if actionId == 0x84 || actionId == 0x85 {
             if let resultField = fields.first(where: { $0.fieldNumber == 1 }) {
                 let result = Int(GoProProtobuf.getVarintValue(field: resultField))
+                let provState = fields.first(where: { $0.fieldNumber == 2 }).map { Int(GoProProtobuf.getVarintValue(field: $0)) }
+                let timeout = fields.first(where: { $0.fieldNumber == 3 }).map { Int(GoProProtobuf.getVarintValue(field: $0)) }
+                logger.info("gopro-device: WiFi connect response (0x\(String(actionId, radix: 16))): result=\(result) provisioningState=\(provState ?? -1) timeout=\(timeout ?? -1)s")
                 if result != 1 {
-                    logger.info("gopro-device: WiFi connect initial response failed: result=\(result)")
+                    logger.error("gopro-device: WiFi connect initial response failed: result=\(result)")
                     retryWifiOrFail()
                     return
                 }
@@ -610,7 +645,7 @@ extension GoProDevice {
         if actionId == 0x0C {
             if let stateField = fields.first(where: { $0.fieldNumber == 1 }) {
                 let provisioningState = Int(GoProProtobuf.getVarintValue(field: stateField))
-                logger.debug("gopro-device: Provisioning state: \(provisioningState)")
+                logger.info("gopro-device: Provisioning state: \(provisioningState) (\(Self.provisioningStateName(provisioningState)))")
                 if provisioningState == 5 || provisioningState == 6 {
                     isFirstWifiConnect = false
                     logger.info("gopro-device: WiFi connected successfully")
