@@ -189,42 +189,61 @@ class WalletModel: ObservableObject {
         }
     }
     
-    /// Internal method to load data using a specific client
+    /// Internal method to load data using a specific client.
+    /// Fetches balance and transactions in parallel, shows transactions
+    /// immediately after conversion, then enriches in the background.
     private func loadWithClient(_ client: NWCClient) async throws {
         // Connect to relay (reuses existing connection if already connected)
         print("📊 Wallet: Connecting to relay...")
         try await client.connect()
         
-        // Load balance
-        print("📊 Wallet: Loading balance...")
-        let balance = try await client.getBalance()
-        print("✅ Wallet: Balance loaded: \(balance)")
+        // Fetch balance and transactions in parallel — they're independent NWC requests
+        print("📊 Wallet: Loading balance + transactions in parallel...")
+        async let balanceTask = client.getBalance()
+        async let transactionsTask = client.listTransactions(limit: 50)
         
-        // Update balance immediately so user sees something
-        await MainActor.run {
-            self.balance = balance
+        // Await balance — update UI as soon as it arrives
+        do {
+            let balance = try await balanceTask
+            print("✅ Wallet: Balance loaded: \(balance)")
+            await MainActor.run { self.balance = balance }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            print("⚠️ Wallet: Balance failed: \(error)")
+            // Continue — transactions may still succeed
         }
         
-        // No artificial delay needed - the client handles request sequencing
-        // and response matching properly
-        
-        // Load transactions
-        print("📊 Wallet: Loading transactions...")
+        // Await transactions
         do {
-            let nwcTransactions = try await client.listTransactions(limit: 50)
+            let nwcTransactions = try await transactionsTask
             let transactions = nwcTransactions.map { NWCClient.convertToWalletTransaction($0) }
             print("✅ Wallet: Transactions loaded: \(transactions.count)")
             
-            // Enrich transactions that weren't enriched by description parsing (Strategy B fallback)
+            // Show transactions immediately (before enrichment) so the list renders fast
+            await MainActor.run {
+                self.transactions = transactions
+                self.isLoading = false
+                // Kick off metadata fetch right away for any pubkeys already known from Strategy A
+                self.fetchMissingProfileMetadata(for: transactions)
+            }
+            
+            // Enrich in the background with zap receipt matching (Strategy B)
             let enrichedTransactions = await MainActor.run {
                 enrichTransactionsWithZapReceipts(transactions)
             }
             
-            await MainActor.run {
-                self.transactions = enrichedTransactions
-                self.isLoading = false
-                // Fetch profile metadata for counterparties
-                self.fetchMissingProfileMetadata(for: enrichedTransactions)
+            // Only update if enrichment actually changed something
+            let didEnrich = enrichedTransactions.contains(where: { enriched in
+                transactions.first(where: { $0.id == enriched.id })?.isZap != enriched.isZap
+            })
+            
+            if didEnrich {
+                await MainActor.run {
+                    self.transactions = enrichedTransactions
+                    // Fetch metadata for any newly-discovered counterparty pubkeys
+                    self.fetchMissingProfileMetadata(for: enrichedTransactions)
+                }
             }
         } catch is CancellationError {
             print("⚠️ Wallet: Task cancelled during transaction load")
@@ -261,15 +280,28 @@ class WalletModel: ObservableObject {
             try await client.connect()
             let nwcTransactions = try await client.listTransactions(limit: limit)
             let transactions = nwcTransactions.map { NWCClient.convertToWalletTransaction($0) }
-            
+
+            // Show immediately before enrichment
+            await MainActor.run {
+                self.transactions = transactions
+                self.isLoading = false
+                self.fetchMissingProfileMetadata(for: transactions)
+            }
+
+            // Enrich in background
             let enrichedTransactions = await MainActor.run {
                 enrichTransactionsWithZapReceipts(transactions)
             }
 
-            await MainActor.run {
-                self.transactions = enrichedTransactions
-                self.isLoading = false
-                self.fetchMissingProfileMetadata(for: enrichedTransactions)
+            let didEnrich = enrichedTransactions.contains(where: { enriched in
+                transactions.first(where: { $0.id == enriched.id })?.isZap != enriched.isZap
+            })
+
+            if didEnrich {
+                await MainActor.run {
+                    self.transactions = enrichedTransactions
+                    self.fetchMissingProfileMetadata(for: enrichedTransactions)
+                }
             }
         } catch is CancellationError {
             print("⚠️ Wallet: Transaction refresh cancelled")
