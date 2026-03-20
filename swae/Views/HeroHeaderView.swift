@@ -633,6 +633,12 @@ final class HeroHeaderView: UIView, UIGestureRecognizerDelegate {
             return
         }
 
+        // Same event from cache — thumbnail already visible, just schedule video
+        if !isNewEvent && thumbnailLoaded {
+            scheduleDeferredVideoLoad()
+            return
+        }
+
         // New event — tear down any existing video and reset state
         if isNewEvent {
             tearDownVideo()
@@ -720,6 +726,7 @@ final class HeroHeaderView: UIView, UIGestureRecognizerDelegate {
     /// Shows thumbnail from Kingfisher's disk cache (no network needed).
     /// Will be replaced by real data when relay responds.
     func configureFromCache(_ cached: CachedHeroData) {
+        currentEventId = cached.eventId
         titleLabel.text = cached.title
         liveBadge.setViewerCount(cached.viewerCount)
         liveBadge.setLive(cached.isLive)
