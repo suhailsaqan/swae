@@ -690,9 +690,9 @@ class InlineStreamDetailView: UIView {
         bitrateValueLabel.textColor = data.bitrateColor
         viewerValueLabel.text = data.viewerCount
 
-        // Bottom buttons: show Update/Save when zap stream is enabled
-        updateButton.isHidden = !data.isZapStream
-        updateButton.setTitle(data.isLive ? "Update" : "Save", for: .normal)
+        // Bottom buttons: show Update only when live on zap stream
+        updateButton.isHidden = !(data.isZapStream && data.isLive)
+        updateButton.setTitle("Update", for: .normal)
 
         // Navigation rows
         // Stream Details row: only for Zap Stream
