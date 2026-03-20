@@ -68,7 +68,7 @@ struct TransactionsView: View {
                         .font(.system(size: 13, weight: filter == tab ? .semibold : .medium))
                         .foregroundColor(filter == tab ? .white : .gray)
                         .padding(.horizontal, 14).padding(.vertical, 8)
-                        .background(Capsule().fill(filter == tab ? Color.accentPurple : Color.white.opacity(0.08)))
+                        .background(Capsule().fill(filter == tab ? Color.accentPurple : Color.primary.opacity(0.08)))
                 }
             }
             Spacer()
@@ -86,7 +86,7 @@ struct TransactionsView: View {
             }
         }
         .frame(maxWidth: .infinity).padding(.vertical, 40)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.05)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.05)))
     }
 }
 
@@ -126,7 +126,7 @@ struct TransactionRowView: View {
             Button { if transaction != nil { showDetail = true } } label: {
                 HStack(spacing: 0) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(label).font(.system(size: 15, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                        Text(label).font(.system(size: 15, weight: .semibold)).foregroundColor(.primary).lineLimit(1)
                         if let msg = transaction?.zapMessage, !msg.isEmpty {
                             Text(msg).font(.system(size: 13)).foregroundColor(.secondary).lineLimit(1)
                         }
@@ -145,7 +145,7 @@ struct TransactionRowView: View {
             }.buttonStyle(.plain)
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.05)))
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.primary.opacity(0.05)))
         .sheet(isPresented: $showDetail) {
             if let tx = transaction { TransactionDetailView(transaction: tx).environmentObject(appState) }
         }
