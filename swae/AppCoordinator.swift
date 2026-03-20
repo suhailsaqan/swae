@@ -252,43 +252,62 @@ final class AppCoordinator: ObservableObject {
         }
     }
 
-    /// Loads only follow lists and metadata from cache (synchronous, fast).
-    /// Called before relay connection so the bootstrap filter has the right authors.
-    /// After the kind column migration completes, this uses a filtered predicate
-    /// to only fetch kinds 0 (metadata), 3 (follow list), and 5 (deletion).
+    /// Loads follow lists and metadata from cache.
+    /// Phase 1 (instant): restores cached followed pubkeys from UserDefaults so the
+    /// "Following" section works immediately.
+    /// Phase 2 (deferred): full SwiftData fetch runs in a yielded Task so it doesn't
+    /// block the first frame. The 108ms fetch is deferred to after UI renders.
     @MainActor
     private func preloadFollowListsFromCache() {
-        do {
-            let migrated = UserDefaults.standard.bool(forKey: "persistentEventKindMigrated")
-            
-            let persisted: [PersistentNostrEvent]
-            if migrated {
-                // Fast path: only fetch the 3 kinds we need
-                let descriptor = FetchDescriptor<PersistentNostrEvent>(
-                    predicate: #Predicate { $0.kind == 0 || $0.kind == 3 || $0.kind == 5 }
-                )
-                persisted = try container.mainContext.fetch(descriptor)
-            } else {
-                // First launch after update: fall back to full table (same as before)
-                let descriptor = FetchDescriptor<PersistentNostrEvent>()
-                persisted = try container.mainContext.fetch(descriptor)
-            }
-            
-            for persistent in persisted {
-                let event = persistent.nostrEvent
-                switch event {
-                case let followListEvent as FollowListEvent:
-                    appState.processFollowListDirect(followListEvent)
-                case let metadataEvent as MetadataEvent:
-                    appState.processMetadataDirect(metadataEvent)
-                case let deletionEvent as DeletionEvent:
-                    appState.processDeletionDirect(deletionEvent)
-                default:
-                    break
+        // Phase 1: Instant restore of followed pubkeys from UserDefaults cache
+        if let cached = UserDefaults.standard.array(forKey: "cachedFollowedPubkeys") as? [String],
+           !cached.isEmpty {
+            appState.followedPubkeys = Set(cached)
+        }
+
+        // Phase 2: Deferred SwiftData fetch — yields to run loop so initialize() completes
+        // and the UI can render before the 108ms fetch runs.
+        Task { @MainActor in
+            do {
+                let migrated = UserDefaults.standard.bool(forKey: "persistentEventKindMigrated")
+
+                let persisted: [PersistentNostrEvent]
+                if migrated {
+                    // Fast path: only fetch the 3 kinds we need
+                    let descriptor = FetchDescriptor<PersistentNostrEvent>(
+                        predicate: #Predicate { $0.kind == 0 || $0.kind == 3 || $0.kind == 5 }
+                    )
+                    persisted = try container.mainContext.fetch(descriptor)
+                } else {
+                    // First launch after update: fall back to full table
+                    let descriptor = FetchDescriptor<PersistentNostrEvent>()
+                    persisted = try container.mainContext.fetch(descriptor)
                 }
+
+                for persistent in persisted {
+                    let event = persistent.nostrEvent
+                    switch event {
+                    case let followListEvent as FollowListEvent:
+                        appState.processFollowListDirect(followListEvent)
+                    case let metadataEvent as MetadataEvent:
+                        appState.processMetadataDirect(metadataEvent)
+                    case let deletionEvent as DeletionEvent:
+                        appState.processDeletionDirect(deletionEvent)
+                    default:
+                        break
+                    }
+                }
+
+                // Refresh with full data now available
+                appState.refreshFollowedPubkeys()
+
+                // Update cache for next launch
+                UserDefaults.standard.set(
+                    Array(appState.followedPubkeys), forKey: "cachedFollowedPubkeys"
+                )
+            } catch {
+                print("❌ Failed to preload follow lists: \(error)")
             }
-        } catch {
-            print("❌ Failed to preload follow lists: \(error)")
         }
     }
 
