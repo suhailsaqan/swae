@@ -59,33 +59,28 @@ class StreamingBridge {
         return nil
     }
     
-    /// Finds an existing LiveActivitiesEvent for the current stream
+    /// Finds the most recent live LiveActivitiesEvent for the current stream.
+    /// Uses highest `createdAt` to avoid picking stale events from previous streams.
     private static func findLiveActivitiesEvent(for model: Model, in appState: AppState) -> LiveActivitiesEvent? {
-        // Get the user's public key
         guard let userPubkey = appState.keypair?.publicKey.hex else {
             print("⚠️ StreamingBridge: No user keypair available")
             return nil
         }
         
-        // Search for a live activities event created by this user
-        for (_, events) in appState.liveActivitiesEvents {
-            for event in events {
-                // Check if this event belongs to the current user
-                // Per NIP-53, the host is in the `p` tag with role "host".
-                // For zap-stream-core, the server signs the event (event.pubkey is the server),
-                // and the user's pubkey is in the host participant tag.
-                if event.hostPubkeyHex == userPubkey {
-                    // Check if the event is still live (status is an enum, not a string)
-                    if event.status == .live {
-                        print("✅ StreamingBridge: Found active LiveActivitiesEvent")
-                        return event
-                    }
-                }
-            }
-        }
+        // Find the most recent live event for this user (highest createdAt).
+        // Multiple live events can exist if the server crashed without sending "ended"
+        // for a previous stream, or if relay propagation is delayed.
+        let result = appState.liveActivitiesEvents.values
+            .flatMap { $0 }
+            .filter { $0.hostPubkeyHex == userPubkey && $0.status == .live }
+            .max(by: { $0.createdAt < $1.createdAt })
         
-        print("ℹ️ StreamingBridge: No active LiveActivitiesEvent found for user")
-        return nil
+        if result != nil {
+            print("✅ StreamingBridge: Found active LiveActivitiesEvent")
+        } else {
+            print("ℹ️ StreamingBridge: No active LiveActivitiesEvent found for user")
+        }
+        return result
     }
     
     // MARK: - Chat Availability
