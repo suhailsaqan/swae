@@ -52,6 +52,10 @@ extension Model {
             print("🔌 NostrChatBridge: Already running, skipping start")
             return
         }
+        guard isStreaming() else {
+            print("🔌 NostrChatBridge: Not streaming, skipping start")
+            return
+        }
         guard let appState = appState else {
             print("⚠️ NostrChatBridge: appState is nil, cannot start")
             return
@@ -65,6 +69,8 @@ extension Model {
 
         // Step 1: Watch for the user's LiveActivitiesEvent to appear in AppState.
         // When found, call subscribeToLiveChat (idempotent — no-op if already subscribed).
+        // Pick the most recent live event (highest createdAt) to avoid latching onto
+        // stale events from previous streams that haven't been marked "ended" yet.
         appState.$liveActivitiesEvents
             .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
             .sink { [weak self] allEvents in
@@ -75,11 +81,14 @@ extension Model {
                     return
                 }
 
-                let userLiveEvent = allEvents.values
-                    .flatMap { $0 }
-                    .first(where: {
-                        $0.hostPubkeyHex == userPubkey && $0.status == .live
-                    })
+                // Find the most recent live event for this user (not just the first match).
+                // Multiple live events can exist if the server crashed without sending "ended"
+                // for a previous stream, or if relay propagation is delayed.
+                let allLiveEvents: [LiveActivitiesEvent] = allEvents.values.flatMap { $0 }
+                let userLiveEvents = allLiveEvents.filter {
+                    $0.hostPubkeyHex == userPubkey && $0.status == .live
+                }
+                let userLiveEvent = userLiveEvents.max(by: { $0.createdAt < $1.createdAt })
 
                 guard let event = userLiveEvent,
                       let coordinate = event.coordinateTag else {
@@ -87,9 +96,20 @@ extension Model {
                 }
 
                 if coordinate != self.nostrChatBridgeCoordinate {
-                    print("🔌 NostrChatBridge: Found live event, coordinate=\(coordinate)")
+                    let oldCoordinate = self.nostrChatBridgeCoordinate
+                    print("🔌 NostrChatBridge: Found live event, coordinate=\(coordinate)" +
+                          (oldCoordinate != nil ? " (switching from \(oldCoordinate!))" : ""))
                     self.nostrChatBridgeCoordinate = coordinate
                     self.nostrChatBridgeSessionStart = event.startsAt ?? event.createdDate
+
+                    // Clear stale messages from the previous coordinate so the widget
+                    // doesn't flash old chat while the new subscription loads.
+                    if oldCoordinate != nil {
+                        for effect in self.nostrChatEffects.values {
+                            effect.replaceAllMessages([])
+                        }
+                    }
+
                     appState.subscribeToLiveChat(for: event)
                 }
             }

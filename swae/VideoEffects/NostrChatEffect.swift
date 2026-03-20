@@ -115,10 +115,14 @@ final class NostrChatEffect: VideoEffect {
         }
     }
 
+    /// Maximum number of lines a single chat message can occupy.
+    /// Prevents one huge message from consuming the entire widget height.
+    private static let maxLinesPerMessage = 3
+
     private func triggerRender(size: CGSize, forMetalPetal: Bool) {
-        let (msgs, settings, wWidth) = nostrChatQueue.sync {
+        let (msgs, settings, wWidth, wHeight) = nostrChatQueue.sync {
             self.needsRedraw = false
-            return (self.messages, self.settings, self.widgetWidth)
+            return (self.messages, self.settings, self.widgetWidth, self.widgetHeight)
         }
 
         let count = msgs.count
@@ -126,19 +130,30 @@ final class NostrChatEffect: VideoEffect {
 
         let fontSize = CGFloat(settings.fontSize) * (size.maximum() / 1920)
         let renderWidth = toPixels(wWidth, size.width)
+        let renderHeight = toPixels(wHeight, size.height)
 
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
 
-            let orderedMessages = settings.scrollDirection == .bottomToTop
-                ? msgs : msgs.reversed()
-
-            let chatView = self.buildChatView(
-                messages: orderedMessages,
-                settings: settings,
-                fontSize: fontSize,
-                renderWidth: renderWidth
-            )
+            let chatView: AnyView
+            if msgs.isEmpty {
+                chatView = AnyView(self.buildEmptyStateView(
+                    settings: settings,
+                    fontSize: fontSize,
+                    renderWidth: renderWidth,
+                    renderHeight: renderHeight
+                ))
+            } else {
+                let orderedMessages = settings.scrollDirection == .bottomToTop
+                    ? msgs : msgs.reversed()
+                chatView = AnyView(self.buildChatView(
+                    messages: orderedMessages,
+                    settings: settings,
+                    fontSize: fontSize,
+                    renderWidth: renderWidth,
+                    renderHeight: renderHeight
+                ))
+            }
 
             let renderer = ImageRenderer(content: chatView)
             let uiImage = renderer.uiImage
@@ -157,8 +172,11 @@ final class NostrChatEffect: VideoEffect {
         messages: [NostrChatDisplayItem],
         settings: SettingsWidgetNostrChat,
         fontSize: CGFloat,
-        renderWidth: Double
+        renderWidth: Double,
+        renderHeight: Double
     ) -> some View {
+        // For bottomToTop: newest message at bottom, content anchored to bottom.
+        // For topToBottom: newest message at top, content anchored to top.
         VStack(alignment: .leading, spacing: CGFloat(settings.messageSpacing)) {
             ForEach(messages) { msg in
                 HStack(alignment: .top, spacing: 4) {
@@ -176,9 +194,11 @@ final class NostrChatEffect: VideoEffect {
                         Text(msg.displayName + (settings.showColon ? ":" : ""))
                             .foregroundColor(self.usernameColor(for: msg))
                             .fontWeight(settings.usernameFontWeight.toSystem())
+                            .lineLimit(1)
                     }
                     self.emojifiedText(msg.content, emojis: msg.customEmojis, fontSize: fontSize)
                         .foregroundColor(settings.messageColor.color())
+                        .lineLimit(Self.maxLinesPerMessage)
                 }
                 .font(.system(size: fontSize, design: settings.fontDesign.toSystem()))
                 .fontWeight(settings.fontWeight.toSystem())
@@ -202,7 +222,33 @@ final class NostrChatEffect: VideoEffect {
             }
         }
         .padding(CGFloat(settings.messagePadding))
-        .frame(width: renderWidth, alignment: .leading)
+        .frame(width: renderWidth, height: renderHeight,
+               alignment: settings.scrollDirection == .bottomToTop ? .bottomLeading : .topLeading)
+        .clipped()
+        .background(settings.backgroundColor.color())
+        .cornerRadius(CGFloat(settings.cornerRadius))
+    }
+
+    /// Renders a placeholder when no chat messages have arrived yet.
+    private func buildEmptyStateView(
+        settings: SettingsWidgetNostrChat,
+        fontSize: CGFloat,
+        renderWidth: Double,
+        renderHeight: Double
+    ) -> some View {
+        VStack {
+            Text("No chat messages yet")
+                .foregroundColor(settings.messageColor.color().opacity(0.5))
+                .font(.system(size: fontSize, design: settings.fontDesign.toSystem()))
+                .fontWeight(settings.fontWeight.toSystem())
+                .shadow(
+                    color: settings.textShadow
+                        ? settings.textShadowColor.color() : .clear,
+                    radius: CGFloat(settings.textShadowRadius)
+                )
+        }
+        .padding(CGFloat(settings.messagePadding))
+        .frame(width: renderWidth, height: renderHeight, alignment: .center)
         .background(settings.backgroundColor.color())
         .cornerRadius(CGFloat(settings.cornerRadius))
     }
