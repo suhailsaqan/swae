@@ -10,6 +10,37 @@ class DjiDeviceWrapper {
 }
 
 extension Model {
+    /// Call when a DJI device is created or its settings view appears.
+    /// Ensures RTMP server has a stream so canStartLive() works once BLE + WiFi are set.
+    func prepareRtmpServerForDjiDevice(_ device: SettingsDjiDevice) {
+        guard device.rtmpUrlType == .server else { return }
+        var needsReload = false
+        if !database.rtmpServer.enabled {
+            database.rtmpServer.enabled = true
+            needsReload = true
+        }
+        if database.rtmpServer.streams.isEmpty {
+            let stream = SettingsRtmpServerStream()
+            stream.name = device.name
+            database.rtmpServer.streams.append(stream)
+            device.serverRtmpStreamId = stream.id
+            device.serverRtmpUrl = "rtmp://\(personalHotspotLocalAddress):\(database.rtmpServer.port)\(rtmpServerApp)/\(stream.streamKey)"
+            needsReload = true
+        } else if device.serverRtmpUrl.isEmpty {
+            if let stream = database.rtmpServer.streams.first {
+                device.serverRtmpStreamId = stream.id
+                device.serverRtmpUrl = "rtmp://\(personalHotspotLocalAddress):\(database.rtmpServer.port)\(rtmpServerApp)/\(stream.streamKey)"
+            }
+        }
+        if let stream = getRtmpStream(id: device.serverRtmpStreamId), stream.streamKey.isEmpty {
+            stream.streamKey = String(UUID().uuidString.prefix(8)).lowercased()
+            needsReload = true
+        }
+        if needsReload {
+            reloadRtmpServer()
+        }
+    }
+
     func startDjiDeviceLiveStream(device: SettingsDjiDevice) {
         if !djiDeviceWrappers.keys.contains(device.id) {
             let djiDevice = DjiDevice()
