@@ -75,6 +75,14 @@ final class SkeletonView: UIView {
     func stopAnimating() {
         gradientLayer.removeAnimation(forKey: "shimmer")
     }
+
+    /// Configures the skeleton for dark backgrounds (e.g., glass modal overlays).
+    func useDarkStyle() {
+        backgroundColor = UIColor(white: 1.0, alpha: 0.06)
+        let lightColor = UIColor(white: 1.0, alpha: 0.12).cgColor
+        let darkColor = UIColor(white: 1.0, alpha: 0.04).cgColor
+        gradientLayer.colors = [darkColor, lightColor, darkColor]
+    }
 }
 
 // MARK: - Carousel Skeleton (matches StreamCardCell: thumbnail + avatar + title + subtitle)
