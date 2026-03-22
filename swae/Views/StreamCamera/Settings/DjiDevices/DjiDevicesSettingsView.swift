@@ -269,13 +269,15 @@ struct DjiDeviceDetailView: View {
     var body: some View {
         Group {
             bleSection
-            wifiSection
-            wifiHelpCard
-            qualitySection
-            rtmpInfoCard
-            advancedLink
-            statusCard
-            actionButton
+            if device.bluetoothPeripheralId != nil {
+                wifiSection
+                wifiHelpCard
+                qualitySection
+                rtmpInfoCard
+                advancedLink
+                statusCard
+                actionButton
+            }
         }
     }
 
