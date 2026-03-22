@@ -149,6 +149,7 @@ class ExpandedControlsModal: UIView {
 
     // Stream detail callbacks (forwarded to InlineStreamDetailView)
     var onStreamDetailTopUp: (() -> Void)?
+    var onStreamDetailWalletReceive: (() -> Void)?
     var onStreamDetailSettings: (() -> Void)?
     var onStreamDetailRefreshBalance: (() -> Void)?
     var onStreamDetailUpdateStream: (() -> Void)?
@@ -716,6 +717,7 @@ class ExpandedControlsModal: UIView {
                 sv.translatesAutoresizingMaskIntoConstraints = false
                 sv.onBack = { [weak self] in self?.showButtonGrid() }
                 sv.onTopUpTapped = { [weak self] in self?.onStreamDetailTopUp?() }
+                sv.onWalletReceiveTapped = { [weak self] in self?.onStreamDetailWalletReceive?() }
                 sv.onStreamSettingsTapped = { [weak self] in self?.onStreamDetailSettings?() }
                 sv.onRefreshBalance = { [weak self] in self?.onStreamDetailRefreshBalance?() }
                 sv.onUpdateStreamTapped = { [weak self] in self?.onStreamDetailUpdateStream?() }
@@ -900,6 +902,11 @@ class ExpandedControlsModal: UIView {
         }
     }
 
+    /// Hide or show the top home indicator bar (hidden in landscape where the side grab handle is used instead)
+    func setHomeIndicatorHidden(_ hidden: Bool) {
+        homeIndicator.isHidden = hidden
+    }
+
     func showButtonGrid() {
         quickConfigView?.endEditing(true)
         collabInviteView?.endEditing(true)
@@ -981,6 +988,12 @@ class ExpandedControlsModal: UIView {
 
     func updateStreamDetailAutoTopupState(hasNwc: Bool, hasWallet: Bool) {
         streamDetailView?.updateAutoTopupState(hasNwc: hasNwc, hasWallet: hasWallet)
+    }
+
+    /// Reconfigures the stream detail view with fresh data (e.g., after balance refresh).
+    func reconfigureStreamDetail(data: InlineStreamDetailView.StreamDetailData) {
+        pendingStreamDetailData = data
+        streamDetailView?.configure(data: data)
     }
 
     // MARK: - Collab Data

@@ -105,6 +105,7 @@ class MorphingGlassModal: UIView {
     private let sceneStackView = UIStackView()
     private var sceneLabels: [UILabel] = []
     private var addSceneButtonContainer: UIView?
+    private var trailingSpacer: UIView?
     private var selectedSceneIndex: Int = 0
 
     // Onboarding CTA label (shown when stream not configured)
@@ -124,6 +125,7 @@ class MorphingGlassModal: UIView {
     // MARK: - Animation
     
     private var morphAnimator: UIViewPropertyAnimator?
+    private var morphPanGesture: UIPanGestureRecognizer!
     private let expandThreshold: CGFloat = 120
     
     // Gesture state
@@ -150,6 +152,13 @@ class MorphingGlassModal: UIView {
     private var countdownRingLayer: CAShapeLayer?
     private var isCurrentlyLive: Bool = false
     private var loadingSpinner: UIActivityIndicatorView?
+    
+    // Discoverability hints
+    private var hasEverExpanded: Bool = false
+    private let swipeHintLabel = UILabel()
+    private var swipeHintDismissWork: DispatchWorkItem?
+    private static let swipeHintShownKey = "morphingGlassSwipeHintShown"
+    private static let grabHandlePulseKey = "grabHandlePulse"
     
     // MARK: - Callbacks
     
@@ -371,6 +380,11 @@ class MorphingGlassModal: UIView {
         set { expandedContent.onStreamDetailTopUp = newValue }
     }
 
+    var onStreamDetailWalletReceive: (() -> Void)? {
+        get { expandedContent.onStreamDetailWalletReceive }
+        set { expandedContent.onStreamDetailWalletReceive = newValue }
+    }
+
     var onStreamDetailSettings: (() -> Void)? {
         get { expandedContent.onStreamDetailSettings }
         set { expandedContent.onStreamDetailSettings = newValue }
@@ -491,10 +505,11 @@ class MorphingGlassModal: UIView {
         
         setupSideButtons()
         setupMorphingGlass() // Modal on top
+        setupGestures()      // Must be before setupSceneSelector so morphPanGesture is available
         setupSceneSelector()
         setupGrabHandle()
+        setupSwipeHint()
         setupExpandedContent()
-        setupGestures()
         
         // Ensure grab handle is visible above other content
         morphingGlass.glassContentView.bringSubviewToFront(grabHandle)
@@ -504,6 +519,14 @@ class MorphingGlassModal: UIView {
         
         // Show onboarding CTA if stream not yet configured
         updateOnboardingState()
+        
+        // Discoverability: pulse the grab handle after entry animation settles
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.startGrabHandlePulse()
+        }
+        
+        // Discoverability: one-time tooltip
+        showSwipeHintIfNeeded()
         
         // Keyboard observation
         NotificationCenter.default.addObserver(
@@ -523,6 +546,12 @@ class MorphingGlassModal: UIView {
     // MARK: - Landscape Reconfiguration
     
     private func reconfigureForOrientation() {
+        // Hide swipe hint in landscape (it's positioned relative to portrait pill top)
+        if isLandscape { swipeHintLabel.alpha = 0 }
+        
+        // In landscape the side grab handle replaces the top home indicator
+        expandedContent.setHomeIndicatorHidden(isLandscape)
+        
         // Deactivate all orientation-specific constraints
         NSLayoutConstraint.deactivate(settingsPortraitConstraints)
         NSLayoutConstraint.deactivate(flipPortraitConstraints)
@@ -632,7 +661,6 @@ class MorphingGlassModal: UIView {
     private func updateSceneLabelSizes() {
         let font = UIFont.systemFont(ofSize: 14, weight: .semibold)
         let pillLandscapeWidth = pillHeight - 8
-        let maxLabelWidth: CGFloat = 80
         
         for label in sceneLabels {
             // Fully remove old size constraints
@@ -670,20 +698,14 @@ class MorphingGlassModal: UIView {
             } else {
                 label.textAlignment = .center
                 label.layer.mask = nil
-                let textWidth = ((label.text ?? "") as NSString).size(withAttributes: [.font: font]).width
-                let minWidth = pillWidth / CGFloat(min(sceneLabels.count, 3))
-                let labelWidth = min(max(textWidth + 24, minWidth), maxLabelWidth)
-                label.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
                 
-                if textWidth + 24 > maxLabelWidth {
-                    let gradientLayer = CAGradientLayer()
-                    gradientLayer.colors = [UIColor.white.cgColor, UIColor.white.cgColor, UIColor.clear.cgColor]
-                    gradientLayer.locations = [0.0, 0.7, 1.0]
-                    gradientLayer.startPoint = CGPoint(x: 0, y: 0.5)
-                    gradientLayer.endPoint = CGPoint(x: 1, y: 0.5)
-                    gradientLayer.frame = CGRect(x: 0, y: 0, width: labelWidth, height: 30)
-                    label.layer.mask = gradientLayer
-                }
+                // Size to fit text + 12pt padding each side, with a minimum width
+                // so short names don't look cramped. No maximum cap — the scroll view
+                // handles overflow naturally.
+                let textWidth = ((label.text ?? "") as NSString).size(withAttributes: [.font: font]).width
+                let minWidth: CGFloat = 60
+                let labelWidth = max(textWidth + 32, minWidth)
+                label.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
             }
         }
         
@@ -845,6 +867,9 @@ class MorphingGlassModal: UIView {
         morphingGlass.glassContentView.addSubview(setupCTALabel)
 
         let ctaTap = UITapGestureRecognizer(target: self, action: #selector(setupCTATapped))
+        if let pan = morphPanGesture {
+            ctaTap.require(toFail: pan)
+        }
         setupCTALabel.addGestureRecognizer(ctaTap)
         
         // Always-active constraints: stack view pinned to scroll view content guide
@@ -893,6 +918,8 @@ class MorphingGlassModal: UIView {
         sceneLabels.removeAll()
         addSceneButtonContainer?.removeFromSuperview()
         addSceneButtonContainer = nil
+        trailingSpacer?.removeFromSuperview()
+        trailingSpacer = nil
         
         // Create labels for each scene
         for (index, sceneName) in scenes.enumerated() {
@@ -911,8 +938,12 @@ class MorphingGlassModal: UIView {
                 label.textColor = UIColor(white: 1.0, alpha: 0.6)
             }
             
-            // Add tap gesture
+            // Add tap gesture — require the morph pan to fail first so
+            // dragging over a label triggers the expand gesture instead of a tap
             let tap = UITapGestureRecognizer(target: self, action: #selector(sceneLabelTapped(_:)))
+            if let pan = morphPanGesture {
+                tap.require(toFail: pan)
+            }
             label.addGestureRecognizer(tap)
             label.tag = index
             
@@ -942,15 +973,19 @@ class MorphingGlassModal: UIView {
         plusLabel.isUserInteractionEnabled = true
         
         let plusTap = UITapGestureRecognizer(target: self, action: #selector(addSceneButtonTapped))
+        if let pan = morphPanGesture {
+            plusTap.require(toFail: pan)
+        }
         plusLabel.addGestureRecognizer(plusTap)
         
         sceneStackView.addArrangedSubview(plusLabel)
         
         // Add trailing spacer for right padding (matches left padding of first scene)
-        let trailingSpacer = UIView()
-        trailingSpacer.translatesAutoresizingMaskIntoConstraints = false
-        trailingSpacer.widthAnchor.constraint(equalToConstant: 8).isActive = true
-        sceneStackView.addArrangedSubview(trailingSpacer)
+        let spacer = UIView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.widthAnchor.constraint(equalToConstant: 8).isActive = true
+        sceneStackView.addArrangedSubview(spacer)
+        trailingSpacer = spacer
         
         addSceneButtonContainer = plusLabel
         
@@ -1070,6 +1105,24 @@ class MorphingGlassModal: UIView {
         NSLayoutConstraint.activate(grabHandlePortraitConstraints)
     }
     
+    private func setupSwipeHint() {
+        swipeHintLabel.translatesAutoresizingMaskIntoConstraints = false
+        swipeHintLabel.text = "Swipe up for controls"
+        swipeHintLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        swipeHintLabel.textColor = UIColor(white: 1.0, alpha: 0.8)
+        swipeHintLabel.textAlignment = .center
+        swipeHintLabel.alpha = 0
+        swipeHintLabel.isAccessibilityElement = true
+        swipeHintLabel.accessibilityLabel = "Swipe up for more controls"
+        swipeHintLabel.accessibilityTraits = .staticText
+        addSubview(swipeHintLabel)
+        
+        NSLayoutConstraint.activate([
+            swipeHintLabel.centerXAnchor.constraint(equalTo: morphingGlass.centerXAnchor),
+            swipeHintLabel.bottomAnchor.constraint(equalTo: morphingGlass.topAnchor, constant: -6),
+        ])
+    }
+    
     private func setupExpandedContent() {
         // Scroll view wraps expanded content so inline views can scroll if they exceed modal height
         expandedScrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -1119,11 +1172,11 @@ class MorphingGlassModal: UIView {
     private func setupGestures() {
         // Pan gesture on the morphing glass for vertical morphing
         // This gesture will determine direction and either handle vertical or let scroll view handle horizontal
-        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-        panGesture.delegate = self
-        panGesture.cancelsTouchesInView = false
-        panGesture.delaysTouchesBegan = false
-        morphingGlass.addGestureRecognizer(panGesture)
+        morphPanGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        morphPanGesture.delegate = self
+        morphPanGesture.cancelsTouchesInView = false
+        morphPanGesture.delaysTouchesBegan = false
+        morphingGlass.addGestureRecognizer(morphPanGesture)
     }
 
     
@@ -1443,6 +1496,98 @@ class MorphingGlassModal: UIView {
         flipGlass.glassContentView.backgroundColor = .clear
     }
     
+    // MARK: - Discoverability Hints
+    
+    /// Pulses the grab handle opacity and width to draw attention (per-session, until first expand)
+    private func startGrabHandlePulse() {
+        guard !hasEverExpanded else { return }
+        guard grabHandle.layer.animation(forKey: Self.grabHandlePulseKey) == nil else { return }
+        
+        let opacityAnim = CABasicAnimation(keyPath: "opacity")
+        opacityAnim.fromValue = 0.3
+        opacityAnim.toValue = 0.8
+        
+        let scaleAnim = CABasicAnimation(keyPath: "transform.scale.x")
+        scaleAnim.fromValue = 1.0
+        scaleAnim.toValue = 1.15
+        
+        let group = CAAnimationGroup()
+        group.animations = [opacityAnim, scaleAnim]
+        group.duration = 2.0
+        group.autoreverses = true
+        group.repeatCount = 3
+        group.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        
+        grabHandle.layer.add(group, forKey: Self.grabHandlePulseKey)
+    }
+    
+    private func stopGrabHandlePulse() {
+        grabHandle.layer.removeAnimation(forKey: Self.grabHandlePulseKey)
+    }
+    
+    /// Shows a one-time "Swipe up for controls" tooltip above the pill
+    private func showSwipeHintIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: Self.swipeHintShownKey) else { return }
+        // Don't show if stream isn't configured — the yellow CTA is already visible
+        guard isStreamConfigured?() ?? true else { return }
+        
+        UserDefaults.standard.set(true, forKey: Self.swipeHintShownKey)
+        
+        let showWork = DispatchWorkItem { [weak self] in
+            guard let self, self.swipeHintLabel.alpha == 0 else { return }
+            UIView.animate(withDuration: 0.3) {
+                self.swipeHintLabel.alpha = 1
+            }
+            
+            let dismissWork = DispatchWorkItem { [weak self] in
+                UIView.animate(withDuration: 0.5) {
+                    self?.swipeHintLabel.alpha = 0
+                }
+            }
+            self.swipeHintDismissWork = dismissWork
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0, execute: dismissWork)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: showWork)
+    }
+    
+    private func dismissSwipeHint() {
+        swipeHintDismissWork?.cancel()
+        swipeHintDismissWork = nil
+        UIView.animate(withDuration: 0.2) {
+            self.swipeHintLabel.alpha = 0
+        }
+    }
+    
+    /// Bounces the pill up ~20pt and back to hint at the swipe gesture (per-session, portrait only)
+    func playDiscoveryBounce() {
+        guard !hasEverExpanded else { return }
+        guard !isLandscape else { return }
+        guard case .collapsed = currentState else { return }
+        
+        let originalConstant = glassBottomConstraint.constant
+        
+        UIView.animate(
+            withDuration: 0.3,
+            delay: 0,
+            options: .curveEaseOut,
+            animations: {
+                self.glassBottomConstraint.constant = originalConstant - 20
+                self.layoutIfNeeded()
+            }
+        ) { _ in
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            UIView.animate(
+                withDuration: 0.5,
+                delay: 0,
+                usingSpringWithDamping: 0.6,
+                initialSpringVelocity: 0.3
+            ) {
+                self.glassBottomConstraint.constant = originalConstant
+                self.layoutIfNeeded()
+            }
+        }
+    }
+    
     // MARK: - Rubber Band
     
     private func applyRubberBand(_ progress: CGFloat) -> CGFloat {
@@ -1452,6 +1597,37 @@ class MorphingGlassModal: UIView {
             return 1 + (progress - 1) * 0.3
         }
         return progress
+    }
+    
+    // MARK: - Bulge Easing Helpers
+    
+    /// Ease-out cubic: fast start, slow finish — used for the expansion axis (width in portrait)
+    private func easeOutCubic(_ t: CGFloat) -> CGFloat {
+        let t1 = t - 1
+        return t1 * t1 * t1 + 1
+    }
+    
+    /// Ease-in quadratic: slow start, fast finish — used for the follow axis (height in portrait)
+    private func easeInQuad(_ t: CGFloat) -> CGFloat {
+        return t * t
+    }
+    
+    /// Width with subtle sine overshoot for "belly" effect.
+    /// The overshoot peaks around p≈0.4 and fades out by p=0.7.
+    private func bulgeWidth(_ p: CGFloat, collapsed: CGFloat, expanded: CGFloat) -> CGFloat {
+        let baseWidth = collapsed + (expanded - collapsed) * easeOutCubic(p)
+        let overshoot = sin(p * .pi) * 6.0
+        let overshootFactor = max(0, 1 - (p / 0.7))
+        return min(baseWidth + overshoot * overshootFactor, expanded)
+    }
+    
+    /// Corner radius with a mid-morph sine bump for an organic, capsule-like feel.
+    /// Clamps against half the *eased* height so corners never overlap.
+    private func bulgeCornerRadius(_ p: CGFloat, easedHeight: CGFloat) -> CGFloat {
+        let baseRadius = pillCornerRadius + (modalCornerRadius - pillCornerRadius) * p
+        let bump = sin(p * .pi) * 8.0
+        let maxRadius = easedHeight / 2
+        return min(baseRadius + bump, maxRadius)
     }
     
     // MARK: - Morph Animation
@@ -1474,7 +1650,13 @@ class MorphingGlassModal: UIView {
         expandedScrollView.isHidden = expandedAlpha < 0.01
         settingsGlass.alpha = 1 - p
         flipGlass.alpha = 1 - p
-        grabHandle.alpha = (1 - p) * 0.3
+        grabHandle.alpha = isLandscape ? 0.3 : (1 - p) * 0.3
+        swipeHintLabel.alpha = max(0, swipeHintLabel.alpha * (1 - p * 5))
+        
+        // Stop discoverability hints as soon as user starts dragging
+        if p > 0 {
+            stopGrabHandlePulse()
+        }
         
         layoutIfNeeded()
         
@@ -1500,9 +1682,15 @@ class MorphingGlassModal: UIView {
     }
     
     private func updateMorphProgressPortrait(_ p: CGFloat) {
-        let width = pillWidth + (modalWidth - pillWidth) * p
-        let height = pillHeight + (currentExpandedHeight - pillHeight) * p
-        let cornerRadius = pillCornerRadius + (modalCornerRadius - pillCornerRadius) * p
+        // Width leads (ease-out + overshoot) — spreads quickly, creating the "belly"
+        let width = bulgeWidth(p, collapsed: pillWidth, expanded: modalWidth)
+        
+        // Height follows (ease-in) — lags behind width for the bulge illusion
+        let heightProgress = easeInQuad(p)
+        let height = pillHeight + (currentExpandedHeight - pillHeight) * heightProgress
+        
+        // Corner radius with mid-morph bump, clamped to half the eased height
+        let cornerRadius = bulgeCornerRadius(p, easedHeight: height)
         
         glassWidthConstraint.constant = width
         glassHeightConstraint.constant = height
@@ -1517,9 +1705,15 @@ class MorphingGlassModal: UIView {
         let expandedWidth = UIScreen.main.bounds.height - 28  // Use screen height (landscape)
         let expandedHeight = currentExpandedHeight
         
-        let width = collapsedWidth + (expandedWidth - collapsedWidth) * p
-        let height = collapsedHeight + (expandedHeight - collapsedHeight) * p
-        let cornerRadius = pillCornerRadius + (modalCornerRadius - pillCornerRadius) * p
+        // Width (horizontal expansion axis) leads with ease-out + overshoot
+        let width = bulgeWidth(p, collapsed: collapsedWidth, expanded: expandedWidth)
+        
+        // Height (vertical) follows with ease-in
+        let heightProgress = easeInQuad(p)
+        let height = collapsedHeight + (expandedHeight - collapsedHeight) * heightProgress
+        
+        // Corner radius with mid-morph bump, clamped to half the eased height
+        let cornerRadius = bulgeCornerRadius(p, easedHeight: height)
         
         glassWidthConstraint.constant = width
         glassHeightConstraint.constant = height
@@ -1533,6 +1727,13 @@ class MorphingGlassModal: UIView {
     
     private func completeMorph(expand: Bool) {
         if expand { onExpandStarted?() }
+        
+        // Dismiss all discoverability hints when expanding
+        if expand {
+            hasEverExpanded = true
+            stopGrabHandlePulse()
+            dismissSwipeHint()
+        }
         
         let targetProgress: CGFloat = expand ? 1 : 0
         
@@ -1937,11 +2138,33 @@ extension MorphingGlassModal: UIGestureRecognizerDelegate {
         // When expanded with inline content showing, only allow pan from the
         // grab handle region at the top of the modal. This prevents the modal's
         // pan gesture from stealing vertical scrolls inside inline scroll views.
-        if isExpanded, expandedContent.currentInlineContent != nil {
+        // In landscape, also restrict to the grab handle region when expanded
+        // (even without inline content) to prevent horizontal drags between
+        // buttons from triggering a collapse.
+        if isExpanded {
             let locationInGlass = pan.location(in: morphingGlass)
-            let grabHandleRegionHeight: CGFloat = 40
-            if locationInGlass.y > grabHandleRegionHeight {
-                return false
+            let grabHandleRegionSize: CGFloat = 40
+            if isLandscape {
+                // Grab handle is on the leading or trailing edge in landscape
+                if controlBarOnLeading {
+                    // Handle is on the trailing (right) edge
+                    let glassWidth = morphingGlass.bounds.width
+                    if locationInGlass.x < glassWidth - grabHandleRegionSize {
+                        return false
+                    }
+                } else {
+                    // Handle is on the leading (left) edge
+                    if locationInGlass.x > grabHandleRegionSize {
+                        return false
+                    }
+                }
+            } else {
+                // Portrait: grab handle is at the top
+                if expandedContent.currentInlineContent != nil {
+                    if locationInGlass.y > grabHandleRegionSize {
+                        return false
+                    }
+                }
             }
         }
         

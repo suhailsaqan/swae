@@ -385,21 +385,21 @@ class InlineWidgetsView: UIView {
     private func makePositionBadge() -> UIView {
         let badge = UIView()
         badge.translatesAutoresizingMaskIntoConstraints = false
-        badge.backgroundColor = UIColor(white: 1.0, alpha: 0.08)
+        badge.backgroundColor = .clear
         badge.layer.cornerRadius = 10
         badge.isUserInteractionEnabled = true
 
         let icon = UIImageView()
         icon.translatesAutoresizingMaskIntoConstraints = false
-        let config = UIImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
         icon.image = UIImage(systemName: "arrow.up.and.down.and.arrow.left.and.right", withConfiguration: config)
-        icon.tintColor = UIColor(white: 1.0, alpha: 0.4)
+        icon.tintColor = UIColor(white: 1.0, alpha: 0.88)
         icon.contentMode = .scaleAspectFit
         badge.addSubview(icon)
 
         NSLayoutConstraint.activate([
-            badge.widthAnchor.constraint(equalToConstant: 28),
-            badge.heightAnchor.constraint(equalToConstant: 20),
+            badge.widthAnchor.constraint(equalToConstant: 32),
+            badge.heightAnchor.constraint(equalToConstant: 24),
             icon.centerXAnchor.constraint(equalTo: badge.centerXAnchor),
             icon.centerYAnchor.constraint(equalTo: badge.centerYAnchor),
         ])

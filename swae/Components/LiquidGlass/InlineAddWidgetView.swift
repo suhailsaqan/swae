@@ -112,7 +112,7 @@ class InlineAddWidgetView: UIView {
     private let titleLabel = UILabel()
     private let scrollView = UIScrollView()
     private let gridStack = UIStackView()
-    private var isShowingMore = false
+    // All types shown directly — no "More" button needed
 
     // Templates row
     private let templatesSectionLabel = UILabel()
@@ -289,26 +289,12 @@ class InlineAddWidgetView: UIView {
     private func buildGrid() {
         gridStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        // Build rows of 3 from primary types + "More..." button
-        var items: [(label: String, icon: String, action: () -> Void)] = Self.primaryTypes.map { item in
+        // Show all types directly — primary + extra
+        let allTypes = Self.primaryTypes + Self.moreTypes
+        var items: [(label: String, icon: String, action: () -> Void)] = allTypes.map { item in
             return (label: item.label, icon: item.icon, action: { [weak self] in
                 self?.onTypeSelected?(item.type)
             } as () -> Void)
-        }
-
-        if !isShowingMore {
-            // Add "More..." button as the 9th item
-            items.append((label: "More", icon: "ellipsis", action: { [weak self] in
-                self?.isShowingMore = true
-                self?.buildGrid()
-            } as () -> Void))
-        } else {
-            // Add all the extra types
-            for item in Self.moreTypes {
-                items.append((label: item.label, icon: item.icon, action: { [weak self] in
-                    self?.onTypeSelected?(item.type)
-                } as () -> Void))
-            }
         }
 
         // Chunk into rows of 3

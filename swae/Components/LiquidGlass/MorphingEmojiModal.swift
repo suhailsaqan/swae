@@ -345,8 +345,12 @@ class MorphingEmojiModal: UIView {
     // MARK: - Data
 
     private func rebuildAllEmojis() {
+        var seen = Set<String>()
         allEmojis = emojiPacks.flatMap { pack in
-            pack.emojis.map { (shortcode: $0.shortcode, url: $0.imageURL) }
+            pack.emojis.compactMap { emoji -> (shortcode: String, url: URL)? in
+                guard seen.insert(emoji.shortcode).inserted else { return nil }
+                return (shortcode: emoji.shortcode, url: emoji.imageURL)
+            }
         }
         filteredEmojis = allEmojis
     }

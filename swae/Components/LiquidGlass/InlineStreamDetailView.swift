@@ -28,6 +28,7 @@ class InlineStreamDetailView: UIView {
         // NWC auto-topup state
         let hasNwc: Bool
         let hasWallet: Bool
+        let walletBalance: Int64?  // Coinos wallet balance in millisats, nil if not loaded
         // Video sub-page data
         let resolutionIndex: Int
         let availableResolutions: [String]
@@ -49,6 +50,7 @@ class InlineStreamDetailView: UIView {
 
     var onBack: (() -> Void)?
     var onTopUpTapped: (() -> Void)?
+    var onWalletReceiveTapped: (() -> Void)?
     var onStreamSettingsTapped: (() -> Void)?
     var onRefreshBalance: (() -> Void)?
     var onAutoTopupDisable: (() -> Void)?
@@ -79,6 +81,15 @@ class InlineStreamDetailView: UIView {
     private var isZapStream = false
     private var currentIsLive = false
     private var currentHasNwc = false
+    private var currentHasWallet = false
+    private var currentWalletBalance: Int64?  // Coinos wallet balance in millisats
+
+    // Skeleton loading state
+    private var isShowingBalanceSkeleton = false
+    private let balanceSkeleton = SkeletonView()
+    private let runwaySkeleton = SkeletonView()
+    private let runwayTextSkeleton = SkeletonView()
+    private let rateSkeleton = SkeletonView()
 
     // MARK: - Balance Formatter
 
@@ -134,6 +145,9 @@ class InlineStreamDetailView: UIView {
     private let buttonContainer = UIStackView()
     private let updateButton = UIButton(type: .system)
     private let settingsButton = UIButton(type: .system)
+
+    // Balance section bottom stack (auto-topup indicator + buttons)
+    private var balanceBottomStack: UIStackView!
 
     // MARK: - Init
 
@@ -310,7 +324,7 @@ class InlineStreamDetailView: UIView {
         autoTopupIndicator.addSubview(autoTopupIcon)
 
         autoTopupLabel.translatesAutoresizingMaskIntoConstraints = false
-        autoTopupLabel.text = "Auto top-up active"
+        autoTopupLabel.text = "Auto-paying from your wallet"
         autoTopupLabel.font = .systemFont(ofSize: 12, weight: .medium)
         autoTopupLabel.textColor = .systemGreen
         autoTopupIndicator.addSubview(autoTopupLabel)
@@ -336,7 +350,7 @@ class InlineStreamDetailView: UIView {
 
         // Enable auto-topup button (hidden by default, shown when wallet connected but NWC not configured)
         enableAutoTopupButton.translatesAutoresizingMaskIntoConstraints = false
-        enableAutoTopupButton.setTitle("Enable Auto Top-Up", for: .normal)
+        enableAutoTopupButton.setTitle("Auto-Pay From Wallet", for: .normal)
         enableAutoTopupButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
         enableAutoTopupButton.setTitleColor(.black, for: .normal)
         enableAutoTopupButton.tintColor = .black
@@ -369,6 +383,7 @@ class InlineStreamDetailView: UIView {
         bottomStack.spacing = 8
         bottomStack.alignment = .fill
         balanceSection.addSubview(bottomStack)
+        balanceBottomStack = bottomStack
 
         NSLayoutConstraint.activate([
             balanceIcon.leadingAnchor.constraint(equalTo: balanceSection.leadingAnchor, constant: 12),
@@ -396,6 +411,42 @@ class InlineStreamDetailView: UIView {
             bottomStack.leadingAnchor.constraint(equalTo: balanceSection.leadingAnchor, constant: 12),
             bottomStack.trailingAnchor.constraint(equalTo: balanceSection.trailingAnchor, constant: -12),
             bottomStack.bottomAnchor.constraint(equalTo: balanceSection.bottomAnchor, constant: -4),
+        ])
+
+        // Skeleton overlays for loading state
+        balanceSkeleton.translatesAutoresizingMaskIntoConstraints = false
+        balanceSkeleton.layer.cornerRadius = 4
+        balanceSkeleton.useDarkStyle()
+        balanceSkeleton.isHidden = true
+        balanceSection.addSubview(balanceSkeleton)
+
+        runwaySkeleton.translatesAutoresizingMaskIntoConstraints = false
+        runwaySkeleton.layer.cornerRadius = 2
+        runwaySkeleton.useDarkStyle()
+        runwaySkeleton.isHidden = true
+        balanceSection.addSubview(runwaySkeleton)
+
+        runwayTextSkeleton.translatesAutoresizingMaskIntoConstraints = false
+        runwayTextSkeleton.layer.cornerRadius = 3
+        runwayTextSkeleton.useDarkStyle()
+        runwayTextSkeleton.isHidden = true
+        balanceSection.addSubview(runwayTextSkeleton)
+
+        NSLayoutConstraint.activate([
+            balanceSkeleton.leadingAnchor.constraint(equalTo: balanceIcon.trailingAnchor, constant: 6),
+            balanceSkeleton.centerYAnchor.constraint(equalTo: balanceIcon.centerYAnchor),
+            balanceSkeleton.widthAnchor.constraint(equalToConstant: 120),
+            balanceSkeleton.heightAnchor.constraint(equalToConstant: 20),
+
+            runwaySkeleton.topAnchor.constraint(equalTo: balanceSkeleton.bottomAnchor, constant: 12),
+            runwaySkeleton.leadingAnchor.constraint(equalTo: balanceSection.leadingAnchor, constant: 12),
+            runwaySkeleton.trailingAnchor.constraint(equalTo: balanceSection.trailingAnchor, constant: -12),
+            runwaySkeleton.heightAnchor.constraint(equalToConstant: 6),
+
+            runwayTextSkeleton.topAnchor.constraint(equalTo: runwaySkeleton.bottomAnchor, constant: 10),
+            runwayTextSkeleton.leadingAnchor.constraint(equalTo: balanceSection.leadingAnchor, constant: 12),
+            runwayTextSkeleton.widthAnchor.constraint(equalToConstant: 130),
+            runwayTextSkeleton.heightAnchor.constraint(equalToConstant: 14),
         ])
 
         stack.addArrangedSubview(balanceSection)
@@ -582,6 +633,19 @@ class InlineStreamDetailView: UIView {
         let rRow = makeInfoRow(icon: "bitcoinsign.circle", title: "Rate", valueLabel: rateValueLabel)
         rRow.tag = 999
         stack.addArrangedSubview(rRow)
+
+        // Rate skeleton overlay
+        rateSkeleton.translatesAutoresizingMaskIntoConstraints = false
+        rateSkeleton.layer.cornerRadius = 3
+        rateSkeleton.useDarkStyle()
+        rateSkeleton.isHidden = true
+        rRow.addSubview(rateSkeleton)
+        NSLayoutConstraint.activate([
+            rateSkeleton.trailingAnchor.constraint(equalTo: rRow.trailingAnchor, constant: -12),
+            rateSkeleton.centerYAnchor.constraint(equalTo: rRow.centerYAnchor),
+            rateSkeleton.widthAnchor.constraint(equalToConstant: 80),
+            rateSkeleton.heightAnchor.constraint(equalToConstant: 14),
+        ])
     }
 
     private func buildLiveStatsSection() {
@@ -615,6 +679,8 @@ class InlineStreamDetailView: UIView {
         isZapStream = data.isZapStream
         currentIsLive = data.isLive
         currentHasNwc = data.hasNwc
+        currentHasWallet = data.hasWallet
+        currentWalletBalance = data.walletBalance
 
         // Balance section visibility
         balanceSection.isHidden = !data.isZapStream
@@ -641,12 +707,12 @@ class InlineStreamDetailView: UIView {
         // Balance
         updateBalanceDisplay(balance: data.balance, rate: data.rate)
 
-        // NWC auto-topup state
-        autoTopupIndicator.isHidden = !data.hasNwc
-        enableAutoTopupButton.isHidden = data.hasNwc || !data.hasWallet
+        // NWC auto-topup state — hide during skeleton to prevent layout jump
+        autoTopupIndicator.isHidden = !data.hasNwc || isShowingBalanceSkeleton
+        enableAutoTopupButton.isHidden = data.hasNwc || !data.hasWallet || isShowingBalanceSkeleton
         if data.hasNwc {
-            topUpButton.setTitle("Manual Top Up", for: .normal)
-            topUpButton.backgroundColor = UIColor(white: 1.0, alpha: 0.1)
+            topUpButton.setTitle("Fund Wallet", for: .normal)
+            topUpButton.backgroundColor = UIColor(white: 1.0, alpha: 0.08)
             topUpButton.tintColor = UIColor(white: 1.0, alpha: 0.5)
             topUpButton.setTitleColor(UIColor(white: 1.0, alpha: 0.5), for: .normal)
             topUpButton.setImage(nil, for: .normal)
@@ -681,7 +747,16 @@ class InlineStreamDetailView: UIView {
         }
         streamTypeValueLabel.text = data.protocolString
         if data.isZapStream {
-            rateValueLabel.text = "\(Int(data.rate)) sats/min"
+            if data.rate > 0 {
+                rateValueLabel.text = "\(Int(data.rate)) sats/min"
+                rateValueLabel.isHidden = false
+                rateSkeleton.isHidden = true
+                rateSkeleton.stopAnimating()
+            } else {
+                rateValueLabel.isHidden = true
+                rateSkeleton.isHidden = false
+                rateSkeleton.startAnimating(delay: 0.2)
+            }
         }
 
         // Live stats
@@ -732,14 +807,134 @@ class InlineStreamDetailView: UIView {
         }
     }
 
+    // MARK: - Balance Skeleton
+
+    private func showBalanceSkeleton() {
+        guard !isShowingBalanceSkeleton else { return }
+        isShowingBalanceSkeleton = true
+
+        // Cancel any in-progress hide animation
+        balanceSkeleton.layer.removeAllAnimations()
+        runwaySkeleton.layer.removeAllAnimations()
+        runwayTextSkeleton.layer.removeAllAnimations()
+
+        // Hide real content — use alpha to keep layout anchors for the skeleton positioning
+        balanceValueLabel.alpha = 0
+        runwayBar.alpha = 0
+        runwayLabel.alpha = 0
+        // Collapse the bottom stack to remove the empty gap
+        balanceBottomStack?.isHidden = true
+
+        // Show and animate skeletons
+        balanceSkeleton.alpha = 1
+        runwaySkeleton.alpha = 1
+        runwayTextSkeleton.alpha = 1
+        balanceSkeleton.isHidden = false
+        runwaySkeleton.isHidden = false
+        runwayTextSkeleton.isHidden = false
+        balanceSkeleton.startAnimating(delay: 0)
+        runwaySkeleton.startAnimating(delay: 0.1)
+        runwayTextSkeleton.startAnimating(delay: 0.15)
+    }
+
+    private func hideBalanceSkeleton() {
+        guard isShowingBalanceSkeleton else { return }
+        isShowingBalanceSkeleton = false
+
+        // Restore real content visibility
+        balanceValueLabel.alpha = 1
+        runwayBar.alpha = 1
+        runwayLabel.alpha = 1
+        balanceBottomStack?.isHidden = false
+
+        // Cross-fade skeleton out
+        UIView.animate(withDuration: 0.25) {
+            self.balanceSkeleton.alpha = 0
+            self.runwaySkeleton.alpha = 0
+            self.runwayTextSkeleton.alpha = 0
+        } completion: { _ in
+            self.balanceSkeleton.isHidden = true
+            self.runwaySkeleton.isHidden = true
+            self.runwayTextSkeleton.isHidden = true
+            self.balanceSkeleton.stopAnimating()
+            self.runwaySkeleton.stopAnimating()
+            self.runwayTextSkeleton.stopAnimating()
+            self.balanceSkeleton.alpha = 1
+            self.runwaySkeleton.alpha = 1
+            self.runwayTextSkeleton.alpha = 1
+        }
+    }
+
     // MARK: - Balance Display
 
     private func updateBalanceDisplay(balance: Int?, rate: Double) {
+        // When auto top-up is active AND a local wallet is connected, show the wallet balance
+        if currentHasNwc && currentHasWallet {
+            balanceSpinner.stopAnimating()
+            balanceIcon.tintColor = .systemGreen
+
+            let walletSats = Int((currentWalletBalance ?? 0) / 1000)
+
+            if currentWalletBalance == nil {
+                // Wallet balance not loaded yet — show shimmer skeleton
+                showBalanceSkeleton()
+                return
+            }
+            hideBalanceSkeleton()
+
+            if walletSats == 0 {
+                // Wallet is empty — warn the user
+                balanceIcon.tintColor = .systemOrange
+                balanceValueLabel.text = "0 sats in wallet"
+                balanceValueLabel.isHidden = false
+                balanceValueLabel.alpha = 1.0
+                runwayBar.isHidden = true
+                runwayBar.trackTintColor = UIColor(white: 1.0, alpha: 0.1)
+                runwayLabel.text = "Fund your wallet to stream"
+                runwayLabel.isHidden = false
+            } else {
+                // Wallet has funds — show balance and runway
+                let formatted = Self.balanceFormatter.string(from: NSNumber(value: walletSats)) ?? "\(walletSats)"
+                balanceValueLabel.text = "\(formatted) sats in wallet"
+                balanceValueLabel.isHidden = false
+                balanceValueLabel.alpha = 1.0
+
+                if rate > 0 {
+                    let minutesLeft = Double(walletSats) / rate
+                    let maxMinutes: Double = 600
+                    runwayBar.isHidden = false
+                    runwayBar.trackTintColor = UIColor(white: 1.0, alpha: 0.1)
+                    runwayBar.progress = Float(min(minutesLeft / maxMinutes, 1.0))
+                    runwayBar.progressTintColor = minutesLeft < 60 ? .systemRed : (minutesLeft < 120 ? .systemOrange : .systemGreen)
+
+                    if minutesLeft >= 60 {
+                        let hours = Int(minutesLeft / 60)
+                        let mins = Int(minutesLeft.truncatingRemainder(dividingBy: 60))
+                        runwayLabel.text = "~\(hours)h \(mins)m • \(Int(rate)) sats/min"
+                    } else {
+                        runwayLabel.text = "~\(Int(minutesLeft))m • \(Int(rate)) sats/min"
+                    }
+                } else {
+                    runwayBar.isHidden = true
+                    runwayLabel.text = ""
+                }
+            }
+            runwayLabel.isHidden = false
+            return
+        }
+
+        // Standard balance display when no auto top-up
+        runwayBar.isHidden = false
+        balanceIcon.tintColor = .systemYellow
+
         if let balance {
+            hideBalanceSkeleton()
             balanceSpinner.stopAnimating()
             let formatted = Self.balanceFormatter.string(from: NSNumber(value: balance)) ?? "\(balance)"
             balanceValueLabel.text = "\(formatted) sats"
             balanceValueLabel.isHidden = false
+            balanceValueLabel.alpha = 1.0
+            runwayBar.trackTintColor = UIColor(white: 1.0, alpha: 0.1)
 
             if rate > 0 {
                 let minutesLeft = Double(balance) / rate
@@ -766,11 +961,8 @@ class InlineStreamDetailView: UIView {
                 runwayLabel.text = ""
             }
         } else {
-            balanceValueLabel.text = "Loading..."
-            balanceValueLabel.isHidden = false
-            balanceSpinner.startAnimating()
-            runwayBar.progress = 0
-            runwayLabel.text = ""
+            // Balance not loaded yet — show shimmer skeleton
+            showBalanceSkeleton()
         }
     }
 
@@ -989,7 +1181,13 @@ class InlineStreamDetailView: UIView {
     // MARK: - Actions
 
     @objc private func backTapped() { onBack?() }
-    @objc private func topUpTapped() { onTopUpTapped?() }
+    @objc private func topUpTapped() {
+        if currentHasNwc {
+            onWalletReceiveTapped?()
+        } else {
+            onTopUpTapped?()
+        }
+    }
     @objc private func settingsTapped() { onStreamSettingsTapped?() }
 
     @objc private func updateTapped() {
@@ -1022,7 +1220,7 @@ class InlineStreamDetailView: UIView {
     /// Call after enable/disable auto-topup completes to reset button state.
     func endAutoTopupLoading() {
         enableAutoTopupSpinner.stopAnimating()
-        enableAutoTopupButton.setTitle("Enable Auto Top-Up", for: .normal)
+        enableAutoTopupButton.setTitle("Auto-Pay From Wallet", for: .normal)
         enableAutoTopupButton.isUserInteractionEnabled = true
     }
 
@@ -1038,13 +1236,14 @@ class InlineStreamDetailView: UIView {
         endAutoTopupLoading()
 
         // Reset disable label back to normal
-        autoTopupLabel.text = "Auto top-up active"
+        autoTopupLabel.text = "Auto-paying from your wallet"
         autoTopupLabel.textColor = .systemGreen
 
-        // Update top-up button styling to match new state
+        // When auto top-up is active, hide the top-up button entirely
+        // and show a small "Manage" style button instead
         if hasNwc {
-            topUpButton.setTitle("Manual Top Up", for: .normal)
-            topUpButton.backgroundColor = UIColor(white: 1.0, alpha: 0.1)
+            topUpButton.setTitle("Fund Wallet", for: .normal)
+            topUpButton.backgroundColor = UIColor(white: 1.0, alpha: 0.08)
             topUpButton.tintColor = UIColor(white: 1.0, alpha: 0.5)
             topUpButton.setTitleColor(UIColor(white: 1.0, alpha: 0.5), for: .normal)
             topUpButton.setImage(nil, for: .normal)
