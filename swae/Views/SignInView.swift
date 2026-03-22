@@ -38,6 +38,8 @@ struct SignInView: View, RelayURLValidating {
 
         if let keypair {
             appState.signIn(keypair: keypair, relayURLs: [validatedRelayURL])
+            // Auto-connect Coinos wallet in the background
+            appState.autoConnectCoinosWallet(keypair: keypair)
             hasCompletedOnboarding = true
             dismiss()
         } else if let publicKey {
