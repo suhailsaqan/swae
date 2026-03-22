@@ -49,10 +49,7 @@ struct TransactionsView: View {
                         }
                     }
                 } else {
-                    ForEach(0..<3, id: \.self) { _ in
-                        TransactionRowView(transaction: nil, hideBalance: $hideBalance)
-                            .redacted(reason: .placeholder).shimmer(true)
-                    }
+                    TransactionSkeletonView()
                 }
             }
         }
