@@ -100,6 +100,7 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     @Published var playerConfig: PlayerConfig = .init()
 
     @Published var wallet: WalletModel?
+    @Published var isAutoConnectingWallet = false
 
     // Track active profile changes for UI updates
     @Published var activeProfileId: String?
@@ -294,14 +295,23 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         if liveActivityEventSubscriptionCounts[subscriptionId] != nil {
             hasReceivedLiveActivitiesEOSE = true
             
-            // Delay 500ms to let in-flight events settle before transitioning.
-            // Events arrive via 2 Task.detached hops; EOSE via 1 Task hop.
-            // EOSE consistently wins the race. 500ms lets the event pipeline drain.
-            // The delay is here (not in finishInitialSync) because the fallback timer
-            // path also calls finishInitialSync and must NOT be delayed.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            // Adaptive delay: events arrive via 2 Task.detached hops; EOSE via 1 hop.
+            // EOSE consistently wins the race. Wait 150ms, then check if events are
+            // still arriving. If so, wait one more 150ms (300ms max).
+            let countAtEOSE = liveActivitiesEvents.count
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
                 guard let self = self, self.isInitialSyncInProgress else { return }
-                self.finishInitialSync()
+                
+                if self.liveActivitiesEvents.count == countAtEOSE {
+                    // No new events during delay — pipeline drained
+                    self.finishInitialSync()
+                } else {
+                    // Events still arriving — one more short wait (300ms total max)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                        guard let self = self, self.isInitialSyncInProgress else { return }
+                        self.finishInitialSync()
+                    }
+                }
             }
         }
     }
@@ -633,6 +643,39 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         updateRelayPool()
         pullMissingEventsFromPubkeysAndFollows([publicKey.hex])
         refresh()
+    }
+
+    /// Automatically connects a Coinos wallet for the given keypair.
+    /// Called after profile creation / sign-in to ensure every user has a wallet from the start.
+    /// Runs in the background — failures are logged but don't block the user.
+    /// The existing wallet onboarding UI remains as a fallback if this fails.
+    func autoConnectCoinosWallet(keypair: Keypair) {
+        // Skip if wallet is already connected
+        if let wallet = self.wallet, case .existing = wallet.connect_state {
+            print("✅ Auto wallet: already connected, skipping")
+            return
+        }
+
+        isAutoConnectingWallet = true
+
+        Task {
+            defer {
+                Task { @MainActor in self.isAutoConnectingWallet = false }
+            }
+            do {
+                let coinosClient = CoinosClient(userKeypair: keypair)
+                try await coinosClient.loginOrRegister()
+                try? await coinosClient.deleteNWCConnection()
+                let nwcURL = try await coinosClient.createNWCConnection()
+
+                await MainActor.run {
+                    self.wallet?.connect(nwcURL)
+                }
+                print("✅ Auto wallet connection succeeded")
+            } catch {
+                print("⚠️ Auto wallet connection failed (user can connect manually): \(error)")
+            }
+        }
     }
 
     var profiles: [Profile] {
