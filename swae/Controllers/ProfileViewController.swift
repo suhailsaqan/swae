@@ -101,6 +101,10 @@ final class ProfileViewController: UIViewController {
     private var qrTrailingToAction: NSLayoutConstraint!
     private var qrTrailingToSettings: NSLayoutConstraint!
 
+    // Follows-you badge trailing constraints (mutually exclusive, toggled in updateActionButton)
+    private var badgeTrailingToQR: NSLayoutConstraint!
+    private var badgeTrailingToSettings: NSLayoutConstraint!
+
     private let displayNameLabel = UILabel()
     private let usernameLabel = UILabel()
     private let nip05Label = UILabel()
@@ -713,7 +717,7 @@ final class ProfileViewController: UIViewController {
 
             // Follows you badge
             followsYouBadge.centerYAnchor.constraint(equalTo: actionContainer.centerYAnchor),
-            followsYouBadge.trailingAnchor.constraint(equalTo: settingsContainer.leadingAnchor, constant: -8),
+            followsYouBadge.leadingAnchor.constraint(greaterThanOrEqualTo: profileSectionView.leadingAnchor, constant: Layout.horizontalPadding + Layout.profilePicSize + 8),
 
             // Display name
             displayNameLabel.topAnchor.constraint(equalTo: profileSectionView.topAnchor, constant: profilePicAreaHeight),
@@ -761,6 +765,14 @@ final class ProfileViewController: UIViewController {
             qrTrailingToZap = qrContainer.trailingAnchor.constraint(equalTo: zapContainer.leadingAnchor, constant: -8)
             qrTrailingToAction = qrContainer.trailingAnchor.constraint(equalTo: actionContainer.leadingAnchor, constant: -8)
             qrTrailingToSettings = qrContainer.trailingAnchor.constraint(equalTo: settingsContainer.leadingAnchor, constant: -8)
+            // Default: will be set properly in updateActionButton()
+        }
+
+        // Create follows-you badge trailing constraints (mutually exclusive)
+        if let qrContainer = profileSectionView.viewWithTag(1006),
+           let settingsContainer = profileSectionView.viewWithTag(1003) {
+            badgeTrailingToQR = followsYouBadge.trailingAnchor.constraint(equalTo: qrContainer.leadingAnchor, constant: -8)
+            badgeTrailingToSettings = followsYouBadge.trailingAnchor.constraint(equalTo: settingsContainer.leadingAnchor, constant: -8)
             // Default: will be set properly in updateActionButton()
         }
 
@@ -1528,8 +1540,9 @@ final class ProfileViewController: UIViewController {
             websiteButton.isHidden = true
         }
         
-        // Follows you badge - hide if viewing own profile
-        followsYouBadge.isHidden = isViewingActiveProfile || !viewModel.followsYou
+        // Follows you badge - hidden for now (layout issues on small screens)
+        // followsYouBadge.isHidden = isViewingActiveProfile || !viewModel.followsYou
+        followsYouBadge.isHidden = true
 
         // Following count
         updateFollowingCount()
@@ -1625,6 +1638,15 @@ final class ProfileViewController: UIViewController {
             qrTrailingToZap?.isActive = true
         } else {
             qrTrailingToAction?.isActive = true
+        }
+
+        // Follows-you badge positioning — anchors to QR button on other profiles, settings on own
+        badgeTrailingToQR?.isActive = false
+        badgeTrailingToSettings?.isActive = false
+        if isOwnProfile {
+            badgeTrailingToSettings?.isActive = true
+        } else {
+            badgeTrailingToQR?.isActive = true
         }
 
         if isOwnProfile {
