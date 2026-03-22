@@ -15,6 +15,7 @@ struct WalletMainView: View {
     @State private var showSettings: Bool = false
     @State private var showSendSheet: Bool = false
     @State private var showReceiveSheet: Bool = false
+    @State private var showGetBitcoinSheet: Bool = false
 
     var body: some View {
         ScrollView {
@@ -22,7 +23,8 @@ struct WalletMainView: View {
                 // Balance Section
                 BalanceView(
                     balance: walletModel.balance,
-                    hideBalance: $hideBalance
+                    hideBalance: $hideBalance,
+                    onGetBitcoinTapped: { showGetBitcoinSheet = true }
                 )
 
                 // Action Buttons
@@ -75,40 +77,77 @@ struct WalletMainView: View {
         .sheet(isPresented: $showReceiveSheet) {
             ReceiveView(walletModel: walletModel)
         }
+        .sheet(isPresented: $showGetBitcoinSheet) {
+            GetBitcoinView(
+                lud16: lightningAddress,
+                onReceiveViaTapped: { showReceiveSheet = true }
+            )
+        }
+    }
+
+    // MARK: - Computed Properties
+
+    private var lightningAddress: String? {
+        if case .existing(let nwc) = walletModel.connect_state {
+            return nwc.lud16
+        }
+        return nil
     }
 
     // MARK: - Action Buttons Section
 
     private var actionButtonsSection: some View {
-        HStack(spacing: 16) {
-            // Send Button
-            Button(action: {
-                showSendSheet = true
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 16, weight: .medium))
-                    Text("Send")
-                        .font(.headline)
-                        .fontWeight(.semibold)
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                // Send Button
+                Button(action: {
+                    showSendSheet = true
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Send")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accentPurple)
+                    )
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.accentPurple)
-                )
+
+                // Receive Button
+                Button(action: {
+                    showReceiveSheet = true
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "qrcode")
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Receive")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.orange)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.accentPurple, lineWidth: 2)
+                    )
+                }
             }
 
-            // Receive Button
+            // Get Bitcoin Button
             Button(action: {
-                showReceiveSheet = true
+                showGetBitcoinSheet = true
             }) {
                 HStack(spacing: 8) {
-                    Image(systemName: "qrcode")
+                    Image(systemName: "bitcoinsign.circle.fill")
                         .font(.system(size: 16, weight: .medium))
-                    Text("Receive")
+                    Text("Get Bitcoin")
                         .font(.headline)
                         .fontWeight(.semibold)
                 }
@@ -117,7 +156,11 @@ struct WalletMainView: View {
                 .padding(.vertical, 16)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.accentPurple, lineWidth: 2)
+                        .fill(Color.orange.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                        )
                 )
             }
         }
