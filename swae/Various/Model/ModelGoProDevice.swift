@@ -10,6 +10,13 @@ class GoProDeviceWrapper {
 }
 
 extension Model {
+    /// Call when a GoPro device is created or its settings view appears.
+    /// Ensures RTMP server has a stream so canStartLive() works once BLE + WiFi are set.
+    func prepareRtmpServerForGoProDevice(_ device: SettingsGoProDevice) {
+        guard device.rtmpUrlType == .server else { return }
+        ensureRtmpServerReady(for: device)
+    }
+
     func startGoProLiveStream(device: SettingsGoProDevice) {
         // Auto-configure RTMP server if needed for server type
         if device.rtmpUrlType == .server {
