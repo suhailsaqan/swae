@@ -7,15 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		820A1AA42F458D1B00B872A1 /* simulator_camera_feed.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 820A1A952F458D1B00B872A1 /* simulator_camera_feed.mp4 */; };
 		821826A82F3DD7A5001AEC7B /* fallback_city.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 821826A62F3DD7A5001AEC7B /* fallback_city.ktx */; };
 		821826A92F3DD7A5001AEC7B /* earth_dark.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 821826A42F3DD7A5001AEC7B /* earth_dark.ktx */; };
 		821826AA2F3DD7A5001AEC7B /* earth_lights.ktx in Resources */ = {isa = PBXBuildFile; fileRef = 821826A52F3DD7A5001AEC7B /* earth_lights.ktx */; };
 		8281910C2F517B0B0059F1EC /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 8281910B2F517B0B0059F1EC /* WebRTC */; };
 		828199072F517D3E0059F1EC /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 828199062F517D3E0059F1EC /* WebRTC */; };
+		828E753F2F5E7457001A8E30 /* Config.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 828E753E2F5E7457001A8E30 /* Config.xcconfig */; };
 		82AE89372F5CF33200554F8E /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = 82AE89362F5CF33200554F8E /* MWDATCamera */; };
 		82AE89392F5CF33200554F8E /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 82AE89382F5CF33200554F8E /* MWDATCore */; };
-		82AE893B2F5CF33200554F8E /* MWDATMockDevice in Frameworks */ = {isa = PBXBuildFile; productRef = 82AE893A2F5CF33200554F8E /* MWDATMockDevice */; };
 		BA2162272E54447700255D05 /* AlertToast in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162262E54447700255D05 /* AlertToast */; };
 		BA21622A2E5444B300255D05 /* AppleGPUInfo in Frameworks */ = {isa = PBXBuildFile; productRef = BA2162292E5444B300255D05 /* AppleGPUInfo */; };
 		BA21622C2E5444B300255D05 /* gpuinfo in Frameworks */ = {isa = PBXBuildFile; productRef = BA21622B2E5444B300255D05 /* gpuinfo */; };
@@ -57,6 +56,7 @@
 		BA7A67262E545AB700ABBD73 /* XMLCoder in Frameworks */ = {isa = PBXBuildFile; productRef = BA7A67252E545AB700ABBD73 /* XMLCoder */; };
 		BA8A050C2D4560CA00B35D04 /* SwiftTrie in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050B2D4560CA00B35D04 /* SwiftTrie */; };
 		BA8A050F2D45618000B35D04 /* Logboard in Frameworks */ = {isa = PBXBuildFile; productRef = BA8A050E2D45618000B35D04 /* Logboard */; };
+		BA9935652F6FC0CA00194A21 /* NostrSDK in Frameworks */ = {isa = PBXBuildFile; productRef = BA9935642F6FC0CA00194A21 /* NostrSDK */; };
 		BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = BABEA7CC2D4F164B0062668E /* Kingfisher */; };
 		BAFB46F32E56CB950045C5D3 /* Swae Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = BAFB46D32E56CB910045C5D3 /* Swae Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BAFB47212E5839DF0045C5D3 /* ReplayKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAFB47202E5839DE0045C5D3 /* ReplayKit.framework */; };
@@ -135,10 +135,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		820A1A952F458D1B00B872A1 /* simulator_camera_feed.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = simulator_camera_feed.mp4; sourceTree = "<group>"; };
 		821826A42F3DD7A5001AEC7B /* earth_dark.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = earth_dark.ktx; sourceTree = "<group>"; };
 		821826A52F3DD7A5001AEC7B /* earth_lights.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = earth_lights.ktx; sourceTree = "<group>"; };
 		821826A62F3DD7A5001AEC7B /* fallback_city.ktx */ = {isa = PBXFileReference; lastKnownFileType = file; path = fallback_city.ktx; sourceTree = "<group>"; };
+		828E753E2F5E7457001A8E30 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		BA7A66FD2E54587200ABBD73 /* AudioLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLevel.swift; sourceTree = "<group>"; };
 		BA7A66FE2E54587200ABBD73 /* AVAudioPCMBuffer+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AVAudioPCMBuffer+Extension.swift"; sourceTree = "<group>"; };
 		BA7A66FF2E54587200ABBD73 /* CMBlockBuffer+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMBlockBuffer+Extension.swift"; sourceTree = "<group>"; };
@@ -236,6 +236,7 @@
 			files = (
 				BABEA7CD2D4F164B0062668E /* Kingfisher in Frameworks */,
 				BA7A67172E54594300ABBD73 /* VRMSceneKit in Frameworks */,
+				BA9935652F6FC0CA00194A21 /* NostrSDK in Frameworks */,
 				BA2162272E54447700255D05 /* AlertToast in Frameworks */,
 				BA21624E2E5446DB00255D05 /* SDWebImage in Frameworks */,
 				BA2162672E5447D200255D05 /* Collections in Frameworks */,
@@ -267,7 +268,6 @@
 				BA21622A2E5444B300255D05 /* AppleGPUInfo in Frameworks */,
 				BA7A67262E545AB700ABBD73 /* XMLCoder in Frameworks */,
 				BA2162502E5446DB00255D05 /* SDWebImageMapKit in Frameworks */,
-				82AE893B2F5CF33200554F8E /* MWDATMockDevice in Frameworks */,
 				BA2162652E5447D200255D05 /* BitCollections in Frameworks */,
 				BA59D3852D7BE70000A66AB3 /* CodeScanner in Frameworks */,
 				BA2162492E5446BD00255D05 /* Rist in Frameworks */,
@@ -364,7 +364,7 @@
 				BAFB471F2E5839DE0045C5D3 /* Frameworks */,
 				BA8A03552D455F8400B35D04 /* Products */,
 				821826A72F3DD7A5001AEC7B /* Resources */,
-				820A1A952F458D1B00B872A1 /* simulator_camera_feed.mp4 */,
+				828E753E2F5E7457001A8E30 /* Config.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -450,7 +450,7 @@
 				828199062F517D3E0059F1EC /* WebRTC */,
 				82AE89362F5CF33200554F8E /* MWDATCamera */,
 				82AE89382F5CF33200554F8E /* MWDATCore */,
-				82AE893A2F5CF33200554F8E /* MWDATMockDevice */,
+				BA9935642F6FC0CA00194A21 /* NostrSDK */,
 			);
 			productName = swae;
 			productReference = BA8A03542D455F8400B35D04 /* swae.app */;
@@ -591,7 +591,6 @@
 				BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */,
 				BABEA7CB2D4F164B0062668E /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				BA59D3832D7BE70000A66AB3 /* XCRemoteSwiftPackageReference "CodeScanner" */,
-				BA34E1732D7D013800FC97F0 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */,
 				BA2162252E54447700255D05 /* XCRemoteSwiftPackageReference "AlertToast" */,
 				BA2162282E5444B300255D05 /* XCRemoteSwiftPackageReference "applegpuinfo" */,
 				BA21622D2E5444D200255D05 /* XCRemoteSwiftPackageReference "BlackSharkLib" */,
@@ -612,6 +611,7 @@
 				BA7A67182E5459A700ABBD73 /* XCRemoteSwiftPackageReference "swift-protobuf" */,
 				828199052F517D3E0059F1EC /* XCRemoteSwiftPackageReference "WebRTC" */,
 				82AE89352F5CF33200554F8E /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
+				BA9935632F6FC0CA00194A21 /* XCLocalSwiftPackageReference "../../../Downloads/nostr-sdk-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA8A03552D455F8400B35D04 /* Products */;
@@ -632,7 +632,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				820A1AA42F458D1B00B872A1 /* simulator_camera_feed.mp4 in Resources */,
+				828E753F2F5E7457001A8E30 /* Config.xcconfig in Resources */,
 				821826A82F3DD7A5001AEC7B /* fallback_city.ktx in Resources */,
 				821826A92F3DD7A5001AEC7B /* earth_dark.ktx in Resources */,
 				821826AA2F3DD7A5001AEC7B /* earth_lights.ktx in Resources */,
@@ -755,6 +755,7 @@
 /* Begin XCBuildConfiguration section */
 		BA8A03782D455F8900B35D04 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 828E753E2F5E7457001A8E30 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -818,6 +819,7 @@
 		};
 		BA8A03792D455F8900B35D04 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 828E753E2F5E7457001A8E30 /* Config.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -878,10 +880,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = swae/swae.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"swae/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 57S869M9UN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"HEADER_SEARCH_PATHS[arch=*]" = "$(SRCROOT)/swae/VideoEffects/MetalPetal/**";
@@ -932,10 +935,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = swae/swae.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"swae/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 57S869M9UN;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"HEADER_SEARCH_PATHS[arch=*]" = "$(SRCROOT)/swae/VideoEffects/MetalPetal/**";
@@ -1240,9 +1244,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		BA34E1732D7D013800FC97F0 /* XCLocalSwiftPackageReference "../nostr-sdk-ios" */ = {
+		BA9935632F6FC0CA00194A21 /* XCLocalSwiftPackageReference "../../../Downloads/nostr-sdk-ios" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../nostr-sdk-ios";
+			relativePath = "../../../Downloads/nostr-sdk-ios";
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1461,11 +1465,6 @@
 			package = 82AE89352F5CF33200554F8E /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
 			productName = MWDATCore;
 		};
-		82AE893A2F5CF33200554F8E /* MWDATMockDevice */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 82AE89352F5CF33200554F8E /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
-			productName = MWDATMockDevice;
-		};
 		BA2162262E54447700255D05 /* AlertToast */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = BA2162252E54447700255D05 /* XCRemoteSwiftPackageReference "AlertToast" */;
@@ -1624,6 +1623,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BA8A050D2D45618000B35D04 /* XCRemoteSwiftPackageReference "Logboard" */;
 			productName = Logboard;
+		};
+		BA9935642F6FC0CA00194A21 /* NostrSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = NostrSDK;
 		};
 		BABEA7CC2D4F164B0062668E /* Kingfisher */ = {
 			isa = XCSwiftPackageProductDependency;
