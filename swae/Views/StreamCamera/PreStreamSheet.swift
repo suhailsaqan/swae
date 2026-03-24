@@ -42,16 +42,42 @@ struct PreStreamSheet: View {
 
     private var hasServerNwc: Bool { model.zapStreamCoreHasNwc }
 
+    /// Wallet balance in sats (what auto top-up draws from)
+    private var walletBalanceSats: Int {
+        Int((appState.wallet?.balance ?? 0) / 1000)
+    }
+
+    /// The balance that matters for streaming: wallet balance when auto top-up is active,
+    /// zap.stream balance otherwise.
+    private var effectiveBalance: Int {
+        if hasServerNwc { return walletBalanceSats }
+        return balance ?? 0
+    }
+
     /// Minimum balance required: enough for at least 1 minute of streaming.
     private var isBalanceTooLow: Bool {
-        guard let balance, rate > 0 else { return false }
-        return Double(balance) < rate
+        guard rate > 0 else { return false }
+        return Double(effectiveBalance) < rate
+    }
+
+    /// Is the wallet empty when auto top-up is active?
+    private var isWalletEmpty: Bool {
+        hasServerNwc && walletBalanceSats == 0
     }
 
     /// Streaming runway in minutes (nil if unknown).
     private var minutesLeft: Double? {
-        guard let balance, rate > 0 else { return nil }
-        return Double(balance) / rate
+        guard rate > 0 else { return nil }
+        let bal = Double(effectiveBalance)
+        guard bal > 0 else { return nil }
+        return bal / rate
+    }
+
+    /// Whether the user has enough balance to actually start streaming.
+    /// Only applies to Zap Stream Core streams that require payment.
+    private var canGoLive: Bool {
+        guard model.stream.zapStreamCoreEnabled else { return true }
+        return !isBalanceTooLow
     }
 
     init(stream: SettingsStream, skipReview: Bool, onGoLive: @escaping () -> Void) {
@@ -135,11 +161,11 @@ struct PreStreamSheet: View {
                     .padding(.vertical, 16)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(isBalanceTooLow ? Color.gray.opacity(0.4) : Color.red)
+                            .fill(canGoLive ? Color.red : Color.gray.opacity(0.4))
                     )
                     .foregroundColor(.white)
                 }
-                .disabled(isBalanceTooLow && !hasServerNwc)
+                .disabled(!canGoLive)
 
                 // Skip toggle
                 Toggle("Skip review next time", isOn: $skipReview)
@@ -154,6 +180,9 @@ struct PreStreamSheet: View {
             .padding(.bottom, 40)
         }
         .background(Color(.systemGroupedBackground))
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
         .navigationTitle("Going Live")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -163,6 +192,9 @@ struct PreStreamSheet: View {
         }
         .onAppear {
             model.startBalancePolling()
+            if model.zapStreamCoreHasNwc, appState.wallet?.balance == nil {
+                Task { await appState.wallet?.loadWalletData() }
+            }
         }
         .onDisappear {
             model.stopBalancePolling()
@@ -177,26 +209,98 @@ struct PreStreamSheet: View {
 
     // MARK: - Low Balance Banner
 
+    @State private var isEnablingAutoTopup = false
+
     private var lowBalanceBanner: some View {
         VStack(spacing: 14) {
-            if hasServerNwc {
-                // Server-side auto-topup is active
+            if hasServerNwc && !isWalletEmpty {
+                // Auto top-up active and wallet has funds
                 HStack(spacing: 10) {
-                    Image(systemName: "bolt.fill")
+                    Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
                         .foregroundColor(.green)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Auto top-up is active")
+                        Text("Auto-paying from your wallet")
                             .font(.subheadline.weight(.semibold))
-                        Text("Your balance will be topped up automatically when you start streaming.")
+                        Text("\(walletBalanceSats) sats in wallet • Charged as you stream")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
 
                     Spacer()
                 }
+            } else if hasServerNwc && isWalletEmpty {
+                // Auto top-up active but wallet is empty
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.title3)
+                        .foregroundColor(.orange)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Wallet is empty")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Fund your wallet to stream. It will charge it as you go.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+                }
+            } else if walletConnected {
+                // Wallet connected but NWC not enabled — offer combined action
+                HStack(spacing: 10) {
+                    Image(systemName: "bolt.fill")
+                        .font(.title3)
+                        .foregroundColor(.orange)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable wallet auto-payment to go live")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Your wallet will be charged \(Int(rate)) sats/min while streaming.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+                }
+
+                // Enable & Go Live combined button
+                Button {
+                    enableAutoTopupAndGoLive()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isEnablingAutoTopup {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "bolt.fill")
+                                .font(.subheadline)
+                        }
+                        Text("Enable & Go Live")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.green)
+                    )
+                }
+                .disabled(isEnablingAutoTopup)
+
+                // Fallback manual top-up
+                Button {
+                    showTopUpSheet = true
+                } label: {
+                    Text("Top up manually instead")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             } else {
+                // No wallet — manual top-up only
                 HStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.title3)
@@ -213,60 +317,21 @@ struct PreStreamSheet: View {
                     Spacer()
                 }
 
-                if walletConnected {
-                    // Quick one-tap wallet top-up
-                    Button {
-                        quickTopUpFromWallet()
-                    } label: {
-                        HStack(spacing: 6) {
-                            if isQuickTopUpInProgress {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "bolt.fill")
-                                    .font(.subheadline)
-                            }
-                            Text("Top Up \(quickTopUpAmount) sats from Wallet")
-                                .font(.subheadline.weight(.semibold))
-                        }
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.green)
-                        )
-                    }
-                    .disabled(isQuickTopUpInProgress)
-
-                    if let error = quickTopUpError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    }
-                }
-
                 Button {
                     showTopUpSheet = true
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: walletConnected ? "qrcode" : "bolt.fill")
+                        Image(systemName: "bolt.fill")
                             .font(.subheadline)
-                        Text(walletConnected ? "Manual Top Up" : "Top Up Balance")
+                        Text("Top Up Balance")
                             .font(.subheadline.weight(.semibold))
                     }
-                    .foregroundColor(walletConnected ? .white : .black)
+                    .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(walletConnected ? Color.clear : Color.orange)
-                    )
-                    .overlay(
-                        walletConnected ?
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1) : nil
+                            .fill(Color.orange)
                     )
                 }
             }
@@ -274,12 +339,55 @@ struct PreStreamSheet: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(hasServerNwc ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+                .fill(bannerBackgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(hasServerNwc ? Color.green.opacity(0.3) : Color.red.opacity(0.3), lineWidth: 1)
+                .stroke(bannerBorderColor, lineWidth: 1)
         )
+    }
+
+    private var bannerBackgroundColor: Color {
+        if hasServerNwc { return Color.green.opacity(0.1) }
+        if walletConnected { return Color.orange.opacity(0.08) }
+        return Color.red.opacity(0.1)
+    }
+
+    private var bannerBorderColor: Color {
+        if hasServerNwc { return Color.green.opacity(0.3) }
+        if walletConnected { return Color.orange.opacity(0.2) }
+        return Color.red.opacity(0.3)
+    }
+
+    /// Enables auto top-up on the server then triggers go-live
+    private func enableAutoTopupAndGoLive() {
+        guard let wallet = appState.wallet,
+              case .existing(let nwc) = wallet.connect_state else { return }
+
+        isEnablingAutoTopup = true
+        let nwcUri = nwc.to_url().absoluteString
+        let config = ZapStreamCoreConfig(baseUrl: model.stream.zapStreamCoreBaseUrl)
+        let client = ZapStreamCoreApiClient(config: config)
+
+        var cancellable: AnyCancellable?
+        cancellable = client.updateAccount(appState: appState, nwcUri: nwcUri)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [self] completion in
+                    isEnablingAutoTopup = false
+                    if case .failure = completion {
+                        // Fall back to quick top-up
+                        quickTopUpFromWallet()
+                    }
+                    _ = cancellable
+                },
+                receiveValue: { [self] _ in
+                    model.zapStreamCoreHasNwc = true
+                    model.refreshZapStreamCoreBalance()
+                    // Now go live
+                    saveAndGoLive()
+                }
+            )
     }
 
     /// Amount for quick top-up: enough for ~30 minutes of streaming
@@ -365,6 +473,9 @@ struct PreStreamSheet: View {
             gameId: selectedGameId,
             additionalTags: additionalTags
         )
+
+        // Persist settings to disk immediately so they survive app lifecycle events
+        model.store()
 
         dismiss()
 
