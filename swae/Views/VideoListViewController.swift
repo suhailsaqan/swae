@@ -80,7 +80,7 @@ final class VideoListViewController: UIViewController {
             return finalHeight
         }
 
-        static let carouselHeight: CGFloat = 250
+        static let carouselHeight: CGFloat = 228
         static let sectionHeaderHeight: CGFloat = 60
         static let spacing: CGFloat = 16
         static let cardCornerRadius: CGFloat = 16
@@ -762,11 +762,19 @@ final class VideoListViewController: UIViewController {
             .sink { [weak self] inProgress in
                 guard let self = self else { return }
                 if !inProgress {
-                    // Rebuild with real data
-                    self.rebuildSections()
-
-                    // Staggered reveal: animate each visible cell in with a waterfall effect
-                    self.animateStaggeredReveal()
+                    // Instagram-style transition: cross-dissolve the collection view
+                    // from skeleton cells to real content. The cross-dissolve captures
+                    // the current skeleton appearance as a snapshot and smoothly fades
+                    // to the new layout, preventing any jarring jump or blank flash.
+                    // rebuildSections() updates both the data model and collection view
+                    // inside this transition block.
+                    UIView.transition(
+                        with: self.collectionView,
+                        duration: 0.35,
+                        options: [.transitionCrossDissolve, .allowUserInteraction]
+                    ) {
+                        self.rebuildSections()
+                    }
                 }
             }
             .store(in: &cancellables)
