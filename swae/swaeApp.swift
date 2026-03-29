@@ -26,6 +26,26 @@ class SwaeAppDelegate: UIResponder, UIApplicationDelegate {
         // This will be called before scene setup, ensuring coordinator is ready
         return true
     }
+    
+    /// Sets UIKit appearance proxies to use the rounded system font design,
+    /// matching the SwiftUI `.fontDesign(.rounded)` applied in ContentView.
+    private func applyGlobalUIKitFontAppearance() {
+        let roundedDescriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body)
+            .withDesign(.rounded) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body)
+        let roundedFont = UIFont(descriptor: roundedDescriptor, size: 0)
+        
+        // Navigation bar titles
+        UINavigationBar.appearance().largeTitleTextAttributes = [
+            .font: UIFont(descriptor: roundedDescriptor.withSymbolicTraits(.traitBold) ?? roundedDescriptor, size: 34)
+        ]
+        UINavigationBar.appearance().titleTextAttributes = [
+            .font: UIFont(descriptor: roundedDescriptor.withSymbolicTraits(.traitBold) ?? roundedDescriptor, size: 17)
+        ]
+        
+        // Tab bar items
+        let tabBarAppearance = UITabBarItem.appearance()
+        tabBarAppearance.setTitleTextAttributes([.font: UIFont(descriptor: roundedDescriptor, size: 10)], for: .normal)
+    }
 
     func application(
         _ application: UIApplication,
