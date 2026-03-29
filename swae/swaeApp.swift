@@ -22,6 +22,9 @@ class SwaeAppDelegate: UIResponder, UIApplicationDelegate {
         // Seed the Coinos API key into the Keychain on first launch
         CoinosSecrets.bootstrapIfNeeded()
         
+        // Apply rounded font design to UIKit components via appearance proxy
+        applyGlobalUIKitFontAppearance()
+        
         // Initialize app coordinator on main thread
         // This will be called before scene setup, ensuring coordinator is ready
         return true
@@ -112,8 +115,8 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate {
         // Set hosting controller as child of RootViewController
         rootVC.setChild(hostingController)
 
-        // Setup app state observer for live player presentation
-        rootVC.setupAppStateObserver(appState: AppCoordinator.shared.appState)
+        // Store AppState reference for player presentation
+        rootVC.setup(appState: AppCoordinator.shared.appState)
 
         // Set window root and make visible
         window.rootViewController = rootVC
@@ -132,19 +135,29 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate {
 
         window.addSubview(launchOverlay)
 
-        // Phase 1: hold briefly so the overlay feels seamless with the launch screen
-        UIView.animate(
-            withDuration: 0.25,
-            delay: 0.05,
-            options: [.curveEaseIn]
-        ) {
-            logoView.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
-            logoView.alpha = 0
-        } completion: { _ in
-            UIView.animate(withDuration: 0.15) {
-                launchOverlay.alpha = 0
+        // Defer overlay fade to AFTER the first layout pass completes.
+        // The first CA::Transaction::commit (SwiftUI layout + collection view setup) takes
+        // ~375ms. Starting the fade immediately would reveal a black screen underneath
+        // because the skeleton cells haven't rendered yet. DispatchQueue.main.async ensures
+        // we wait for the current run loop iteration (including the first commit) to finish.
+        DispatchQueue.main.async {
+            // Start relay connections now that the first frame has rendered.
+            // This moves ~200ms of WebSocket setup off the pre-first-frame path.
+            AppCoordinator.shared.startNetworking()
+
+            UIView.animate(
+                withDuration: 0.3,
+                delay: 0,
+                options: [.curveEaseIn]
+            ) {
+                logoView.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
+                logoView.alpha = 0
             } completion: { _ in
-                launchOverlay.removeFromSuperview()
+                UIView.animate(withDuration: 0.15) {
+                    launchOverlay.alpha = 0
+                } completion: { _ in
+                    launchOverlay.removeFromSuperview()
+                }
             }
         }
 
@@ -232,8 +245,7 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate {
         // Try to find the event in the existing cache (relay pool already fetches these)
         if let event = findLiveEvent(pubkey: pubkey, dTag: dTag, appState: appState) {
             print("🔗 Deep link: found cached event, opening player")
-            appState.playerConfig.selectedLiveActivitiesEvent = event
-            appState.playerConfig.showMiniPlayer = true
+            appState.openStream(event)
             return
         }
 
@@ -250,8 +262,7 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate {
                 if let event = self.findLiveEvent(pubkey: pubkey, dTag: dTag, appState: appState) {
                     print("🔗 Deep link: event arrived from relay, opening player")
                     cancellable?.cancel()
-                    appState.playerConfig.selectedLiveActivitiesEvent = event
-                    appState.playerConfig.showMiniPlayer = true
+                    appState.openStream(event)
                 }
             }
 
