@@ -103,15 +103,88 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var database: Database
 
+    // MARK: - Stream Icon Helpers
+
+    private var streamIcon: String {
+        if !model.isStreamConfigured() { return "bolt.fill" }
+        if model.stream.zapStreamCoreEnabled { return "bolt.fill" }
+        switch model.stream.getProtocol() {
+        case .rtmp: return "play.rectangle.fill"
+        case .srt: return "bolt.horizontal.fill"
+        case .rist: return "arrow.triangle.branch"
+        }
+    }
+
+    private var streamIconColor: Color {
+        if !model.isStreamConfigured() { return .orange }
+        if model.stream.zapStreamCoreEnabled { return .yellow }
+        switch model.stream.getProtocol() {
+        case .rtmp: return .red
+        case .srt: return .purple
+        case .rist: return .orange
+        }
+    }
+
+    // MARK: - Stream Status Row
+
+    @ViewBuilder
+    private var streamStatusRow: some View {
+        if model.isStreamConfigured() {
+            if model.isLive {
+                HStack(spacing: 8) {
+                    Image(systemName: streamIcon)
+                        .foregroundColor(streamIconColor)
+                    Text(model.stream.name)
+                        .lineLimit(1)
+                    Spacer()
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 8, height: 8)
+                    Text("Live")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.red)
+                    Text(model.streamUptime.uptime)
+                        .font(.caption.monospaced())
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                NavigationLink {
+                    StreamSettingsView(database: model.database, stream: model.stream)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: streamIcon)
+                            .foregroundColor(streamIconColor)
+                        Text(model.stream.name)
+                            .lineLimit(1)
+                        Spacer()
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 8, height: 8)
+                        Text("Connected")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+        } else {
+            NavigationLink {
+                StreamSetupView()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "bolt.fill")
+                        .foregroundColor(.orange)
+                    Text("Set Up Stream")
+                        .foregroundColor(.orange)
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    // MARK: - Body
+
     var body: some View {
         Form {
-            // Stream Status Hero Card - prominent at top
-            Section {
-                StreamStatusHeroCard()
-            }
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(Color.clear)
-            
             if model.isLive {
                 Section {
                     HStack {
@@ -121,7 +194,13 @@ struct SettingsView: View {
                     }
                 }
             }
-            
+
+            Section {
+                StreamStatusHeroCard()
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+
             Section {
                 NavigationLink {
                     StreamsSettingsView(
@@ -130,8 +209,7 @@ struct SettingsView: View {
                     SettingsRowWithStatus(
                         title: "Streams",
                         icon: "dot.radiowaves.left.and.right",
-                        status: model.isStreamConfigured() ? model.stream.name : "Not configured",
-                        statusColor: model.isStreamConfigured() ? .secondary : .orange
+                        status: "\(database.streams.count) stream\(database.streams.count == 1 ? "" : "s")"
                     )
                 }
                 NavigationLink {
@@ -143,23 +221,6 @@ struct SettingsView: View {
                         status: "\(model.enabledScenes.count) scene\(model.enabledScenes.count == 1 ? "" : "s")"
                     )
                 }
-                // NavigationLink {
-                //     ChatSettingsView(chat: database.chat)
-                // } label: {
-                //     SettingsRowWithStatus(
-                //         title: "Chat",
-                //         icon: "message",
-                //         status: database.chat.enabled ? "On" : "Off"
-                //     )
-                // }
-                // NavigationLink {
-                //     DisplaySettingsView(database: database)
-                // } label: {
-                //     SettingsRowWithStatus(
-                //         title: "Display",
-                //         icon: "rectangle.inset.topright.fill"
-                //     )
-                // }
                 NavigationLink {
                     CameraSettingsView(database: database, color: database.color)
                 } label: {
@@ -168,15 +229,21 @@ struct SettingsView: View {
                         icon: "camera"
                     )
                 }
-                if database.showAllSettings {
-                    NavigationLink {
-                        AudioSettingsView(database: database, mic: model.mic)
-                    } label: {
-                        SettingsRowWithStatus(
-                            title: "Audio",
-                            icon: "waveform"
-                        )
-                    }
+                NavigationLink {
+                    DisplaySettingsView(database: database)
+                } label: {
+                    SettingsRowWithStatus(
+                        title: "Display",
+                        icon: "rectangle.on.rectangle"
+                    )
+                }
+                NavigationLink {
+                    AudioSettingsView(database: database, mic: model.mic)
+                } label: {
+                    SettingsRowWithStatus(
+                        title: "Audio",
+                        icon: "waveform"
+                    )
                 }
                 NavigationLink {
                     LocationSettingsView(
@@ -189,15 +256,8 @@ struct SettingsView: View {
                         status: database.location.enabled ? "On" : "Off"
                     )
                 }
-            }
-            Section {
-                // if database.showAllSettings {
-                    NavigationLink {
-                        IngestsSettingsView(database: database)
-                    } label: {
-                        Label("Ingests", systemImage: "server.rack")
-                    }
-                // }
+            } header: {
+                Text("Stream")
             }
             Section {
                 NavigationLink {
@@ -215,6 +275,29 @@ struct SettingsView: View {
                 } label: {
                     Label("Meta Glasses", systemImage: "eyeglasses")
                 }
+                NavigationLink {
+                    IngestsSettingsView(database: database)
+                } label: {
+                    Label("Ingests", systemImage: "server.rack")
+                }
+            } header: {
+                Text("Devices")
+            }
+            Section {
+                NavigationLink {
+                    RecordingsSettingsView(model: model)
+                } label: {
+                    Label("Recordings", systemImage: "photo.on.rectangle.angled")
+                }
+                if database.showAllSettings {
+                    NavigationLink {
+                        StreamingHistorySettingsView(model: model)
+                    } label: {
+                        Label("Streaming history", systemImage: "text.book.closed")
+                    }
+                }
+            } header: {
+                Text("Library")
             }
             if database.showAllSettings {
                 Section {
@@ -247,16 +330,6 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    // NavigationLink {
-                    //     DjiDevicesSettingsView(djiDevices: database.djiDevices)
-                    // } label: {
-                    //     Label("DJI devices", systemImage: "appletvremote.gen1")
-                    // }
-                    // NavigationLink {
-                    //     GoProSettingsView()
-                    // } label: {
-                    //     Label("GoPro", systemImage: "appletvremote.gen1")
-                    // }
                     NavigationLink {
                         CatPrintersSettingsView(catPrinters: model.database.catPrinters)
                     } label: {
@@ -284,20 +357,6 @@ struct SettingsView: View {
                             phoneCoolerDevices: database.phoneCoolerDevices)
                     } label: {
                         Label("Black Shark coolers", systemImage: "fan")
-                    }
-                }
-            }
-            Section {
-                NavigationLink {
-                    RecordingsSettingsView(model: model)
-                } label: {
-                    Label("Recordings", systemImage: "photo.on.rectangle.angled")
-                }
-                if database.showAllSettings {
-                    NavigationLink {
-                        StreamingHistorySettingsView(model: model)
-                    } label: {
-                        Label("Streaming history", systemImage: "text.book.closed")
                     }
                 }
             }
