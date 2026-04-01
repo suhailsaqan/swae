@@ -73,6 +73,10 @@ class CameraViewController: UIViewController {
     // Model observation
     private var cancellables = Set<AnyCancellable>()
     
+    // UIKit toast overlay (since SwiftUI MainView toast isn't in this hierarchy)
+    private var toastLabel: UILabel?
+    private var toastHideWorkItem: DispatchWorkItem?
+    
     // Callbacks
     var onExitStream: (() -> Void)?
     
@@ -96,6 +100,8 @@ class CameraViewController: UIViewController {
         setupViews()
         setupGestures()
         setupChildControllers()
+        setupToastObserver()
+        setupWalletBalanceObserver()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -315,6 +321,94 @@ class CameraViewController: UIViewController {
         coordinator.animate { _ in
             self.updateLayoutForOrientation()
         }
+    }
+    
+    // MARK: - Toast Observer
+    
+    /// Observes model.toast changes and shows a UIKit toast overlay on the camera screen.
+    /// This is needed because the SwiftUI AlertToast in MainView is not in the UIKit camera hierarchy.
+    private func setupToastObserver() {
+        model?.toast.$showingToast
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] showing in
+                guard let self, showing, let model = self.model else { return }
+                let alertToast = model.toast.toast
+                let title = alertToast.title ?? ""
+                guard !title.isEmpty else { return }
+                let subtitle = alertToast.subTitle
+                let displayText = subtitle != nil ? "\(title)\n\(subtitle!)" : title
+                self.showUIKitToast(displayText)
+            }
+            .store(in: &cancellables)
+    }
+    
+    /// Observes wallet balance changes and reconfigures the stream detail modal if visible.
+    private var walletBalanceCancellable: AnyCancellable?
+    
+    private func setupWalletBalanceObserver() {
+        // Will be set up dynamically when the stream detail modal opens
+    }
+    
+    private func startObservingWalletBalance() {
+        walletBalanceCancellable?.cancel()
+        guard let wallet = AppCoordinator.shared.appState.wallet else { return }
+        walletBalanceCancellable = wallet.$balance
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let data = self.buildStreamDetailData()
+                self.morphingGlassModal?.expandedControls.reconfigureStreamDetail(data: data)
+            }
+    }
+    
+    private func showUIKitToast(_ text: String) {
+        // Cancel any pending hide
+        toastHideWorkItem?.cancel()
+        
+        // Create or reuse the toast label
+        let label: PaddedLabel
+        if let existing = toastLabel as? PaddedLabel {
+            label = existing
+        } else {
+            toastLabel?.removeFromSuperview()
+            label = PaddedLabel()
+            label.textInsets = UIEdgeInsets(top: 12, left: 18, bottom: 12, right: 18)
+            label.numberOfLines = 0
+            label.textAlignment = .center
+            label.font = .systemFont(ofSize: 14, weight: .medium)
+            label.textColor = .white
+            label.backgroundColor = UIColor.black.withAlphaComponent(0.82)
+            label.layer.cornerRadius = 14
+            label.clipsToBounds = true
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.alpha = 0
+            view.addSubview(label)
+            NSLayoutConstraint.activate([
+                label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                label.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+                label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+                label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24),
+            ])
+            toastLabel = label
+        }
+        
+        // Ensure toast is on top
+        view.bringSubviewToFront(label)
+        label.text = text
+        
+        // Animate in
+        UIView.animate(withDuration: 0.25) {
+            label.alpha = 1
+        }
+        
+        // Auto-hide after 5 seconds
+        let hideWork = DispatchWorkItem { [weak self] in
+            UIView.animate(withDuration: 0.3) {
+                self?.toastLabel?.alpha = 0
+            }
+        }
+        toastHideWorkItem = hideWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: hideWork)
     }
     
     // MARK: - Setup
@@ -899,11 +993,24 @@ class CameraViewController: UIViewController {
         // Status bar info area tapped → open inline stream detail view
         morphingModal.onInfoBarTapped = { [weak self] sourceView in
             guard let self = self, let model = self.model else { return }
+            // Start observing wallet balance changes so the modal updates live
+            self.startObservingWalletBalance()
+            // Show modal immediately with current data
             self.morphingGlassModal?.expandedControls.pendingStreamDetailData = self.buildStreamDetailData()
             self.morphingGlassModal?.showInlineContent(.streamDetail)
-            // Fetch fresh balance (one-shot, NOT polling)
+            // Fetch fresh balances, then update the modal with new data
             if model.stream.zapStreamCoreEnabled {
-                model.refreshZapStreamCoreBalance()
+                model.refreshZapStreamCoreBalance { [weak self] in
+                    guard let self else { return }
+                    let data = self.buildStreamDetailData()
+                    self.morphingGlassModal?.expandedControls.reconfigureStreamDetail(data: data)
+                    // Now that hasNwc is up-to-date, trigger wallet balance load
+                    self.model?.refreshWalletBalanceIfNeeded()
+                }
+                // Also try immediately in case hasNwc is already known (second+ open)
+                if model.zapStreamCoreHasNwc {
+                    model.refreshWalletBalanceIfNeeded()
+                }
             }
         }
 
@@ -923,6 +1030,16 @@ class CameraViewController: UIViewController {
             self.present(hostingVC, animated: true)
         }
 
+        // Stream detail: Wallet Receive (fund the Coinos wallet)
+        morphingModal.onStreamDetailWalletReceive = { [weak self] in
+            guard let self = self,
+                  let wallet = AppCoordinator.shared.appState.wallet else { return }
+            let receiveView = ReceiveView(walletModel: wallet)
+            let hostingVC = UIHostingController(rootView: AnyView(receiveView))
+            hostingVC.modalPresentationStyle = .pageSheet
+            self.present(hostingVC, animated: true)
+        }
+
         // Stream detail: Stream Settings button
         morphingModal.onStreamDetailSettings = { [weak self] in
             guard let self = self else { return }
@@ -933,7 +1050,16 @@ class CameraViewController: UIViewController {
 
         // Stream detail: Refresh balance
         morphingModal.onStreamDetailRefreshBalance = { [weak self] in
-            self?.model?.refreshZapStreamCoreBalance()
+            self?.model?.refreshZapStreamCoreBalance { [weak self] in
+                guard let self else { return }
+                let data = self.buildStreamDetailData()
+                self.morphingGlassModal?.expandedControls.reconfigureStreamDetail(data: data)
+                self.model?.refreshWalletBalanceIfNeeded(force: true)
+            }
+            // Wallet balance refresh — force reload even if already loaded
+            if let model = self?.model, model.zapStreamCoreHasNwc {
+                model.refreshWalletBalanceIfNeeded(force: true)
+            }
         }
 
         // Stream detail: Update Stream (push metadata to server while live)
@@ -1347,6 +1473,11 @@ class CameraViewController: UIViewController {
         // (setup() ran before the callback existed, so it defaulted to configured=true)
         morphingModal.updateOnboardingState()
         
+        // Discoverability: bounce the pill after entry animation settles
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.morphingGlassModal?.playDiscoveryBounce()
+        }
+        
         // Stream overlay
         if let orientation = orientation {
             let streamOverlayVC = StreamOverlayViewController(model: model, orientation: orientation)
@@ -1525,7 +1656,7 @@ class CameraViewController: UIViewController {
                 uptime: "", bitrateMbps: "", bitrateColor: .white, viewerCount: "",
                 streamTitle: "", streamDescription: "", streamTags: "",
                 isNSFW: false, isPublic: true, preferredProtocol: 0,
-                hasNwc: false, hasWallet: false,
+                hasNwc: false, hasWallet: false, walletBalance: nil,
                 resolutionIndex: 2, availableResolutions: [], fpsIndex: 4, availableFps: [],
                 isAdaptiveResolution: false, isLowLightBoostAvailable: false,
                 isLowLightBoostEnabled: false, audioBitrateKbps: 128,
@@ -1573,6 +1704,7 @@ class CameraViewController: UIViewController {
             preferredProtocol: model.stream.zapStreamCorePreferredProtocol == .rtmp ? 0 : 1,
             hasNwc: model.zapStreamCoreHasNwc,
             hasWallet: hasWallet,
+            walletBalance: AppCoordinator.shared.appState.wallet?.balance,
             resolutionIndex: resolutions.firstIndex(of: model.stream.resolution) ?? 2,
             availableResolutions: resolutions.map { $0.shortString() },
             fpsIndex: fpss.firstIndex(of: model.stream.fps) ?? 4,
