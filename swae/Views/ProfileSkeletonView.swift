@@ -37,8 +37,8 @@ struct ShimmerEffect: ViewModifier {
                         .frame(width: geometry.size.width)
                         .offset(x: movingPhase * geometry.size.width)
                 }
+                .mask(content)
             )
-            .clipped()
             .onAppear {
                 DispatchQueue.main.async {
                     withAnimation(animation) {

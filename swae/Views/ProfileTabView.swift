@@ -60,10 +60,7 @@ struct LiveActivitiesView: View {
                         ForEach(events, id: \.id) { event in
                             ProfileStreamCard(event: event)
                                 .onTapGesture {
-                                    appState.playerConfig.selectedLiveActivitiesEvent = event
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        appState.playerConfig.setFullscreenWithChatState()
-                                    }
+                                    appState.openStream(event)
                                 }
                         }
                     }
