@@ -1855,8 +1855,7 @@ final class ProfileViewController: UIViewController {
         generator.impactOccurred()
 
         // Show player UI immediately
-        appState.playerConfig.selectedLiveActivitiesEvent = event
-        appState.playerConfig.showMiniPlayer = true
+        appState.openStream(event)
     }
 
     private func updateCollectionViewHeight() {
@@ -2249,9 +2248,8 @@ extension ProfileViewController: UIScrollViewDelegate {
         // ─── BANNER BLUR + NAME EFFECT ───
         // Blur spans the full journey: starts when pic begins shrinking (scrollAmount=0)
         // and completes when pic is fully hidden behind the banner.
-        let shrinkDist = Layout.profilePicOverlap + (Layout.profilePicSize - Layout.profilePicMinSize) / 2
-        let visibleAtShrinkEnd = (Layout.profilePicSize + Layout.profilePicMinSize) / 2 - Layout.profilePicOverlap
-        let blurTotalDistance = shrinkDist + visibleAtShrinkEnd  // full range: shrink + slide
+        // Shrink phase = profilePicOverlap (33pt), then slide phase = profilePicMinSize (32pt)
+        let blurTotalDistance = Layout.profilePicOverlap + Layout.profilePicMinSize
         
         if scrollAmount <= 0 {
             bannerBlurAnimator?.fractionComplete = 0
@@ -2271,35 +2269,40 @@ extension ProfileViewController: UIScrollViewDelegate {
             bannerNameStackView.alpha = nameProgress
         }
         
-        // PROFILE PIC - Twitter-style behavior:
-        // 1. At rest: profile pic overlaps banner, visual center at restingY + picSize/2
+        // PROFILE PIC behavior:
+        // 1. At rest: profile pic overlaps banner by profilePicOverlap (top is above banner bottom)
         // 2. Pull down: profile pic moves DOWN with content, full size
-        // 3. Scroll up: profile pic SHRINKS from center (visual center stays stable)
-        // 4. Continue scrolling: fully shrunk pic slides UP under banner
+        // 3. Scroll up: profile pic SHRINKS while its top edge slides down to meet banner bottom
+        //    (pic goes from overlapping the banner to sitting just below it at min size)
+        // 4. Continue scrolling: fully shrunk pic slides UP under the banner
         
         let restingY = bannerBottom - Layout.profilePicOverlap
         
-        let shrinkScrollDistance = Layout.profilePicOverlap + (Layout.profilePicSize - Layout.profilePicMinSize) / 2
+        // Shrink distance: the scroll amount over which the pic shrinks from full to min size.
+        // We want the pic's top to reach bannerBottom exactly when it hits min size.
+        // The top moves from restingY (bannerBottom - overlap) to bannerBottom = overlap distance.
+        // Use the overlap as the shrink scroll distance so the animation is 1:1 with the top movement.
+        let shrinkScrollDistance = Layout.profilePicOverlap
         
         let currentSize: CGFloat
-        let profilePicY: CGFloat
+        var profilePicY: CGFloat
         
         if scrollAmount <= 0 {
             // PULL DOWN: full size, moves down with content
             currentSize = Layout.profilePicSize
             profilePicY = restingY - scrollAmount
         } else if scrollAmount <= shrinkScrollDistance {
-            // SHRINK PHASE: shrinks from center so visual center stays stable
+            // SHRINK PHASE: pic shrinks while top edge slides down toward banner bottom.
+            // Top moves linearly from restingY to bannerBottom over shrinkScrollDistance.
+            // Size shrinks linearly from profilePicSize to profilePicMinSize.
             let shrinkProgress = scrollAmount / shrinkScrollDistance
             currentSize = Layout.profilePicSize - (shrinkProgress * (Layout.profilePicSize - Layout.profilePicMinSize))
-            let centerOffset = (Layout.profilePicSize - currentSize) / 2
-            profilePicY = restingY + centerOffset
+            profilePicY = restingY + (shrinkProgress * Layout.profilePicOverlap)
         } else {
             // SLIDE UNDER: fully shrunk at min size, slides up under banner
             currentSize = Layout.profilePicMinSize
-            let shrinkEndY = restingY + (Layout.profilePicSize - Layout.profilePicMinSize) / 2
             let extraScroll = scrollAmount - shrinkScrollDistance
-            profilePicY = shrinkEndY - extraScroll
+            profilePicY = bannerBottom - extraScroll
         }
         
         // Update size
@@ -2321,7 +2324,8 @@ extension ProfileViewController: UIScrollViewDelegate {
         let horizontalCenterOffset = (Layout.profilePicSize - currentSize) / 2
         profilePicLeadingConstraint.constant = Layout.horizontalPadding + horizontalCenterOffset
         
-        // Z-ORDERING: Only change when state transitions (not every frame)
+        // Z-ORDERING: Go behind banner once the pic starts sliding under it
+        // (i.e., when the slide-under phase begins). Only change on state transitions.
         let shouldBeUnder = scrollAmount > shrinkScrollDistance
         if shouldBeUnder != isProfilePicUnderBanner {
             isProfilePicUnderBanner = shouldBeUnder
