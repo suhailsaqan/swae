@@ -6,36 +6,35 @@ struct MetaGlassesSettingsView: View {
     @ObservedObject private var manager: MetaGlassesManager
 
     init() {
-        // Will be replaced in body via onAppear, but need a default for init
-        self._manager = ObservedObject(wrappedValue: AppCoordinator.shared.model.metaGlassesManager ?? MetaGlassesManager())
+        self._manager = ObservedObject(
+            wrappedValue: AppCoordinator.shared.model.metaGlassesManager ?? MetaGlassesManager()
+        )
     }
 
     var body: some View {
-        Form {
-            Section {
-                HCenter {
-                    Image(systemName: "eyeglasses")
-                        .font(.system(size: 60))
-                        .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(spacing: 16) {
+                heroImageCard
+                connectionStatusCard
+                connectButton
+                if let frame = manager.previewFrame {
+                    previewCard(frame: frame)
                 }
+                if manager.isRegistered {
+                    controlsSection
+                }
+                if let error = manager.error {
+                    errorCard(error: error)
+                }
+                setupGuideCard
+                footerTip
             }
-
-            connectionSection(manager: manager)
-            if manager.isRegistered {
-                streamSection(manager: manager)
-                pipSection
-                photoCaptureSection(manager: manager)
-                previewSection(manager: manager)
-            }
-            errorSection(manager: manager)
-
-            setupGuideSection
+            .padding(16)
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Meta Glasses")
         .settingsCloseButton()
         .onDisappear {
-            // Stop preview-only stream when leaving settings
-            // (scene/PiP consumers keep it alive if needed)
             if model.isMetaGlassesPreviewActive {
                 model.stopMetaGlassesPreview()
             }
@@ -51,98 +50,272 @@ struct MetaGlassesSettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private func connectionSection(manager: MetaGlassesManager) -> some View {
-        Section {
-            HStack {
-                Text("Status")
+    // MARK: - Hero Image
+
+    private var heroImageCard: some View {
+        VStack(spacing: 0) {
+            Image("MetaGlasses")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxHeight: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    // MARK: - Connection Status
+
+    private var connectionStatusCard: some View {
+        Group {
+            if manager.isRegistered {
+                connectedCard
+            } else if manager.isRegistering {
+                connectingCard
+            } else {
+                disconnectedCard
+            }
+        }
+    }
+
+    private var disconnectedCard: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.secondary.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "eyeglasses")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Not Connected")
+                    .font(.body.weight(.medium))
+                    .foregroundColor(.primary)
+                Text("Tap below to pair your glasses")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    private var connectingCard: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+                .scaleEffect(0.9)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Connecting...")
+                    .font(.subheadline.weight(.medium))
+                Text("Opening Meta AI app...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    private var connectedCard: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Connected")
+                        .font(.subheadline.weight(.medium))
+                    HStack(spacing: 4) {
+                        Text("\(manager.devices.count) device\(manager.devices.count == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        if manager.hasActiveDevice {
+                            Text("•")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("Ready")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
                 Spacer()
-                if manager.isRegistered {
-                    HStack(spacing: 4) {
-                        Circle().fill(.green).frame(width: 8, height: 8)
-                        Text("Connected").foregroundStyle(.green)
-                    }
-                } else if manager.isRegistering {
-                    HStack(spacing: 4) {
-                        ProgressView().scaleEffect(0.7)
-                        Text("Connecting...").foregroundStyle(.orange)
-                    }
-                } else {
-                    Text("Not connected").foregroundStyle(.secondary)
+                if manager.isStreaming {
+                    Text("Streaming")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green)
+                        .cornerRadius(4)
                 }
             }
-            HStack {
-                Text("Active Device")
-                Spacer()
-                Text(manager.hasActiveDevice ? "Ready" : "None")
-                    .foregroundStyle(manager.hasActiveDevice ? .green : .secondary)
-            }
-            if manager.devices.count > 0 {
+            if manager.isStreaming {
                 HStack {
-                    Text("Devices Found")
+                    Text("Frames")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     Spacer()
-                    Text("\(manager.devices.count)").foregroundStyle(.secondary)
+                    Text("\(manager.frameCount)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
                 }
             }
             if manager.isRegistered && manager.hasActiveDevice {
                 Button("Disconnect", role: .destructive) {
                     Task { await manager.disconnect() }
                 }
-            } else if !manager.isRegistering {
-                Button("Connect Glasses") {
+                .font(.subheadline)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.green.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Connect Button
+
+    private var connectButton: some View {
+        Group {
+            if !manager.isRegistered && !manager.isRegistering {
+                Button {
                     Task { await manager.connect() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bolt.fill")
+                        Text("Connect Glasses")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.accentPurple)
+                    )
+                    .foregroundColor(.white)
                 }
             }
-        } header: {
-            Text("Connection")
         }
     }
 
-    @ViewBuilder
-    private func streamSection(manager: MetaGlassesManager) -> some View {
-        Section {
-            HStack {
-                Text("Stream Status")
+    // MARK: - Preview
+
+    private func previewCard(frame: UIImage) -> some View {
+        VStack(spacing: 0) {
+            Image(uiImage: frame)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxHeight: 250)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    // MARK: - Controls Section
+
+    private var controlsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("CONTROLS")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 8) {
+                previewControlCard
+                pipCard
+                qualityCard
+                photoCaptureCard
+            }
+        }
+    }
+
+    private var previewControlCard: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentPurple.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "video.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.accentPurple)
+                }
+                Text("Preview")
+                    .font(.body.weight(.medium))
                 Spacer()
-                Text(manager.streamingStatus)
-                    .foregroundStyle(statusColor(for: manager.streamingStatus))
-            }
-            if manager.isStreaming {
-                HStack {
-                    Text("Frames")
-                    Spacer()
-                    Text("\(manager.frameCount)").foregroundStyle(.secondary).monospacedDigit()
-                }
-            }
-            if model.isMetaGlassesPreviewActive {
-                Button("Stop Preview", role: .destructive) {
-                    model.stopMetaGlassesPreview()
-                }
-                .disabled(model.isMetaGlassesNeededByScene)
-            } else if manager.hasActiveDevice {
-                Button("Start Preview") {
-                    model.startMetaGlassesPreview()
+                if model.isMetaGlassesPreviewActive {
+                    Button("Stop", role: .destructive) {
+                        model.stopMetaGlassesPreview()
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .disabled(model.isMetaGlassesNeededByScene)
+                } else if manager.hasActiveDevice {
+                    Button {
+                        model.startMetaGlassesPreview()
+                    } label: {
+                        Text("Start")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.accentPurple)
+                    }
                 }
             }
             if model.isMetaGlassesNeededByScene {
-                HStack {
+                HStack(spacing: 6) {
                     Image(systemName: "info.circle")
-                        .foregroundStyle(.blue)
+                        .font(.caption)
+                        .foregroundColor(.blue)
                     Text("Active scene is using Meta Glasses")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundColor(.secondary)
                 }
             }
-        } header: {
-            Text("Video Stream")
-        } footer: {
-            Text("To use as your main camera, select \"Meta Glasses\" in your scene's camera picker.")
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 
-    private var pipSection: some View {
-        Section {
-            Toggle("Picture-in-Picture", isOn: Binding(
+    private var pipCard: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentPurple.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "rectangle.inset.bottomright.filled")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.accentPurple)
+            }
+            Text("Picture-in-Picture")
+                .font(.body.weight(.medium))
+            Spacer()
+            Toggle("", isOn: Binding(
                 get: { model.isMetaGlassesPipEnabled },
                 set: { enabled in
                     if enabled {
@@ -152,83 +325,175 @@ struct MetaGlassesSettingsView: View {
                     }
                 }
             ))
-        } header: {
-            Text("PiP Mode")
-        } footer: {
-            Text("Overlay the glasses camera on your phone camera stream.")
+            .tint(.accentPurple)
+            .labelsHidden()
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 
-    @ViewBuilder
-    private func photoCaptureSection(manager: MetaGlassesManager) -> some View {
-        Section {
-            Button {
-                manager.capturePhoto()
-            } label: {
-                Label("Capture Photo", systemImage: "camera.fill")
+    private var qualityCard: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentPurple.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.accentPurple)
             }
-            .disabled(!manager.isStreaming)
-        } header: {
-            Text("Photo")
-        } footer: {
-            Text("Take a photo from the glasses camera. Stream must be active.")
-        }
-    }
-
-    @ViewBuilder
-    private func previewSection(manager: MetaGlassesManager) -> some View {
-        if let frame = manager.previewFrame {
-            Section {
-                Image(uiImage: frame)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxHeight: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            } header: {
-                Text("Preview")
+            Text("Quality")
+                .font(.body.weight(.medium))
+            Spacer()
+            Picker("", selection: $manager.selectedResolution) {
+                Text("High").tag(StreamingResolution.high)
+                Text("Medium").tag(StreamingResolution.medium)
+                Text("Low").tag(StreamingResolution.low)
             }
+            .labelsHidden()
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
     }
 
-    @ViewBuilder
-    private func errorSection(manager: MetaGlassesManager) -> some View {
-        if let error = manager.error {
-            Section {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.yellow)
-                    Text(error).font(.subheadline)
+    private var photoCaptureCard: some View {
+        Button {
+            manager.capturePhoto()
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentPurple.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.accentPurple)
                 }
-                Button("Dismiss") { manager.dismissError() }
-            } header: {
-                Text("Error")
+                Text("Capture Photo")
+                    .font(.body.weight(.medium))
+                    .foregroundColor(.primary)
+                Spacer()
+                if manager.isStreaming {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Color(.tertiaryLabel))
+                } else {
+                    Text("Stream required")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
+        }
+        .disabled(!manager.isStreaming)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    // MARK: - Error Card
+
+    private func errorCard(error: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.red)
+                Text(error)
+                    .font(.subheadline)
+            }
+            Button("Dismiss") {
+                manager.dismissError()
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundColor(.accentPurple)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.red.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Setup Guide
+
+    @State private var showSetupGuide = false
+
+    private var setupGuideCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showSetupGuide.toggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                    Text("Setup Guide")
+                        .font(.body.weight(.medium))
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Image(systemName: showSetupGuide ? "chevron.down" : "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Color(.tertiaryLabel))
+                }
+            }
+            .buttonStyle(.plain)
+
+            if showSetupGuide {
+                VStack(alignment: .leading, spacing: 12) {
+                    Divider()
+                        .padding(.vertical, 8)
+                    setupStep(number: 1, text: "Install the Meta AI app on your iPhone")
+                    setupStep(number: 2, text: "Open Meta AI → Settings → App Info")
+                    setupStep(number: 3, text: "Tap version number 5× to enable Developer Mode")
+                    setupStep(number: 4, text: "Pair your glasses in the Meta AI app")
+                    setupStep(number: 5, text: "Return here and tap Connect Glasses")
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                .foregroundColor(Color(.separator))
+        )
+    }
+
+    private func setupStep(number: Int, text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentPurple.opacity(0.15))
+                    .frame(width: 28, height: 28)
+                Text("\(number)")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(.accentPurple)
+            }
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
     }
 
-    private var setupGuideSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Install Meta AI app on your iPhone", systemImage: "1.circle")
-                Label("Open Meta AI → Settings → App Info", systemImage: "2.circle")
-                Label("Tap version number 5 times to enable Developer Mode", systemImage: "3.circle")
-                Label("Pair your glasses in the Meta AI app", systemImage: "4.circle")
-                Label("Tap \"Connect Glasses\" above", systemImage: "5.circle")
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-        } header: {
-            Text("Setup Guide")
-        }
-    }
+    // MARK: - Footer
 
-    private func statusColor(for status: String) -> Color {
-        switch status {
-        case "Streaming": return .green
-        case "Stopped", "Permission denied", "Permission error": return .secondary
-        case "Waiting for reconnect...", "Waiting for glasses...", "Paused": return .orange
-        default: return .blue
-        }
+    private var footerTip: some View {
+        Text("To use as your main camera, select \"Meta Glasses\" in your scene's camera picker.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .padding(.top, 8)
     }
 }
 
