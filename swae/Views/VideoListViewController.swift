@@ -925,7 +925,10 @@ final class VideoListViewController: UIViewController {
             }
             heroHeader.configure(with: topLiveEvent, appState: appState)
             heroHeader.onTap = { [weak self] in
-                self?.didSelectEvent(topLiveEvent)
+                guard let self else { return }
+                self.didSelectEvent(topLiveEvent,
+                                    sourceView: self.heroHeader.transitionSourceView,
+                                    thumbnailImage: self.heroHeader.transitionThumbnailImage)
             }
             heroHeader.setNeedsLayout()
             heroHeader.layoutIfNeeded()
@@ -1271,18 +1274,16 @@ final class VideoListViewController: UIViewController {
     }
 
     // MARK: - Actions
-    private func didSelectEvent(_ event: LiveActivitiesEvent) {
-        // Haptic feedback (prepare in advance for instant response)
+    private func didSelectEvent(_ event: LiveActivitiesEvent,
+                                sourceView: UIView? = nil,
+                                thumbnailImage: UIImage? = nil) {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.prepare()
         generator.impactOccurred()
 
-        // Pause hero video immediately — don't compete with the player
         heroHeader.pauseVideo()
 
-        // Show player UI IMMEDIATELY (all on main thread)
-        appState.playerConfig.selectedLiveActivitiesEvent = event
-        appState.playerConfig.showMiniPlayer = true
+        appState.openStream(event, sourceView: sourceView, thumbnailImage: thumbnailImage)
     }
 
     private func didSelectClip(_ clip: LiveStreamClipEvent) {
@@ -1421,8 +1422,11 @@ extension VideoListViewController: UICollectionViewDataSource {
             let event = section.events[indexPath.item]
             cell.applyConfiguration(.default)
             cell.configure(with: event, appState: appState)
-            cell.onTap = { [weak self] in
-                self?.didSelectEvent(event)
+            cell.onTap = { [weak self, weak cell] in
+                guard let self, let cell else { return }
+                self.didSelectEvent(event,
+                                    sourceView: cell.transitionSourceView,
+                                    thumbnailImage: cell.transitionThumbnailImage)
             }
             cell.onHostTap = { [weak self] pubkeyHex in
                 self?.navigateToProfile(pubkeyHex: pubkeyHex)
