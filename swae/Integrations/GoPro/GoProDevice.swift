@@ -481,29 +481,30 @@ extension GoProDevice {
     private func handleNotification(characteristicUUID: CBUUID, data: Data) {
         guard !data.isEmpty else { return }
         let header = data[0]
-        let headerType = (header & 0x60) >> 5 // bits 6-5
-
-        if headerType == 0 {
-            // General 5-bit header: single-packet message
-            // Bits 0-4 = message length (excluding header byte)
-            let length = Int(header & 0x1F)
-            guard data.count >= 1 + length else { return }
-            let payload = Data(data[1 ..< 1 + length])
-            pendingResponsePackets[characteristicUUID] = nil
-            handleAssembledResponse(characteristicUUID: characteristicUUID, data: payload)
-            return
-        }
-
         let isContinuation = (header & 0x80) != 0
+
+        // Handle continuation packets first — they have bit 7 set
+        // and must be appended to the pending multi-packet message
         if isContinuation {
             pendingResponsePackets[characteristicUUID]?.append(data)
         } else {
-            // Start of extended message
+            let headerType = (header & 0x60) >> 5 // bits 6-5
+            if headerType == 0 {
+                // General 5-bit header: single-packet message
+                // Bits 0-4 = message length (excluding header byte)
+                let length = Int(header & 0x1F)
+                guard data.count >= 1 + length else { return }
+                let payload = Data(data[1 ..< 1 + length])
+                pendingResponsePackets[characteristicUUID] = nil
+                handleAssembledResponse(characteristicUUID: characteristicUUID, data: payload)
+                return
+            }
+            // Start of a new extended (multi-packet) message
             pendingResponsePackets[characteristicUUID] = [data]
         }
 
         // Try to reassemble extended messages
-        guard let packets = pendingResponsePackets[characteristicUUID] else { return }
+        guard let packets = pendingResponsePackets[characteristicUUID], !packets.isEmpty else { return }
 
         // Determine expected total length from the first packet
         let firstPacket = packets[0]

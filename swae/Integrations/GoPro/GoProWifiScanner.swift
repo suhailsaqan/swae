@@ -287,26 +287,30 @@ extension GoProWifiScanner: CBPeripheralDelegate {
         logger.debug("gopro-wifi-scanner: Raw BLE notification (\(value.count) bytes): \(value.prefix(40).map { String(format: "%02x", $0) }.joined(separator: " "))")
 
         let header = value[0]
-        let headerType = (header & 0x60) >> 5
-
-        if headerType == 0 {
-            let length = Int(header & 0x1F)
-            guard value.count >= 1 + length else { return }
-            let payload = Data(value[1 ..< 1 + length])
-            pendingResponsePackets[characteristic.uuid] = nil
-            handleResponse(data: payload)
-            return
-        }
-
         let isContinuation = (header & 0x80) != 0
         let uuid = characteristic.uuid
+
+        // Handle continuation packets first — they have bit 7 set
+        // and must be appended to the pending multi-packet message
         if isContinuation {
             pendingResponsePackets[uuid]?.append(value)
         } else {
+            let headerType = (header & 0x60) >> 5
+            if headerType == 0 {
+                // Single-packet general message: bits 6-5 = 00, bits 0-4 = length
+                let length = Int(header & 0x1F)
+                guard value.count >= 1 + length else { return }
+                let payload = Data(value[1 ..< 1 + length])
+                pendingResponsePackets[uuid] = nil
+                handleResponse(data: payload)
+                return
+            }
+            // Start of a new extended (multi-packet) message
             pendingResponsePackets[uuid] = [value]
         }
 
-        guard let packets = pendingResponsePackets[uuid] else { return }
+        // Try to reassemble the multi-packet message
+        guard let packets = pendingResponsePackets[uuid], !packets.isEmpty else { return }
         let firstPacket = packets[0]
         let firstHeader = firstPacket[0]
         let extHeaderType = (firstHeader & 0x60) >> 5

@@ -51,8 +51,9 @@ enum GoProProtobuf {
     static func decodeVarint(data: Data, offset: inout Int) -> UInt64? {
         var result: UInt64 = 0
         var shift: UInt64 = 0
+        let base = data.startIndex
         while offset < data.count {
-            let byte = data[offset]
+            let byte = data[base + offset]
             offset += 1
             result |= UInt64(byte & 0x7F) << shift
             if byte & 0x80 == 0 {
@@ -73,6 +74,7 @@ enum GoProProtobuf {
     static func decodeFields(data: Data) -> [ProtoField] {
         var fields: [ProtoField] = []
         var offset = 0
+        let base = data.startIndex
         while offset < data.count {
             guard let tag = decodeVarint(data: data, offset: &offset) else { break }
             let fieldNumber = Int(tag >> 3)
@@ -91,7 +93,8 @@ enum GoProProtobuf {
                 guard let length = decodeVarint(data: data, offset: &offset) else { break }
                 let end = offset + Int(length)
                 guard end <= data.count else { break }
-                fields.append(ProtoField(fieldNumber: fieldNumber, wireType: wireType, data: data[offset ..< end]))
+                let subdata = Data(data[(base + offset) ..< (base + end)])
+                fields.append(ProtoField(fieldNumber: fieldNumber, wireType: wireType, data: subdata))
                 offset = end
             default:
                 return fields // Unknown wire type, stop parsing
