@@ -63,7 +63,7 @@ extension Model {
                 name: "Meta Glasses",
                 latency: 0.15
             )
-            await manager.startStream(resolution: .high)
+            await manager.startStream(resolution: manager.selectedResolution)
         }
     }
 
