@@ -227,7 +227,11 @@ final class RecordingsStorage {
             logger.info("recordings: Failed to load with error \(error). Using default.")
             realDatabase = RecordingsDatabase()
         }
-        cleanup()
+        // Defer filesystem cleanup to a background thread — enumerating directories
+        // and checking file existence is disk I/O that shouldn't block startup.
+        DispatchQueue.global(qos: .utility).async { [self] in
+            cleanup()
+        }
     }
 
     private func cleanup() {

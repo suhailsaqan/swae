@@ -178,24 +178,28 @@ final class StreamingHistory {
     }
 
     private func migrateFromOlderVersions() {
+        var needsStore = false
         for stream in database.streams where stream.numberOfFffffs == nil {
             stream.numberOfFffffs = 0
-            store()
+            needsStore = true
         }
         for stream in database.streams where stream.highestThermalState == nil {
             stream.highestThermalState = .nominal
-            store()
+            needsStore = true
         }
         for stream in database.streams where stream.lowestBatteryLevel == nil {
             stream.lowestBatteryLevel = 1.0
-            store()
+            needsStore = true
         }
         for stream in database.streams where stream.highestBitrate == nil {
             stream.highestBitrate = Int64.min
-            store()
+            needsStore = true
         }
         for stream in database.streams where stream.numberOfChatMessages == nil {
             stream.numberOfChatMessages = 0
+            needsStore = true
+        }
+        if needsStore {
             store()
         }
     }
