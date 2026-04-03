@@ -48,6 +48,7 @@ struct ContentView: View {
                 MainAppView()
             }
         }
+        .appFont()
     }
 
     // Feature flag for UIKit camera (set to true to use new UIKit-based camera)
@@ -81,8 +82,17 @@ struct ContentView: View {
             if !hasInitializedCamera {
                 // Tell Model that ContentView will manage audio lifecycle - MUST BE SET BEFORE setup()
                 model.audioManagedByContentView = true
-                model.setup()
+                // Fast path: only feed essentials (~50ms instead of ~500ms)
+                model.setupMinimal()
                 hasInitializedCamera = true
+
+                // Defer heavy camera/streaming setup to after the first frame renders.
+                // Task.yield() lets the run loop complete the first layout pass before
+                // we start Bluetooth, camera enumeration, stream processor, etc.
+                Task { @MainActor in
+                    await Task.yield()
+                    model.setupDeferred()
+                }
             }
         }
         .onDisappear {
@@ -214,6 +224,30 @@ struct ContentView: View {
 
             // Add NWC relay to read and write
             appState.addRelay(relayURL: nwc.relay.url)
+        }
+        .onReceive(handle_notify(.spark_wallet_attached)) { lud16 in
+            // Update the lightning address on our profile when Spark wallet connects
+            guard let keypair = appState.keypair else { return }
+
+            Task {
+                do {
+                    let existingRaw = appState.metadataEvents[keypair.publicKey.hex]?.rawUserMetadata ?? [:]
+                    let currentLud16 = existingRaw["lud16"] as? String
+                    if currentLud16 != lud16 {
+                        let userMetadata = UserMetadata(lightningAddress: lud16)
+                        let metadataEvent = try MetadataEvent.Builder()
+                            .userMetadata(userMetadata, merging: existingRaw)
+                            .build(signedBy: keypair)
+                        appState.relayWritePool.publishEvent(metadataEvent)
+                        await MainActor.run {
+                            appState.processMetadataDirect(metadataEvent)
+                        }
+                        print("⚡ Updated profile with Spark lightning address: \(lud16)")
+                    }
+                } catch {
+                    print("❌ Failed to update profile with Spark lightning address: \(error)")
+                }
+            }
         }
         .onReceive(handle_notify(.detached_wallet)) { lud16 in
             // Remove the lightning address from our profile when we disconnect a wallet
@@ -367,6 +401,15 @@ struct ContentView: View {
         guard !isCameraAttached else {
             print("📷 Camera already attached, skipping")
             return
+        }
+
+        // Regression guard: if the user swipes to camera before the deferred
+        // setup Task has completed, run it synchronously now. This ensures
+        // resetSelectedScene() has set a valid scene ID (required by
+        // attachCamera → getSelectedScene) and the media processor exists.
+        if !model.hasDeferredSetupCompleted {
+            print("📷 Deferred setup not yet complete — running synchronously before camera attach")
+            model.setupDeferred()
         }
 
         print("📷 Attaching camera and audio...")
