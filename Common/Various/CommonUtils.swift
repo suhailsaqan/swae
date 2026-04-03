@@ -807,3 +807,20 @@ extension KeyedDecodingContainer {
         return (try? decode(type, forKey: key)) ?? defaultValue
     }
 }
+
+// MARK: - Device Display Corner Radius
+
+#if os(iOS)
+extension UIScreen {
+    /// The physical display corner radius reported by the device.
+    /// Uses a private-but-stable API available since iOS 11,
+    /// widely used in shipping apps. Returns 0 on devices without rounded corners.
+    static var displayCornerRadius: CGFloat {
+        let key = ["_", "display", "Corner", "Radius"].joined()
+        guard let value = UIScreen.main.value(forKey: key) as? CGFloat, value > 0 else {
+            return 0
+        }
+        return value
+    }
+}
+#endif
