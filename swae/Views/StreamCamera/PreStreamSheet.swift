@@ -33,9 +33,11 @@ struct PreStreamSheet: View {
     private var rate: Double { model.zapStreamCoreRate }
 
     private var walletConnected: Bool {
-        if let wallet = appState.wallet,
-           case .existing = wallet.connect_state {
-            return true
+        if let wallet = appState.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark: return true
+            default: return false
+            }
         }
         return false
     }
@@ -193,7 +195,7 @@ struct PreStreamSheet: View {
         .onAppear {
             model.startBalancePolling()
             if model.zapStreamCoreHasNwc, appState.wallet?.balance == nil {
-                Task { await appState.wallet?.loadWalletData() }
+                Task { await appState.wallet?.refreshBalanceOnly() }
             }
         }
         .onDisappear {
@@ -213,8 +215,8 @@ struct PreStreamSheet: View {
 
     private var lowBalanceBanner: some View {
         VStack(spacing: 14) {
-            if hasServerNwc && !isWalletEmpty {
-                // Auto top-up active and wallet has funds
+            if hasServerNwc && !isWalletEmpty && !isBalanceTooLow {
+                // Auto top-up active and wallet has enough funds
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
@@ -229,6 +231,41 @@ struct PreStreamSheet: View {
                     }
 
                     Spacer()
+                }
+            } else if hasServerNwc && !isWalletEmpty && isBalanceTooLow {
+                // Auto top-up active but wallet balance too low for even 1 minute
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.title3)
+                        .foregroundColor(.orange)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Wallet balance too low")
+                            .font(.subheadline.weight(.semibold))
+                        Text("You need at least \(formatSatsRate(rate)) sats to start. You have \(walletBalanceSats) sats.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+                }
+
+                Button {
+                    showTopUpSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bolt.fill")
+                            .font(.subheadline)
+                        Text("Fund Wallet")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.orange)
+                    )
                 }
             } else if hasServerNwc && isWalletEmpty {
                 // Auto top-up active but wallet is empty
@@ -257,7 +294,7 @@ struct PreStreamSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Enable wallet auto-payment to go live")
                             .font(.subheadline.weight(.semibold))
-                        Text("Your wallet will be charged \(Int(rate)) sats/min while streaming.")
+                        Text("Your wallet will be charged \(formatSatsRate(rate)) sats/min while streaming.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -309,7 +346,7 @@ struct PreStreamSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Not enough credits")
                             .font(.subheadline.weight(.semibold))
-                        Text("You need at least \(Int(rate)) sats to start streaming.")
+                        Text("You need at least \(formatSatsRate(rate)) sats to start streaming.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -348,24 +385,53 @@ struct PreStreamSheet: View {
     }
 
     private var bannerBackgroundColor: Color {
-        if hasServerNwc { return Color.green.opacity(0.1) }
+        if hasServerNwc && !isBalanceTooLow { return Color.green.opacity(0.1) }
+        if hasServerNwc { return Color.orange.opacity(0.08) }
         if walletConnected { return Color.orange.opacity(0.08) }
         return Color.red.opacity(0.1)
     }
 
     private var bannerBorderColor: Color {
-        if hasServerNwc { return Color.green.opacity(0.3) }
+        if hasServerNwc && !isBalanceTooLow { return Color.green.opacity(0.3) }
+        if hasServerNwc { return Color.orange.opacity(0.2) }
         if walletConnected { return Color.orange.opacity(0.2) }
         return Color.red.opacity(0.3)
     }
 
     /// Enables auto top-up on the server then triggers go-live
     private func enableAutoTopupAndGoLive() {
-        guard let wallet = appState.wallet,
-              case .existing(let nwc) = wallet.connect_state else { return }
+        guard let wallet = appState.wallet else { return }
 
-        isEnablingAutoTopup = true
-        let nwcUri = nwc.to_url().absoluteString
+        switch wallet.connect_state {
+        case .existing(let nwc):
+            // Coinos path — use NWC URL directly
+            isEnablingAutoTopup = true
+            let nwcUri = nwc.to_url().absoluteString
+            sendNwcUriAndGoLive(nwcUri)
+
+        case .spark:
+            // Spark path — start on-device NWC responder
+            guard let spark = wallet.sparkService else { return }
+            isEnablingAutoTopup = true
+            Task { @MainActor in
+                do {
+                    let responder = NWCResponder()
+                    let nwcURL = try await responder.start(sparkService: spark)
+                    model.nwcResponder = responder
+                    sendNwcUriAndGoLive(nwcURL.to_url().absoluteString)
+                } catch {
+                    print("❌ NWCResponder start failed: \(error)")
+                    isEnablingAutoTopup = false
+                    quickTopUpFromWallet()
+                }
+            }
+
+        default:
+            return
+        }
+    }
+
+    private func sendNwcUriAndGoLive(_ nwcUri: String) {
         let config = ZapStreamCoreConfig(baseUrl: model.stream.zapStreamCoreBaseUrl)
         let client = ZapStreamCoreApiClient(config: config)
 
@@ -376,7 +442,8 @@ struct PreStreamSheet: View {
                 receiveCompletion: { [self] completion in
                     isEnablingAutoTopup = false
                     if case .failure = completion {
-                        // Fall back to quick top-up
+                        model.nwcResponder?.stop()
+                        model.nwcResponder = nil
                         quickTopUpFromWallet()
                     }
                     _ = cancellable
@@ -384,7 +451,6 @@ struct PreStreamSheet: View {
                 receiveValue: { [self] _ in
                     model.zapStreamCoreHasNwc = true
                     model.refreshZapStreamCoreBalance()
-                    // Now go live
                     saveAndGoLive()
                 }
             )
@@ -396,8 +462,11 @@ struct PreStreamSheet: View {
     }
 
     private func quickTopUpFromWallet() {
-        guard let wallet = appState.wallet,
-              case .existing = wallet.connect_state else { return }
+        guard let wallet = appState.wallet else { return }
+        switch wallet.connect_state {
+        case .existing, .spark: break
+        default: return
+        }
 
         isQuickTopUpInProgress = true
         quickTopUpError = nil

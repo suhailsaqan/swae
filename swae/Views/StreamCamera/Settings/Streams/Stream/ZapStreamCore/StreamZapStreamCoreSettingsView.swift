@@ -13,6 +13,7 @@ struct StreamZapStreamCoreSettingsView: View {
     @State private var errorMessage: String?
     @State private var cancellables = Set<AnyCancellable>()
     @State private var showTopUpSheet = false
+    @State private var showWalletReceiveSheet = false
 
     // MARK: - API Client
     private var apiClient: ZapStreamCoreApiClient {
@@ -37,16 +38,25 @@ struct StreamZapStreamCoreSettingsView: View {
     // MARK: - Body
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                headerView
-                connectionStatusView
+            VStack(spacing: 20) {
+                // Enable toggle
+                enableToggle
                 
                 if stream.zapStreamCoreEnabled {
+                    connectionStatusView
+                    
                     streamSettingsCard
+                    
+                    // TOS acceptance for new users (shown at end of flow)
+                    if let account = accountInfo,
+                       account.tos?.accepted == false,
+                       !model.zapStreamCoreTosAccepted {
+                        ZapStreamCoreTosView(stream: stream)
+                    }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
             .padding(.bottom, 40)
         }
         .background(Color(.systemGroupedBackground))
@@ -56,6 +66,9 @@ struct StreamZapStreamCoreSettingsView: View {
             if stream.zapStreamCoreEnabled {
                 connectToZapStreamCore()
                 model.startBalancePolling()
+                if model.zapStreamCoreHasNwc, appState.wallet?.balance == nil {
+                    Task { await appState.wallet?.refreshBalanceOnly() }
+                }
             }
         }
         .onDisappear {
@@ -75,53 +88,34 @@ struct StreamZapStreamCoreSettingsView: View {
             ZapStreamCorePaymentView()
                 .environmentObject(model)
         }
+        .sheet(isPresented: $showWalletReceiveSheet) {
+            if let wallet = appState.wallet {
+                ReceiveView(walletModel: wallet)
+            }
+        }
     }
 
-    // MARK: - Header View
-    private var headerView: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(Color.yellow.opacity(0.15))
-                    .frame(width: 80, height: 80)
-                
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 36))
-                    .foregroundColor(.yellow)
-            }
-            
-            Text("Zap Stream Core")
-                .font(.title2.bold())
-                .foregroundColor(.primary)
-            
-            Text("Stream to Nostr with your identity")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            // Enable Toggle
-            Toggle("Enable Zap Stream Core", isOn: $stream.zapStreamCoreEnabled)
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.secondarySystemGroupedBackground))
-                )
-        }
+    // MARK: - Enable Toggle
+    private var enableToggle: some View {
+        Toggle("Enable Zap Stream Core", isOn: $stream.zapStreamCoreEnabled)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
     }
 
     // MARK: - Connection Status View
     @ViewBuilder
     private var connectionStatusView: some View {
-        if stream.zapStreamCoreEnabled {
-            if appState.keypair == nil {
-                noIdentityView
-            } else if isLoading {
-                loadingView
-            } else if let error = errorMessage {
-                errorView(error)
-            } else if let account = accountInfo {
-                connectedView(account)
-            }
+        if appState.keypair == nil {
+            noIdentityView
+        } else if isLoading {
+            loadingView
+        } else if let error = errorMessage {
+            errorView(error)
+        } else if let account = accountInfo {
+            balanceCard(account)
         }
     }
 
@@ -152,27 +146,28 @@ struct StreamZapStreamCoreSettingsView: View {
         )
     }
 
-    // MARK: - Loading View
+    // MARK: - Loading View (Skeleton)
     private var loadingView: some View {
-        HStack(spacing: 12) {
-            ProgressView()
-                .scaleEffect(0.9)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Connecting...")
-                    .font(.subheadline.weight(.medium))
-                Text("Setting up your stream")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        VStack(spacing: 10) {
+            HStack {
+                Capsule().fill(Color(.systemGray4)).frame(width: 100, height: 18)
+                Capsule().fill(Color(.systemGray5)).frame(width: 30, height: 14)
+                Spacer()
+                Capsule().fill(Color(.systemGray5)).frame(width: 60, height: 14)
             }
-            
-            Spacer()
+            Capsule().fill(Color(.systemGray5)).frame(height: 4)
+            HStack {
+                Capsule().fill(Color(.systemGray5)).frame(width: 100, height: 12)
+                Spacer()
+            }
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shimmer()
     }
 
     // MARK: - Error View
@@ -211,68 +206,200 @@ struct StreamZapStreamCoreSettingsView: View {
         )
     }
 
-    // MARK: - Connected View
-    private func connectedView(_ account: ZapStreamCoreAccountResponse) -> some View {
-        let balance = model.zapStreamCoreBalance ?? account.balance
-        return VStack(spacing: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.green)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    if let name = displayName {
-                        Text("@\(name)")
-                            .font(.subheadline.weight(.medium))
-                    } else if let npub = appState.publicKey?.npub {
-                        Text(String(npub.prefix(16)) + "...")
-                            .font(.caption.monospaced())
-                    }
-                    
-                    Text("Balance: \(balance) sats")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    if let cost = account.endpoints.first?.cost {
-                        Text("\(Int(cost.rate)) \(cost.unit)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Button("Top Up") {
-                        showTopUpSheet = true
-                    }
-                    .font(.caption.weight(.medium))
-                    .foregroundColor(.yellow)
-                }
+    // MARK: - Balance Card
+    
+    private var walletConnected: Bool {
+        if let wallet = appState.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark: return true
+            default: return false
             }
-
-            // Auto Top-Up section
-            ZapStreamNWCAutoTopupView(stream: stream)
-                .environmentObject(model)
-                .environmentObject(appState)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.green.opacity(0.3), lineWidth: 1)
-        )
+        return false
+        return false
+    }
+
+    private func balanceCard(_ account: ZapStreamCoreAccountResponse) -> some View {
+        let cost = account.endpoints.first?.cost
+        let rate = cost?.rate ?? 0
+
+        return Group {
+            if model.zapStreamCoreHasNwc {
+                let walletMillisats = appState.wallet?.balance
+                let walletSats = walletMillisats != nil ? Int(walletMillisats! / 1000) : nil
+                let minutesLeft = (walletSats != nil && rate > 0) ? Double(walletSats!) / rate : Double.infinity
+                let hoursLeft = minutesLeft / 60.0
+
+                VStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bolt.fill")
+                            .foregroundColor(walletSats == nil ? .secondary : (walletSats! > 0 ? .green : .orange))
+                        if let sats = walletSats {
+                            Text(formatBalance(sats))
+                                .font(.title3.weight(.bold))
+                                .monospacedDigit()
+                            Text("sats in wallet")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("0,000")
+                                .font(.title3.weight(.bold))
+                                .monospacedDigit()
+                                .redacted(reason: .placeholder)
+                            Text("sats in wallet")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .redacted(reason: .placeholder)
+                        }
+                        Spacer()
+                        Button { showWalletReceiveSheet = true } label: {
+                            HStack(spacing: 4) {
+                                Text("Fund Wallet")
+                                Image(systemName: "chevron.right")
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.green)
+                        }
+                    }
+
+                    if walletSats == nil {
+                        Capsule().fill(Color(.systemGray5)).frame(height: 4).shimmer()
+                    } else if walletSats == 0 {
+                        Text("Fund your wallet to stream")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if rate > 0 {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.1)).frame(height: 4)
+                                Capsule().fill(balanceColor(hoursLeft: hoursLeft))
+                                    .frame(width: min(geo.size.width,
+                                        geo.size.width * CGFloat(min(hoursLeft / 10.0, 1.0))),
+                                        height: 4)
+                            }
+                        }
+                        .frame(height: 4)
+
+                        HStack {
+                            Text(runwayText(minutesLeft: minutesLeft))
+                                .font(.caption)
+                                .foregroundColor(balanceColor(hoursLeft: hoursLeft))
+                            Text("•").font(.caption).foregroundColor(.secondary)
+                            Text("\(formatSatsRate(rate)) sats/min")
+                                .font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                        }
+                    }
+
+                    // Auto top-up controls (enable/disable)
+                    Divider()
+                    ZapStreamNWCAutoTopupView(stream: stream)
+                        .environmentObject(model)
+                        .environmentObject(appState)
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                )
+            } else {
+                let balance = model.zapStreamCoreBalance ?? account.balance
+                let minutesLeft = rate > 0 ? Double(balance) / rate : Double.infinity
+                let hoursLeft = minutesLeft / 60.0
+
+                VStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "bolt.fill")
+                            .foregroundColor(balanceColor(hoursLeft: hoursLeft))
+                        Text(formatBalance(balance))
+                            .font(.title3.weight(.bold))
+                            .monospacedDigit()
+                        Text("sats")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button { showTopUpSheet = true } label: {
+                            HStack(spacing: 4) {
+                                Text("Top Up")
+                                Image(systemName: "chevron.right")
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(balanceColor(hoursLeft: hoursLeft))
+                        }
+                    }
+
+                    if rate > 0 {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.1)).frame(height: 4)
+                                Capsule().fill(balanceColor(hoursLeft: hoursLeft))
+                                    .frame(width: min(geo.size.width,
+                                        geo.size.width * CGFloat(min(hoursLeft / 10.0, 1.0))),
+                                        height: 4)
+                            }
+                        }
+                        .frame(height: 4)
+
+                        HStack {
+                            Text(runwayText(minutesLeft: minutesLeft))
+                                .font(.caption)
+                                .foregroundColor(balanceColor(hoursLeft: hoursLeft))
+                            if let cost {
+                                Text("•").font(.caption).foregroundColor(.secondary)
+                                Text("\(cost.formattedRate) sats/\(cost.unit)")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                    }
+
+                    if walletConnected {
+                        Divider()
+                        ZapStreamNWCAutoTopupView(stream: stream)
+                            .environmentObject(model)
+                            .environmentObject(appState)
+                    }
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                )
+            }
+        }
+    }
+
+    // MARK: - Balance Helpers
+
+    private func balanceColor(hoursLeft: Double) -> Color {
+        if hoursLeft < 1 { return .red }
+        if hoursLeft < 2 { return .orange }
+        return .green
+    }
+
+    private func runwayText(minutesLeft: Double) -> String {
+        if minutesLeft == .infinity { return "Unlimited" }
+        let hours = Int(minutesLeft) / 60
+        let mins = Int(minutesLeft) % 60
+        if hours > 0 {
+            return "~\(hours)h \(mins)m of streaming"
+        }
+        return "~\(mins)m of streaming"
+    }
+
+    private func formatBalance(_ sats: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.groupingSeparator = ","
+        return formatter.string(from: NSNumber(value: sats)) ?? "\(sats)"
     }
 
 
     // MARK: - Stream Settings Card
     private var streamSettingsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Section Header
-            Text("STREAM SETTINGS")
+            Text("SETTINGS")
                 .font(.caption.weight(.semibold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)
@@ -383,6 +510,8 @@ struct StreamZapStreamCoreSettingsView: View {
                     // Seed the shared model balance
                     self.model.zapStreamCoreBalance = accountResponse.balance
                     self.model.zapStreamCoreHasNwc = accountResponse.hasNwc
+                    self.model.zapStreamCoreTosAccepted = accountResponse.tos?.accepted ?? false
+                    self.model.zapStreamCoreTosLink = accountResponse.tos?.link
                     if let cost = accountResponse.endpoints.first?.cost {
                         self.model.zapStreamCoreRate = cost.rate
                     }

@@ -34,6 +34,12 @@ final class StreamCardCell: UICollectionViewCell {
     // MARK: - UI Components
     private let containerView = UIView()
     private let imageView = UIImageView()
+
+    // MARK: - Transition Support
+    /// The view to use as the source rect for the expand transition
+    var transitionSourceView: UIView { imageView }
+    /// The thumbnail image for the transition snapshot
+    var transitionThumbnailImage: UIImage? { imageView.image }
     private let liveBadge = LiveBadgeView()
     private let titleLabel = UILabel()
     private let hostLabel = UILabel()
@@ -193,26 +199,7 @@ final class StreamCardCell: UICollectionViewCell {
     }
 
     @objc private func handleTap() {
-        // Instant callback - no animation delay
         onTap?()
-        
-        // Visual feedback happens in parallel (non-blocking)
-        UIView.animate(
-            withDuration: 0.08,
-            delay: 0,
-            options: [.curveEaseOut, .allowUserInteraction],
-            animations: {
-                self.transform = CGAffineTransform(scaleX: 0.97, y: 0.97)
-            },
-            completion: { _ in
-                UIView.animate(
-                    withDuration: 0.08,
-                    delay: 0,
-                    options: [.curveEaseIn, .allowUserInteraction]
-                ) {
-                    self.transform = .identity
-                }
-            })
     }
     
     @objc private func handleHostTap(_ gesture: UITapGestureRecognizer) {
@@ -332,6 +319,23 @@ final class StreamCardCell: UICollectionViewCell {
             imageView.image = nil
             imageView.backgroundColor = .systemGray4
         }
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        // Only accept touches within the thumbnail or info container
+        // This prevents the gap between them (and below info) from triggering the carousel scroll
+        let thumbnailPoint = imageView.convert(point, from: self)
+        if imageView.bounds.contains(thumbnailPoint) {
+            return super.hitTest(point, with: event)
+        }
+        
+        let infoPoint = infoContainer.convert(point, from: self)
+        if infoContainer.bounds.contains(infoPoint) {
+            return super.hitTest(point, with: event)
+        }
+        
+        // Touch is in the gap — pass through
+        return nil
     }
 
     override func prepareForReuse() {

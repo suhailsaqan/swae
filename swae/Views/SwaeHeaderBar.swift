@@ -343,11 +343,10 @@ final class SwaeHeaderBar: UIView {
         // offset instead of computing a huge stale delta that hides the header
         needsScrollResync = true
         
-        searchTextField.resignFirstResponder()
+        // Clear text field without triggering search updates
         searchTextField.text = ""
-        onSearchTextChanged?("")
         
-        // Notify immediately so overlay animation starts at the same time
+        // Notify overlay to start its dismiss animation in sync
         onSearchDeactivated?()
         
         let camConfig = UIImage.SymbolConfiguration(pointSize: iconSize, weight: .semibold)
@@ -379,6 +378,13 @@ final class SwaeHeaderBar: UIView {
         }
         
         if animated && !UIAccessibility.isReduceMotionEnabled {
+            // Dismiss keyboard slightly after animation begins so the keyboard
+            // slides away in sync with the overlay fade-out instead of causing
+            // a visible content jump before the animation starts.
+            DispatchQueue.main.async {
+                self.searchTextField.resignFirstResponder()
+            }
+            
             // Crossfade xmark → camera in sync with the spring animation
             UIView.transition(
                 with: cameraIcon,
@@ -397,6 +403,7 @@ final class SwaeHeaderBar: UIView {
                 animations: animations
             )
         } else {
+            searchTextField.resignFirstResponder()
             cameraIcon.image = camImage
             animations()
         }
@@ -406,11 +413,12 @@ final class SwaeHeaderBar: UIView {
     
     @objc private func cameraTapped() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        animateButtonPress(cameraButton)
         
         if searchState == .expanded {
+            // Skip button press animation during collapse — it conflicts with the icon crossfade
             collapseSearch(animated: true)
         } else {
+            animateButtonPress(cameraButton)
             onCameraTapped?()
         }
     }

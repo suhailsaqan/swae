@@ -1901,8 +1901,12 @@ final class ProfileViewController: UIViewController {
         guard let window = view.window else { return }
 
         let hasWallet: Bool = {
-            if let wallet = appState.wallet,
-               case .existing = wallet.connect_state { return true }
+            if let wallet = appState.wallet {
+                switch wallet.connect_state {
+                case .existing, .spark: return true
+                default: return false
+                }
+            }
             return false
         }()
 
@@ -1924,7 +1928,47 @@ final class ProfileViewController: UIViewController {
 
         // Collapse back to the pill shape of the zap button (not a 40×40 circle)
         activeZapModal?.collapsesToSourceButton = true
-        activeZapModal?.confirmTitle = "Send Zap"
+        activeZapModal?.confirmTitle = "Next"
+
+        // Wire up balance and fee preparation for the confirmation screen
+        activeZapModal?.onGetBalance = { [weak self] in
+            guard let self else { return 0 }
+            await self.appState.wallet?.refreshBalanceOnly()
+            return (self.appState.wallet?.balance ?? 0) / 1000 // millisats → sats
+        }
+
+        activeZapModal?.onPrepareZap = { [weak self] amount in
+            guard let self,
+                  let spark = self.appState.wallet?.sparkService else {
+                throw SparkWalletService.SparkError.notInitialized
+            }
+            // The zap flow: create zap request → LNURL callback → get bolt11 → prepare payment
+            // We need the bolt11 to get the fee, so we run the full zap prep flow here
+            let amountMillisats = amount
+            guard let recipientMetadata = self.appState.metadataEvents[self.viewModel.publicKeyHex]?.userMetadata,
+                  let lightningAddress = recipientMetadata.lightningAddress else {
+                throw SparkWalletService.SparkError.invalidInput("Recipient has no Lightning address")
+            }
+            // Use ZapManager to create the zap request and get the invoice
+            guard let keypair = self.appState.keypair else {
+                throw SparkWalletService.SparkError.invalidInput("No keypair")
+            }
+            let lnurl = "https://\(lightningAddress.split(separator: "@").last ?? "")/.well-known/lnurlp/\(lightningAddress.split(separator: "@").first ?? "")"
+            let zapResult = try await ZapManager.createZapRequest(
+                content: "",
+                amount: amountMillisats,
+                lnurl: lnurl,
+                recipientPubkey: self.viewModel.publicKeyHex,
+                relays: self.appState.relayWritePool.relays.map { $0.url.absoluteString },
+                signedBy: keypair
+            )
+            let withInvoice = try await ZapManager.sendZapRequest(zapResult)
+            guard let bolt11 = withInvoice.bolt11Invoice else {
+                throw SparkWalletService.SparkError.invalidInput("No invoice received")
+            }
+            let prepared = try await spark.preparePayment(bolt11)
+            return (bolt11: bolt11, feeSats: prepared.feeSats)
+        }
 
         activeZapModal?.onSendZap = { [weak self] amount in
             guard let self = self else { return false }

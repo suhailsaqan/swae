@@ -334,21 +334,24 @@ extension ModernTabBarController {
     }
     
     private func observeMetadataChanges() {
+        // Only react when the CURRENT USER's metadata changes, not every metadata event.
+        // Extract just the current user's picture URL and only fire when it actually changes.
         appState?.$metadataEvents
+            .compactMap { [weak self] events -> URL? in
+                guard let pubkey = self?.appState?.publicKey?.hex,
+                      let metadata = events[pubkey] else { return nil }
+                return metadata.userMetadata?.pictureURL
+            }
+            .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] metadataEvents in
-                guard let self = self,
-                      let appState = self.appState,
-                      let publicKey = appState.publicKey else { return }
-                
-                if metadataEvents[publicKey.hex] != nil {
-                    self.scheduleMetadataUpdate()
-                }
+            .sink { [weak self] _ in
+                self?.updateTabBarItems()
             }
             .store(in: &cancellables)
         
         // Observe active profile changes to update tab bar when user switches profiles
         appState?.$activeProfileId
+            .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.scheduleMetadataUpdate()

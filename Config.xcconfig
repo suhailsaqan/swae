@@ -1,0 +1,5 @@
+// Meta Wearables Device Access Toolkit credentials
+// Get these from https://wearables.developer.meta.com/
+// NOTE: META_APP_ID and CLIENT_TOKEN are hardcoded directly in Info.plist
+// because xcconfig files cannot handle the pipe character (|) in CLIENT_TOKEN.
+META_APP_ID = 784573381377998

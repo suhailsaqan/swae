@@ -21,6 +21,9 @@ struct SendPaymentView: View {
     // Confirmation state
     @State private var showConfirmation: Bool = false
     @State private var parsedInvoice: ParsedInvoice? = nil
+    @State private var preparedPayment: SparkWalletService.PreparedPayment? = nil
+    @State private var feeSats: UInt64 = 0
+    @State private var isPreparing: Bool = false
     
     // Payment state
     @State private var isProcessing: Bool = false
@@ -83,6 +86,8 @@ struct SendPaymentView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 showConfirmation = false
                 parsedInvoice = nil
+                preparedPayment = nil
+                feeSats = 0
                 error = nil
             }
         } else {
@@ -219,17 +224,23 @@ struct SendPaymentView: View {
                 // Review button
                 Button(action: reviewInvoice) {
                     HStack {
-                        Image(systemName: "eye.fill")
-                        Text("Review Invoice")
+                        if isPreparing {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            Text("Preparing...")
+                        } else {
+                            Image(systemName: "eye.fill")
+                            Text("Review Invoice")
+                        }
                     }
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(canReview ? Color.accentPurple : Color.gray))
+                    .background(RoundedRectangle(cornerRadius: 12).fill(canReview && !isPreparing ? Color.accentPurple : Color.gray))
                 }
-                .disabled(!canReview)
+                .disabled(!canReview || isPreparing)
                 .animation(.easeInOut(duration: 0.2), value: canReview)
             }
             .padding(.horizontal, 20)
@@ -245,7 +256,11 @@ struct SendPaymentView: View {
     // MARK: - Confirmation View
     
     private func confirmationView(invoice: ParsedInvoice) -> some View {
-        VStack(spacing: 0) {
+        let balanceSats = (walletModel.balance ?? 0) / 1000
+        let totalCost = Int64(invoice.amountSats) + Int64(feeSats)
+        let insufficientFunds = totalCost > balanceSats
+
+        return VStack(spacing: 0) {
             Spacer()
             
             // Amount display
@@ -271,20 +286,63 @@ struct SendPaymentView: View {
             
             Spacer()
             
-            // Invoice details card
-            if let balance = walletModel.balance {
-                VStack(spacing: 12) {
+            // Details card with fee
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Amount")
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text("\(formatSats(invoice.amountSats)) sats")
+                        .foregroundColor(.white)
+                }
+
+                if feeSats > 0 {
                     HStack {
-                        Text("Your balance")
+                        Text("Network fee")
                             .foregroundColor(.gray)
                         Spacer()
-                        Text("\(formatBalance(balance)) sats")
-                            .foregroundColor(.white)
+                        Text("\(feeSats) sats")
+                            .foregroundColor(.orange)
                     }
-                    .font(.system(size: 14))
+
+                    Divider().background(Color.gray.opacity(0.3))
+
+                    HStack {
+                        Text("Total")
+                            .foregroundColor(.white)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text("\(formatSats(totalCost)) sats")
+                            .foregroundColor(.white)
+                            .fontWeight(.semibold)
+                    }
                 }
-                .padding(16)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.08)))
+
+                Divider().background(Color.gray.opacity(0.3))
+
+                HStack {
+                    Text("Your balance")
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text("\(formatSats(balanceSats)) sats")
+                        .foregroundColor(insufficientFunds ? .red : .green)
+                }
+            }
+            .font(.system(size: 14))
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.08)))
+            .padding(.horizontal, 20)
+
+            // Insufficient funds warning
+            if insufficientFunds {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                    Text("Not enough funds (need \(formatSats(totalCost)) sats)")
+                        .font(.caption)
+                }
+                .foregroundColor(.red)
+                .padding(.top, 12)
                 .padding(.horizontal, 20)
             }
             
@@ -293,7 +351,7 @@ struct SendPaymentView: View {
                 Text(error)
                     .font(.system(size: 14))
                     .foregroundColor(.red)
-                    .padding(.top, 16)
+                    .padding(.top, 12)
                     .padding(.horizontal, 20)
                     .transition(.opacity)
             }
@@ -312,12 +370,12 @@ struct SendPaymentView: View {
                     }
                 }
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.black)
+                .foregroundColor(insufficientFunds ? .gray : .black)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(RoundedRectangle(cornerRadius: 28).fill(Color.accentPurple))
+                .background(RoundedRectangle(cornerRadius: 28).fill(insufficientFunds ? Color.gray.opacity(0.3) : Color.accentPurple))
             }
-            .disabled(isProcessing)
+            .disabled(isProcessing || insufficientFunds)
             .padding(.horizontal, 20)
             .padding(.bottom, 34)
         }
@@ -443,10 +501,39 @@ struct SendPaymentView: View {
         
         let parsed = parseInvoice(invoice)
         parsedInvoice = parsed
-        
-        withAnimation(.easeInOut(duration: 0.25)) {
-            error = nil
-            showConfirmation = true
+        isPreparing = true
+        error = nil
+
+        // Prepare the payment to get the fee estimate
+        Task {
+            if WalletModel.useSparkBackend, let spark = walletModel.sparkService {
+                do {
+                    let prepared = try await spark.preparePayment(invoice)
+                    await MainActor.run {
+                        self.preparedPayment = prepared
+                        self.feeSats = prepared.feeSats
+                        self.isPreparing = false
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showConfirmation = true
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.isPreparing = false
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            self.error = "Failed to prepare payment: \(error.localizedDescription)"
+                        }
+                    }
+                }
+            } else {
+                // NWC fallback — no fee estimation available
+                await MainActor.run {
+                    self.isPreparing = false
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showConfirmation = true
+                    }
+                }
+            }
         }
     }
     
@@ -460,7 +547,14 @@ struct SendPaymentView: View {
         
         Task {
             do {
-                let result = try await walletModel.payInvoice(invoice.bolt11)
+                let result: String?
+                if WalletModel.useSparkBackend, let spark = walletModel.sparkService, let prepared = preparedPayment {
+                    // Use the prepared payment (fee already confirmed by user)
+                    result = try await spark.confirmPayment(prepared)
+                } else {
+                    // NWC fallback
+                    result = try await walletModel.payInvoice(invoice.bolt11)
+                }
                 
                 await MainActor.run {
                     preimage = result

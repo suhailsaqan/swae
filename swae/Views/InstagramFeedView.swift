@@ -19,15 +19,9 @@ struct InstagramFeedView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // UIKit-based MainTabBarController
-            // This handles all tabs (home, zaps, wallet, profile)
             MainTabBarRepresentable()
                 .background(Color.black)
-                .ignoresSafeArea(.all, edges: .all)  // Ensure black background extends everywhere
-                .offset(
-                    y: (appState.playerConfig.playerState == .fullscreen
-                        || appState.playerConfig.playerState == .fullscreenWithChat)
-                        ? tabBarHeight : 0)
+                .ignoresSafeArea(.all, edges: .all)
         }
     }
 }

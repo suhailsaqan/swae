@@ -59,6 +59,7 @@ extension Model {
             if let kick = stream.kick {
                 newStream.kickChannelName = kick.channelName.trim()
             }
+            newStream.ownerPublicKeyHex = appState?.publicKey?.hex
             database.streams.append(newStream)
         }
         if let newSelectedStream, !isLive, !isRecording {

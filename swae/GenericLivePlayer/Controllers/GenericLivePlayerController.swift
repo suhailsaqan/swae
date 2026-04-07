@@ -10,69 +10,40 @@ import AVKit
 import Combine
 import NostrSDK
 
-// MARK: - CGFloat Interpolation Extension
-extension CGFloat {
-    func interpolatingBetween(start: CGFloat, end: CGFloat) -> CGFloat {
-        return start + (end - start) * self
-    }
-
-    func clamp(_ min: CGFloat, _ max: CGFloat) -> CGFloat {
-        return Swift.min(Swift.max(self, min), max)
-    }
-}
-
-struct LiveDismissGestureState {
-    var totalVerticalDistance: CGFloat
-    var videoVerticalMove: CGFloat
-    var startHorizontalPosition: CGFloat
-    var finalHorizontalPosition: CGFloat
-    var finalHorizontalScale: CGFloat
-    var finalVerticalScale: CGFloat
-    var initialTouchPoint: CGPoint
-}
-
 class GenericLivePlayerController: UIViewController {
     let liveVideoPlayer = GenericPlayerView()
     let liveVideoParent = UIView()
     let horizontalVideoPlayer = GenericLargePlayerView()
     let horizontalVideoParent = UIView()
-
-    let smallHeader = LiveStreamSmallHeaderView()
-    let smallVideoCoverView = UIView()
-
+    
     let player: VideoPlayer?
-
-    var liveStream: LiveStream {
-        didSet {
-            updateLabels()
-        }
-    }
-
+    
+    var liveStream: LiveStream
+    
     // AppState and event references for real data
     weak var appState: AppState?
     var liveActivitiesEvent: LiveActivitiesEvent
-
+    
     // Fullscreen constraints (not used - kept for backward compatibility)
     private var horizontalVideoParentWidthConstraint: NSLayoutConstraint?
     private var horizontalVideoParentLeadingConstraint: NSLayoutConstraint?
     private var horizontalVideoParentTrailingConstraint: NSLayoutConstraint?
-
+    
     let safeAreaSpacer = UIView()
     var safeAreaConstraint: NSLayoutConstraint?
-    var videoParentSmallHeightC: NSLayoutConstraint?
     var videoBotC: NSLayoutConstraint?
-
+    
     let contentBackgroundView = UIView()
     let contentView = AutoHidingView()
     
     // Zap notifications container
     let zapNotificationsContainer = UIView()
     let maxVisibleZaps = 3
-
+    
     var cancellables: Set<AnyCancellable> = []
-
+    
     var videoAspect: CGFloat = 16 / 9
-
+    
     // MARK: - Portrait Video Support
     /// Whether the current video is portrait (height > width)
     private(set) var isPortraitVideo: Bool = false
@@ -90,59 +61,56 @@ class GenericLivePlayerController: UIViewController {
     private var exitingLandscapeFullscreenGesture = false
     /// Tracks whether the current pan gesture is a swipe-up-to-enter-fullscreen
     private var enteringFullscreenGesture = false
-
-    private lazy var chatVC = LiveChatController(
+    
+    /// Dismiss pan gesture for interactive swipe-down-to-close
+    private var dismissPanGesture: UIPanGestureRecognizer?
+    
+    lazy var chatVC = LiveChatController(
         liveStream: liveStream,
         liveActivitiesEvent: liveActivitiesEvent,
         appState: appState
     )
-
-    var currentTransitionProgress: CGFloat = 0
-    var dismissGestureState: LiveDismissGestureState?
-
-    @Published private var smallVideoPlayer: Bool = false
-    @Published private var commentsOverride: Bool = false
-    @Published private var smallVideoPlayerAnimating: Bool = false
-
+    
     @Published var currentVideoRotation: UIDeviceOrientation = .portrait
-    var isDismissingInteractively: Bool { currentTransitionProgress != 0 }
-
-    var onDismiss: (() -> Void)?
     
     /// Saves the orientation lock before the player modifies it, so we can restore it on dismiss
     private var previousOrientationLock: UIInterfaceOrientationMask?
     
-    /// Tracks whether we're dismissing to mini player (not a full close).
-    /// When true, viewWillDisappear skips the audio session restoration to avoid
-    /// interrupting the AVPlayer that continues playing in the mini player.
-    private var isDismissingToMiniPlayer = false
-    
     /// Tracks whether the initial setup (safe area + transform) has been done
     private var hasPerformedInitialSetup = false
-
+    
     init(liveStream: LiveStream, liveActivitiesEvent: LiveActivitiesEvent, appState: AppState?) {
         self.liveStream = liveStream
         self.liveActivitiesEvent = liveActivitiesEvent
         self.appState = appState
-
+        
         // Create VideoPlayer
         if let urlString = liveStream.videoURL?.absoluteString {
             player = VideoPlayer(url: urlString, liveStream: liveStream)
         } else {
             player = nil
         }
-
+        
         player?.play()
         liveVideoPlayer.player = player
-
+        
         super.init(nibName: nil, bundle: nil)
-
+        
         DispatchQueue.main.async {
             self.player?.avPlayer.isMuted = false
         }
-
-        modalPresentationStyle = .overFullScreen
-
+        
+        // Check if playerConfig already has a cached orientation (from didSelectEvent cache hit)
+        if let appState, appState.playerConfig.videoAspectRatio != .unknown {
+            let cached = appState.playerConfig.videoAspectRatio
+            videoAspect = cached.ratio
+            isPortraitVideo = (cached == .portrait9_16)
+            // Pre-set video gravity for portrait so the player opens correctly
+            if isPortraitVideo {
+                liveVideoPlayer.playerLayer.videoGravity = .resizeAspect
+            }
+        }
+        
         // Get video aspect ratio — must account for preferredTransform (portrait videos
         // are often encoded as landscape with a 90° rotation transform)
         if let asset = player?.avPlayer.currentItem?.asset as? AVURLAsset {
@@ -155,6 +123,17 @@ class GenericLivePlayerController: UIViewController {
                         let displaySize = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
                         await MainActor.run {
                             self?.setVideoAspectRatio(displaySize.width / displaySize.height)
+                            // Cache the result for future opens of this stream
+                            if let self {
+                                let aspect = displaySize.width / displaySize.height
+                                let detectedRatio: VideoAspectRatio
+                                if aspect < 0.8 { detectedRatio = .portrait9_16 }
+                                else if aspect > 1.2 { detectedRatio = .landscape16_9 }
+                                else { detectedRatio = .square1_1 }
+                                self.appState?.detectedOrientations[self.liveActivitiesEvent.id] = detectedRatio
+                                // Notify RootViewController for potential swap to ReelsPlayerController
+                                self.appState?.playerConfig.videoAspectRatio = detectedRatio
+                            }
                         }
                     }
                 } catch {
@@ -162,7 +141,7 @@ class GenericLivePlayerController: UIViewController {
                 }
             }
         }
-
+        
         // Fallback: observe AVPlayerItem for video dimensions via presentationSize
         // This handles HLS streams where AVURLAsset tracks may not be immediately available
         player?.avPlayer.currentItem?.publisher(for: \.presentationSize)
@@ -176,27 +155,54 @@ class GenericLivePlayerController: UIViewController {
                 if self.videoAspect == 16.0 / 9.0 || self.videoAspect == 0 {
                     self.setVideoAspectRatio(aspect)
                 }
+                // Cache the result for future opens of this stream
+                let detectedRatio: VideoAspectRatio
+                if aspect < 0.8 { detectedRatio = .portrait9_16 }
+                else if aspect > 1.2 { detectedRatio = .landscape16_9 }
+                else { detectedRatio = .square1_1 }
+                self.appState?.detectedOrientations[self.liveActivitiesEvent.id] = detectedRatio
+                // Notify RootViewController for potential swap to ReelsPlayerController
+                self.appState?.playerConfig.videoAspectRatio = detectedRatio
+            }
+            .store(in: &cancellables)
+        
+        // Observe playerConfig for late-arriving HLS manifest detection results
+        // (fires when didSelectEvent's background HLS fetch completes after player is already open)
+        appState?.$playerConfig
+            .map(\.videoAspectRatio)
+            .removeDuplicates()
+            .filter { $0 != .unknown }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] ratio in
+                guard let self else { return }
+                let aspect = ratio.ratio
+                // Only apply if we haven't already detected from AVPlayer
+                if self.videoAspect == 16.0 / 9.0 || self.videoAspect == 0 {
+                    self.setVideoAspectRatio(aspect)
+                }
             }
             .store(in: &cancellables)
     }
-
+    
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    // Hide status bar in landscape or portrait fullscreen, show in portrait inline
+    
+    // Hide status bar in landscape or portrait fullscreen
     override var prefersStatusBarHidden: Bool { currentVideoRotation != .portrait || isPortraitFullscreen }
-
+    
     // Allow all orientations when in fullscreen mode
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         return .allButUpsideDown
     }
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        view.backgroundColor = .black
+        
         liveVideoPlayer.backgroundColor = .black
-        safeAreaSpacer.backgroundColor = .systemBackground
-        contentBackgroundView.backgroundColor = .systemBackground
-
+        safeAreaSpacer.backgroundColor = .black
+        contentBackgroundView.backgroundColor = .black
+        
         // Setup chat controller
         contentBackgroundView.addSubview(chatVC.view)
         chatVC.view.translatesAutoresizingMaskIntoConstraints = false
@@ -206,28 +212,28 @@ class GenericLivePlayerController: UIViewController {
             chatVC.view.leadingAnchor.constraint(equalTo: contentBackgroundView.leadingAnchor),
             chatVC.view.trailingAnchor.constraint(equalTo: contentBackgroundView.trailingAnchor),
         ])
-
+        
         chatVC.willMove(toParent: self)
         addChild(chatVC)
         view.addSubview(contentBackgroundView)
         chatVC.didMove(toParent: self)
-
+        
         // Setup video stack
         let videoStack = UIStackView(arrangedSubviews: [safeAreaSpacer, liveVideoParent])
         videoStack.axis = .vertical
         videoStack.translatesAutoresizingMaskIntoConstraints = false
-
+        
         view.addSubview(videoStack)
         videoStack.translatesAutoresizingMaskIntoConstraints = false
-
+        
         let heightC = liveVideoPlayer.heightAnchor.constraint(
             equalTo: liveVideoPlayer.widthAnchor, multiplier: 9 / 16)
         heightC.priority = .defaultHigh
         defaultHeightConstraint = heightC
-
+        
         view.addSubview(contentView)
         contentView.translatesAutoresizingMaskIntoConstraints = false
-
+        
         // Position contentView relative to contentBackgroundView
         NSLayoutConstraint.activate([
             contentView.bottomAnchor.constraint(equalTo: contentBackgroundView.bottomAnchor),
@@ -235,10 +241,10 @@ class GenericLivePlayerController: UIViewController {
             contentView.trailingAnchor.constraint(equalTo: contentBackgroundView.trailingAnchor),
             contentView.topAnchor.constraint(equalTo: contentBackgroundView.topAnchor, constant: 5),
         ])
-
+        
         view.addSubview(horizontalVideoParent)
         horizontalVideoParent.translatesAutoresizingMaskIntoConstraints = false
-
+        
         horizontalVideoParent.addSubview(horizontalVideoPlayer)
         horizontalVideoPlayer.translatesAutoresizingMaskIntoConstraints = false
         horizontalVideoParent.isHidden = true
@@ -247,56 +253,38 @@ class GenericLivePlayerController: UIViewController {
         view.addSubview(zapNotificationsContainer)
         zapNotificationsContainer.translatesAutoresizingMaskIntoConstraints = false
         zapNotificationsContainer.isUserInteractionEnabled = false
-
-        liveVideoParent.addSubview(smallHeader)
-        smallHeader.translatesAutoresizingMaskIntoConstraints = false
-        smallHeader.alpha = 0
-        smallHeader.isHidden = true  // Not used anymore - info is in dashboard header
-
+        
         liveVideoParent.addSubview(liveVideoPlayer)
         liveVideoPlayer.translatesAutoresizingMaskIntoConstraints = false
         videoBotC = liveVideoParent.bottomAnchor.constraint(equalTo: liveVideoPlayer.bottomAnchor)
         videoBotC?.isActive = true
-
-        liveVideoParent.addSubview(smallVideoCoverView)
-        smallVideoCoverView.translatesAutoresizingMaskIntoConstraints = false
-        smallVideoCoverView.isHidden = true
-
+        
         let maxH = liveVideoPlayer.heightAnchor.constraint(lessThanOrEqualTo: liveVideoPlayer.widthAnchor)
         maxHeightConstraint = maxH
-
+        
         NSLayoutConstraint.activate([
             videoStack.topAnchor.constraint(equalTo: view.topAnchor),
             videoStack.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             videoStack.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-
+            
             heightC,
-
+            
             liveVideoPlayer.topAnchor.constraint(equalTo: liveVideoParent.topAnchor),
             liveVideoPlayer.leadingAnchor.constraint(equalTo: liveVideoParent.leadingAnchor),
             liveVideoPlayer.trailingAnchor.constraint(equalTo: liveVideoParent.trailingAnchor),
             maxH,
-
-            smallHeader.topAnchor.constraint(equalTo: liveVideoParent.topAnchor),
-            smallHeader.leadingAnchor.constraint(equalTo: liveVideoParent.leadingAnchor),
-            smallHeader.trailingAnchor.constraint(equalTo: liveVideoParent.trailingAnchor),
-
-            smallVideoCoverView.topAnchor.constraint(equalTo: liveVideoParent.topAnchor),
-            smallVideoCoverView.bottomAnchor.constraint(equalTo: liveVideoParent.bottomAnchor),
-            smallVideoCoverView.leadingAnchor.constraint(equalTo: liveVideoParent.leadingAnchor),
-            smallVideoCoverView.trailingAnchor.constraint(equalTo: liveVideoParent.trailingAnchor),
-
+            
             contentView.topAnchor.constraint(equalTo: contentBackgroundView.topAnchor, constant: 5),
             contentView.bottomAnchor.constraint(equalTo: contentBackgroundView.bottomAnchor),
             contentView.leadingAnchor.constraint(equalTo: contentBackgroundView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: contentBackgroundView.trailingAnchor),
-
+            
             // horizontalVideoParent fills the entire screen in landscape
             horizontalVideoParent.topAnchor.constraint(equalTo: view.topAnchor),
             horizontalVideoParent.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             horizontalVideoParent.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             horizontalVideoParent.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-
+            
             // horizontalVideoPlayer fills parent and maintains aspect ratio
             horizontalVideoPlayer.leadingAnchor.constraint(
                 equalTo: horizontalVideoParent.leadingAnchor),
@@ -307,13 +295,11 @@ class GenericLivePlayerController: UIViewController {
             horizontalVideoPlayer.bottomAnchor.constraint(
                 equalTo: horizontalVideoParent.bottomAnchor),
         ])
-
+        
         safeAreaConstraint = safeAreaSpacer.heightAnchor.constraint(
             equalToConstant: view.safeAreaInsets.top)
         safeAreaConstraint?.isActive = true
-
-        videoParentSmallHeightC = liveVideoParent.heightAnchor.constraint(equalToConstant: 104)
-
+        
         contentBackgroundView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             contentBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -322,23 +308,17 @@ class GenericLivePlayerController: UIViewController {
             contentBackgroundView.topAnchor.constraint(
                 equalTo: liveVideoParent.bottomAnchor, constant: -5),
         ])
-
-        updateLabels()
-
-        // Add tap gesture to small video cover
-        let tapGesture = UITapGestureRecognizer(
-            target: self, action: #selector(smallVideoCoverTapped))
-        smallVideoCoverView.addGestureRecognizer(tapGesture)
-
-        // Add pan gesture for dismissal
-        let panGesture = UIPanGestureRecognizer(
-            target: self, action: #selector(panGestureHandler(_:)))
-        panGesture.delegate = self
-        view.addGestureRecognizer(panGesture)
-
+        
+        // Add interactive dismiss gesture (swipe down to shrink back to thumbnail)
+        let dismissGesture = UIPanGestureRecognizer(
+            target: self, action: #selector(handleDismissPan(_:)))
+        dismissGesture.delegate = self
+        view.addGestureRecognizer(dismissGesture)
+        dismissPanGesture = dismissGesture
+        
         liveVideoPlayer.delegate = self
         horizontalVideoPlayer.delegate = self
-
+        
         // Observe device orientation changes with debouncing to prevent rapid rotation issues
         NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)
             .compactMap { _ in UIDevice.current.orientation }
@@ -348,37 +328,11 @@ class GenericLivePlayerController: UIViewController {
                 self?.rotateVideoPlayer(for: orientation)
             }
             .store(in: &cancellables)
-
-        // Mini player animation logic
-        let shouldStartAnimating = Publishers.CombineLatest3(
-            $smallVideoPlayer, $commentsOverride, $smallVideoPlayerAnimating
-        )
-        .filter { !$2 }
-        .map { $0.0 || $0.1 }
-        .removeDuplicates()
-        .debounce(for: 0.1, scheduler: DispatchQueue.main)
-        .removeDuplicates()
-        .dropFirst()
-
-        shouldStartAnimating
-            .sink { [weak self] mini in
-                self?.animateToMiniPlayer(mini)
-            }
-            .store(in: &cancellables)
-
-        Publishers.Merge(
-            shouldStartAnimating.map { _ in true },
-            shouldStartAnimating.delay(for: 0.3, scheduler: DispatchQueue.main).map { _ in false }
-        )
-        .sink { [weak self] animating in
-            self?.smallVideoPlayerAnimating = animating
-        }
-        .store(in: &cancellables)
-
+        
         // Subscribe to event updates for live→recording transition detection
         subscribeToEventUpdates()
     }
-
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
@@ -387,7 +341,7 @@ class GenericLivePlayerController: UIViewController {
         
         // Ensure we start in portrait
         AppDelegate.orientationLock = .portrait
-
+        
         // Only configure audio session and start playback on first presentation.
         // When re-expanding from mini player, the AVPlayer is already playing
         // with the correct audio session — changing it would cause a brief pause.
@@ -395,6 +349,12 @@ class GenericLivePlayerController: UIViewController {
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
             try? AVAudioSession.sharedInstance().setActive(true)
             player?.play()
+        }
+        
+        // Activate lock screen / Control Center now-playing controls.
+        // Safe to call on re-expand — NowPlayingService handles idempotency.
+        if let player {
+            NowPlayingService.shared.activate(player: player, liveStream: liveStream)
         }
         
         // NOTE: Anchor point and transform are set in viewDidLayoutSubviews
@@ -409,15 +369,11 @@ class GenericLivePlayerController: UIViewController {
             AppDelegate.orientationLock = previous
         }
         
-        // Only restore the streaming audio session on a full dismiss.
-        // When dismissing to mini player, the same AVPlayer keeps playing —
-        // switching the audio category would briefly interrupt playback.
-        if !isDismissingToMiniPlayer {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("RestoreStreamingAudioSession"),
-                object: nil
-            )
-        }
+        // Restore the streaming audio session
+        NotificationCenter.default.post(
+            name: NSNotification.Name("RestoreStreamingAudioSession"),
+            object: nil
+        )
     }
     
     override func viewDidLayoutSubviews() {
@@ -432,10 +388,8 @@ class GenericLivePlayerController: UIViewController {
             safeAreaConstraint?.constant = view.safeAreaInsets.top
             
             // Set anchor point and transform with correct frame values
-            if !smallVideoPlayer {
-                liveVideoPlayer.setAnchorPoint(CGPoint(x: 0, y: 0.5))
-                liveVideoPlayer.transform = .init(translationX: -view.frame.width / 2, y: 0)
-            }
+            liveVideoPlayer.setAnchorPoint(CGPoint(x: 0, y: 0.5))
+            liveVideoPlayer.transform = .init(translationX: -view.frame.width / 2, y: 0)
         }
     }
     
@@ -448,116 +402,32 @@ class GenericLivePlayerController: UIViewController {
             safeAreaConstraint?.constant = view.safeAreaInsets.top
         }
     }
-
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-
-        // CRITICAL: Set self as RootViewController's liveVideoController
-        RootViewController.instance.liveVideoController = self
-
-        if !smallVideoPlayer {
-            // Make chat controller first responder to show the input bar
-            // This is required because TelegramChatInputBar is used as inputAccessoryView
-            chatVC.becomeFirstResponder()
-        }
-
+        
+        // Make chat controller first responder to show the input bar
+        chatVC.becomeFirstResponder()
+        
         // Fallback in case viewDidLayoutSubviews didn't complete setup
         if !hasPerformedInitialSetup {
             hasPerformedInitialSetup = true
             safeAreaConstraint?.constant = view.safeAreaInsets.top
             
-            if !smallVideoPlayer {
-                liveVideoPlayer.setAnchorPoint(CGPoint(x: 0, y: 0.5))
-                liveVideoPlayer.transform = .init(translationX: -view.frame.width / 2, y: 0)
-            }
+            liveVideoPlayer.setAnchorPoint(CGPoint(x: 0, y: 0.5))
+            liveVideoPlayer.transform = .init(translationX: -view.frame.width / 2, y: 0)
         }
     }
-
-    @objc private func smallVideoCoverTapped() {
-        guard !commentsOverride else { return }
-        chatVC.commentsTable.setContentOffset(chatVC.commentsTable.contentOffset, animated: false)
-        smallVideoPlayer = false
-        liveVideoPlayer.showControls()
-    }
-
-    func chatControllerRequestMiniPlayer(_ mini: Bool) {
-        smallVideoPlayer = mini
-    }
-
-    func chatControllerRequestsMoreSpace() {
-        commentsOverride = true
-    }
-
-    func chatControllerRequestsNormalSize() {
-        commentsOverride = false
-    }
-
-    private func animateToMiniPlayer(_ mini: Bool) {
-        guard let view = view else { return }
-
-        videoParentSmallHeightC?.isActive = mini
-        videoBotC?.isActive = !mini
-        smallVideoCoverView.isHidden = !mini
-
-        guard mini else {
-            UIView.animate(withDuration: 0.3) {
-                self.liveVideoPlayer.transform = CGAffineTransform(
-                    translationX: -view.frame.width / 2, y: 0)
-                // Don't force dashboard expand - let user control it in viewer mode
-                // Streamer mode handles its own always-expanded state
-                view.layoutIfNeeded()
-            } completion: { finished in
-                guard finished else { return }
-                self.liveVideoParent.backgroundColor = .clear
-                self.safeAreaSpacer.backgroundColor = .systemBackground
-                self.chatVC.becomeFirstResponder()
-            }
-            return
-        }
-
-        let yOffset = liveVideoPlayer.frame.height - 104
-        chatVC.topInfoView.transform = CGAffineTransform(translationX: 0, y: yOffset)
-
-        let scale = 88 / liveVideoPlayer.frame.height
-
-        safeAreaSpacer.backgroundColor = .systemBackground
-        liveVideoParent.backgroundColor = .systemBackground
-        liveVideoPlayer.hideControls()
-        chatVC.resignFirstResponder()
-
-        view.layoutIfNeeded()
-
-        UIView.animate(withDuration: 0.3) {
-            // Center the mini video horizontally
-            // The video's anchor point is at (0, 0.5) - left center
-            // Base position after scale puts left edge at screen left edge
-            // We need to offset right by: (screenWidth - scaledWidth) / 2
-            // In pre-scale coordinates (for translatedBy): offset / scale
-            let scaledWidth = self.liveVideoPlayer.frame.width * scale
-            let centerOffset = (view.frame.width - scaledWidth) / 2
-            
-            self.liveVideoPlayer.transform = CGAffineTransform(scaleX: scale, y: scale)
-                .translatedBy(
-                    x: (-self.liveVideoPlayer.frame.width / 2 + centerOffset) / scale,
-                    y: (104 - self.liveVideoPlayer.frame.height) / 2 / scale)
-            // Collapse dashboard when video minimizes (but don't force expand when video expands)
-            self.chatVC.setDashboardExpanded(false, animated: false)
-            self.chatVC.topInfoView.transform = .identity
-        }
-    }
-
-    @objc func panGestureHandler(_ gesture: UIPanGestureRecognizer) {
-        guard let window = view.window else {
-            print("⚠️ No window found")
-            return
-        }
-        let touchPoint = gesture.location(in: window)
-
-        // Swipe down in landscape → exit to portrait (same as tapping the shrink button)
+    
+    // MARK: - Interactive Dismiss Gesture
+    
+    @objc private func handleDismissPan(_ gesture: UIPanGestureRecognizer) {
+        let translation = gesture.translation(in: view)
+        let velocity = gesture.velocity(in: view)
+        
+        // --- Landscape: swipe down exits to portrait ---
         if currentVideoRotation.isLandscape || exitingLandscapeFullscreenGesture {
             if case .began = gesture.state {
-                let velocity = gesture.velocity(in: view)
-                // Only trigger on downward swipes (positive Y velocity in the rotated coordinate)
                 if abs(velocity.y) > abs(velocity.x) && velocity.y > 100 {
                     exitingLandscapeFullscreenGesture = true
                     rotateVideoPlayer(for: .portrait)
@@ -568,18 +438,8 @@ class GenericLivePlayerController: UIViewController {
             }
             return
         }
-
-        guard currentVideoRotation.isPortrait, !smallVideoPlayer, !smallVideoPlayerAnimating else {
-            print(
-                "⚠️ Gesture blocked - portrait:\(currentVideoRotation.isPortrait) small:\(smallVideoPlayer) animating:\(smallVideoPlayerAnimating)"
-            )
-            return
-        }
-
-        // Exit portrait fullscreen on swipe down instead of minimizing.
-        // We must consume the ENTIRE gesture (all states) to prevent the
-        // dismiss-to-mini-player code from running on .changed/.ended events
-        // after togglePortraitFullscreen flips the flag on .began.
+        
+        // --- Portrait fullscreen: swipe down exits fullscreen ---
         if isPortraitFullscreen || exitingPortraitFullscreenGesture {
             if case .began = gesture.state {
                 exitingPortraitFullscreenGesture = true
@@ -590,20 +450,18 @@ class GenericLivePlayerController: UIViewController {
             }
             return
         }
-
-        // Swipe UP on video → enter fullscreen (portrait or landscape depending on video type)
+        
+        // --- Swipe up: enter fullscreen ---
         if enteringFullscreenGesture {
-            // Consume remaining events from the swipe-up gesture
             if gesture.state == .ended || gesture.state == .cancelled {
                 enteringFullscreenGesture = false
             }
             return
         }
-
+        
         if case .began = gesture.state {
-            let velocity = gesture.velocity(in: view)
-            // Detect upward swipe: negative Y, primarily vertical, not already fullscreen
             if velocity.y < -100 && abs(velocity.y) > abs(velocity.x) && !isPortraitFullscreen {
+                // Swipe up enters fullscreen
                 enteringFullscreenGesture = true
                 if isPortraitVideo {
                     togglePortraitFullscreen()
@@ -613,179 +471,50 @@ class GenericLivePlayerController: UIViewController {
                 return
             }
         }
-
-        if case .began = gesture.state {
-            print("🎬 Gesture BEGAN at touchPoint: \(touchPoint)")
-
-            // Get the real mini player position from RootViewController
-            let rootVC = RootViewController.instance
-            let miniPlayer = rootVC.livePlayer
-            miniPlayer.alpha = 0.01  // Make mini player visible for calculation
-
-            let small = miniPlayer.convert(miniPlayer.bounds, to: nil)
-            let large = liveVideoPlayer.convert(liveVideoPlayer.bounds, to: nil)
-
-            print("📐 Small rect (real mini player): \(small)")
-            print("📐 Large rect (full player): \(large)")
-            print("📐 Window bounds: \(window.bounds)")
-
-            // Add safeAreaInsets.top to compensate for the video starting below the safe area
-            // Without this, the video ends up ~59 points higher than the mini player
-            let safeAreaTop = view.safeAreaInsets.top
-            let videoVerticalMove = (small.midY - large.midY) - 500 + safeAreaTop
-            print("📏 videoVerticalMove: \(videoVerticalMove) (includes safeAreaTop: \(safeAreaTop))")
-            print("📏 startHorizontalPosition: \(-large.width / 2)")
-            print("📏 finalHorizontalPosition: \(small.minX)")
-
-            dismissGestureState = LiveDismissGestureState(
-                totalVerticalDistance: 500,
-                videoVerticalMove: videoVerticalMove,
-                startHorizontalPosition: -large.width / 2,
-                finalHorizontalPosition: small.minX,
-                finalHorizontalScale: small.width / large.width,
-                finalVerticalScale: small.height / large.height,
-                initialTouchPoint: touchPoint
-            )
-
-            liveVideoPlayer.hideControls()
-            chatVC.input.textField.textView.resignFirstResponder()
-            chatVC.resignFirstResponder()
-            return
-        }
-
-        guard let dgs = dismissGestureState else { return }
-
-        let delta = touchPoint.y - dgs.initialTouchPoint.y
-        var percent = delta / dgs.totalVerticalDistance
-        percent = percent.clamp(0, 1)
-
-        if gesture.state == .changed {
-            print("👆 Delta: \(delta), Percent: \(percent)")
-        }
-
+        
+        // --- Normal dismiss: drag to shrink back to thumbnail ---
         switch gesture.state {
-        case .changed, .began:
-            setTransition(progress: percent)
+        case .began:
+            liveVideoPlayer.hideControls()
+            
+        case .changed:
+            RootViewController.instance.updateDismissProgress(translation: translation)
+            
         case .ended, .cancelled:
-            let velocity = gesture.velocity(in: view)
-            print("🏁 Gesture ENDED - delta:\(delta) velocity:\(velocity.y)")
-            if delta > 200 || velocity.y > 400 {
-                print("✅ Dismissing to mini player (threshold reached)")
-                UIView.animate(withDuration: 0.4) {
-                    self.setTransition(progress: 1)
-                } completion: { _ in
-                    RootViewController.instance.livePlayer.alpha = 1
-
-                    self.isDismissingToMiniPlayer = true
-                    self.dismiss(animated: false) { [weak self] in
-                        self?.isDismissingToMiniPlayer = false
-                        self?.resetDismissTransition()
-                    }
-                }
-            } else {
-                print("↩️ Resetting (threshold not reached)")
-                UIView.animate(withDuration: 0.3) {
-                    self.resetDismissTransition()
-                } completion: { _ in
-                    self.chatVC.becomeFirstResponder()
-                }
+            let distance = sqrt(translation.x * translation.x + translation.y * translation.y)
+            let speed = sqrt(velocity.x * velocity.x + velocity.y * velocity.y)
+            let shouldDismiss = distance > 120 || speed > 800
+            
+            if shouldDismiss {
+                player?.pause()
             }
+            RootViewController.instance.finishOrCancelDismiss(
+                shouldDismiss: shouldDismiss,
+                velocity: velocity
+            )
+            
         default:
             break
         }
     }
-
-    func setTransition(progress: CGFloat) {
-        guard let dgs = dismissGestureState else { return }
-
-        currentTransitionProgress = progress
-
-        let viewTranslateY = progress * dgs.totalVerticalDistance
-        let safeAreaTranslateY =
-            -progress * dgs.totalVerticalDistance
-            - progress.interpolatingBetween(start: 0, end: 200)
-        let videoTranslateY = progress.interpolatingBetween(start: 0, end: dgs.videoVerticalMove)
-
-        if progress == 0 || progress == 1 || Int(progress * 100) % 10 == 0 {
-            #if DEBUG
-            print("🎨 setTransition(\(String(format: "%.2f", progress)))")
-            print("   view.transform.ty = \(viewTranslateY)")
-            print("   safeAreaSpacer.transform.ty = \(safeAreaTranslateY)")
-            print("   liveVideoPlayer.transform.ty = \(videoTranslateY)")
-            print("   videoVerticalMove = \(dgs.videoVerticalMove)")
-            #endif
-        }
-
-        // Transform the main view
-        view.transform = .init(translationX: 0, y: viewTranslateY)
-
-        // Adjust safeAreaSpacer
-        safeAreaSpacer.transform = .init(translationX: 0, y: safeAreaTranslateY)
-
-        // Transform content background
-        contentBackgroundView.transform = .init(
-            translationX: 0,
-            y: progress.interpolatingBetween(start: 0, end: dgs.videoVerticalMove - 140))
-        contentBackgroundView.alpha = progress.interpolatingBetween(start: 1.0, end: 0.0)
-        chatVC.view.alpha = progress.interpolatingBetween(start: 1.0, end: 0.0)
-
-        // Transform content view
-        contentView.transform = .init(
-            translationX: 0, y: progress.interpolatingBetween(start: 0, end: 1000))
-
-        // Transform stream ended label
-        liveVideoPlayer.streamEndedLabel.transform = .init(
-            scaleX: progress.interpolatingBetween(
-                start: 1, end: 12 / (16 * dgs.finalHorizontalScale)),
-            y: progress.interpolatingBetween(start: 1, end: 12 / (16 * dgs.finalVerticalScale))
-        )
-
-        // Transform video player - THIS IS THE KEY!
-        liveVideoPlayer.transform = CGAffineTransform(
-            translationX: progress.interpolatingBetween(
-                start: dgs.startHorizontalPosition,
-                end: dgs.startHorizontalPosition + dgs.finalHorizontalPosition),
-            y: videoTranslateY
-        )
-        .scaledBy(
-            x: progress.interpolatingBetween(start: 1, end: dgs.finalHorizontalScale),
-            y: progress.interpolatingBetween(start: 1, end: dgs.finalVerticalScale)
-        )
-    }
-
-    func resetDismissTransition() {
-        print("↩️ Resetting all transforms")
-        view.transform = .identity
-        liveVideoPlayer.transform = .init(translationX: -view.bounds.width / 2, y: 0)
-        liveVideoPlayer.streamEndedLabel.transform = .identity
-        safeAreaSpacer.transform = .identity
-        contentView.transform = .identity
-        contentBackgroundView.transform = .identity
-        contentBackgroundView.alpha = 1
-        chatVC.view.alpha = 1
-        currentTransitionProgress = 0
-    }
-
+    
     private func rotateVideoPlayer(for orientation: UIDeviceOrientation) {
-        // Don't rotate if dismissing, no player, or in mini player mode
-        guard currentTransitionProgress < 0.01, 
-              let player,
-              !smallVideoPlayer,
-              !smallVideoPlayerAnimating else { return }
-
+        // Don't rotate if no player
+        guard let player else { return }
+        
         // Portrait videos should never rotate to landscape
         if isPortraitVideo && orientation.isLandscape {
             return
         }
-
+        
         currentVideoRotation = orientation
         setNeedsStatusBarAppearanceUpdate()
-
+        
         // Save controls visibility before transition so we can restore it after
         let controlsWereVisible = !liveVideoPlayer.controlsView.isHidden
         liveVideoPlayer.hideControls()
         horizontalVideoPlayer.hideControls()
-
+        
         switch orientation {
         case .portrait:
             // Request portrait orientation from the system
@@ -839,44 +568,32 @@ class GenericLivePlayerController: UIViewController {
             return
         }
     }
-
+    
     @MainActor
     func setVideoAspectRatio(_ aspect: CGFloat) {
-        let isFirstDetection = videoAspect == 16.0 / 9.0
+        let isFirstDetection = videoAspectHeightConstraint == nil && liveVideoPlayer.playerLayer.videoGravity == .resizeAspectFill
         videoAspect = aspect
         isPortraitVideo = aspect < 1.0
-
+        
         // Guard: ensure view is loaded before modifying constraints
         guard isViewLoaded else { return }
-
+        
         // Deactivate previous custom constraint
         videoAspectHeightConstraint?.isActive = false
-
+        
         if isPortraitVideo {
-            // --- YouTube-style portrait inline layout ---
-            // Keep the SAME container height as landscape (16:9 ratio).
-            // The video displays inside with .resizeAspect, which pillarboxes it
-            // (black bars on left/right). This preserves chat space below.
-            // The default 16:9 heightC and square-cap maxH stay active — no changes needed.
-
-            if isFirstDetection {
-                // First detection: set gravity instantly (no animation) to avoid
-                // the visible zoom-in → zoom-out flash when the player first opens
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                liveVideoPlayer.playerLayer.videoGravity = .resizeAspect
-                CATransaction.commit()
-            } else {
-                // Subsequent changes: animate smoothly
-                CATransaction.begin()
-                CATransaction.setAnimationDuration(0.35)
-                liveVideoPlayer.playerLayer.videoGravity = .resizeAspect
-                CATransaction.commit()
-            }
-
-            liveVideoPlayer.backgroundColor = .black
-            view.layoutIfNeeded()
+            // Portrait detected — RootViewController will swap to ReelsPlayerController.
+            // Hide the landscape UI so the user sees a black screen with the video
+            // instead of the feed showing through the transparent areas.
+            contentBackgroundView.isHidden = true
+            contentView.isHidden = true
+            safeAreaSpacer.isHidden = true
+            chatVC.resignFirstResponder()
         } else {
+            // Landscape confirmed — restore proper background colors
+            safeAreaSpacer.backgroundColor = .systemBackground
+            contentBackgroundView.backgroundColor = .systemBackground
+            
             // --- Standard landscape layout (existing behavior) ---
             let heightC = liveVideoPlayer.widthAnchor.constraint(
                 equalTo: liveVideoPlayer.heightAnchor, multiplier: aspect)
@@ -886,13 +603,7 @@ class GenericLivePlayerController: UIViewController {
             view.layoutIfNeeded()
         }
     }
-
-    func updateLabels() {
-        smallHeader.countLabel.text = "\(liveStream.viewerCount)"
-        smallHeader.liveIcon.backgroundColor = liveStream.isLive ? .systemRed : .systemGray
-        smallHeader.titleLabel.text = liveStream.title
-    }
-
+    
     // MARK: - Portrait Fullscreen
 
     private func togglePortraitFullscreen() {
@@ -1086,21 +797,32 @@ class GenericLivePlayerController: UIViewController {
 
 extension GenericLivePlayerController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Only filter the dismiss pan gesture (not other gestures)
-        guard gestureRecognizer is UIPanGestureRecognizer else { return true }
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
 
-        let touchPoint = gestureRecognizer.location(in: liveVideoPlayer)
-        let hitArea = liveVideoPlayer.progressHitArea
+        // --- Dismiss pan gesture ---
+        guard pan === dismissPanGesture else { return true }
 
-        // Only block the dismiss gesture in the seeker area when controls are visible.
-        // When controls are hidden, the seeker isn't interactive so swipes should work everywhere.
+        let velocity = pan.velocity(in: view)
+        let location = pan.location(in: view)
+
+        // Must have some downward component
+        guard velocity.y > 0 else { return false }
+
+        // Block in chat area for landscape layout (video top, chat bottom)
+        if !isPortraitVideo && currentVideoRotation == .portrait {
+            let videoBottom = liveVideoParent.frame.maxY
+            if location.y > videoBottom { return false }
+        }
+
+        // Block in progress bar area when controls visible
         let controlsVisible = !liveVideoPlayer.controlsView.isHidden
-        if controlsVisible, !hitArea.isHidden, hitArea.alpha > 0 {
-            let hitAreaFrame = hitArea.convert(hitArea.bounds, to: liveVideoPlayer)
-            // Add generous vertical padding (20pt above and below) so near-seeker swipes don't trigger dismiss
-            let exclusionZone = hitAreaFrame.insetBy(dx: 0, dy: -20)
-            if exclusionZone.contains(touchPoint) {
-                return false
+        if controlsVisible {
+            let touchInPlayer = pan.location(in: liveVideoPlayer)
+            let hitArea = liveVideoPlayer.progressHitArea
+            if !hitArea.isHidden, hitArea.alpha > 0 {
+                let hitAreaFrame = hitArea.convert(hitArea.bounds, to: liveVideoPlayer)
+                let exclusionZone = hitAreaFrame.insetBy(dx: 0, dy: -20)
+                if exclusionZone.contains(touchInPlayer) { return false }
             }
         }
 
@@ -1123,10 +845,10 @@ extension GenericLivePlayerController: GenericPlayerViewDelegate {
                 currentVideoRotation = .portrait
                 AppDelegate.orientationLock = .portrait
             }
-            
-            dismiss(animated: true) {
-                self.onDismiss?()
-            }
+
+            // Dismiss via RootViewController container
+            player?.pause()
+            RootViewController.instance.dismissPlayer()
         case .fullscreen:
             if isPortraitVideo {
                 // Portrait videos: expand/collapse in portrait orientation
@@ -1140,8 +862,11 @@ extension GenericLivePlayerController: GenericPlayerViewDelegate {
                 }
             }
         case .share:
+            // Build the swae.live watch URL: /watch/<pubkey>:<dTag>
+            let streamId = "\(liveActivitiesEvent.pubkey):\(liveActivitiesEvent.identifier ?? "")"
+            let watchURL = URL(string: "https://swae.live/watch/\(streamId)")!
             let activityVC = UIActivityViewController(
-                activityItems: [liveStream.title], applicationActivities: nil)
+                activityItems: [watchURL], applicationActivities: nil)
             present(activityVC, animated: true)
         case .mute:
             player?.avPlayer.isMuted.toggle()
@@ -1149,8 +874,15 @@ extension GenericLivePlayerController: GenericPlayerViewDelegate {
     }
 }
 
-extension CGFloat {
-    func clamped(to range: ClosedRange<CGFloat>) -> CGFloat {
-        return Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+// MARK: - PlayerController Conformance
+
+extension GenericLivePlayerController: PlayerController {
+    var videoPlayer: VideoPlayer? { player }
+    var chatController: LiveChatController { chatVC }
+    var dismissSnapshotSourceView: UIView { view }
+    var expandAnimationTargetFrame: CGRect { view.bounds }
+
+    func restoreControlsAfterCancelledDismiss() {
+        liveVideoPlayer.showControls()
     }
 }

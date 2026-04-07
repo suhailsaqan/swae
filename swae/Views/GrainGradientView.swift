@@ -28,6 +28,7 @@ final class GrainGradientView: UIView {
     private let gridSize: Int = 3
     private var grainStrength: Float = 2.0 // Very subtle grain for smooth blur-like appearance
     private var hasCustomColors = false
+    private var hasRenderedFirstFrame = false
     
     // MARK: - Initialization
     
@@ -190,6 +191,14 @@ final class GrainGradientView: UIView {
             height: bounds.height * UIScreen.main.scale
         )
         CATransaction.commit()
+        
+        // Force the first Metal render now that we have a valid size.
+        // The CADisplayLink may not have fired yet, and render() silently
+        // returns when drawableSize is zero, so the first-frame notification
+        // would never post without this.
+        if !hasRenderedFirstFrame && bounds.width > 0 && bounds.height > 0 {
+            render()
+        }
     }
     
     // MARK: - Appearance
@@ -366,6 +375,11 @@ final class GrainGradientView: UIView {
             
             commandBuffer.present(drawable)
             commandBuffer.commit()
+            
+            if !hasRenderedFirstFrame {
+                hasRenderedFirstFrame = true
+                NotificationCenter.default.post(name: .grainGradientDidRenderFirstFrame, object: nil)
+            }
         }
     }
 }

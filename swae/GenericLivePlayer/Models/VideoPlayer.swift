@@ -19,7 +19,6 @@ enum PlaybackState {
 class VideoPlayer: NSObject {
     var didInitPlayer = false
 
-    private var looper: AVPlayerLooper?
     lazy var avPlayer: AVPlayer = playerWithURL(url)
 
     /// Current playback state - always reflects actual AVPlayer state
@@ -117,9 +116,13 @@ class VideoPlayer: NSObject {
     func switchToURL(_ url: URL) {
         didFinishPlaying = false
         let item = AVPlayerItem(url: url)
+        item.preferredForwardBufferDuration = 2.0
+        item.canUseNetworkResourcesForLiveStreamingWhilePaused = true
         avPlayer.replaceCurrentItem(with: item)
         self.url = url.absoluteString
+        applyPreferredQuality()
         play()
+        parseHLSQualities(from: url)
     }
 
     func delayedPause() {
@@ -146,22 +149,127 @@ class VideoPlayer: NSObject {
         }
     }
 
+    /// The currently selected quality tier. nil = Auto (let AVPlayer decide).
+    var preferredQuality: HLSQualityTier? {
+        didSet {
+            applyPreferredQuality()
+        }
+    }
+
+    /// Available quality tiers parsed from the HLS manifest. Empty for non-HLS streams.
+    @Published private(set) var availableQualities: [HLSQualityTier] = []
+
     private func playerWithURL(_ url: String) -> AVPlayer {
         guard let url = URL(string: url) else { return AVPlayer() }
 
-        if isLive {
-            let player = AVPlayer(url: url)
-            player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
-            return player
-        }
-
-        let queuePlayer = AVQueuePlayer()
         let item = AVPlayerItem(url: url)
-        looper = AVPlayerLooper(player: queuePlayer, templateItem: item)
+        // Smaller forward buffer for faster initial playback start
+        item.preferredForwardBufferDuration = 2.0
+        // Allow network use while paused so resume is instant
+        item.canUseNetworkResourcesForLiveStreamingWhilePaused = true
 
+        let player = AVPlayer(playerItem: item)
+        player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
         didInitPlayer = true
-        queuePlayer.isMuted = true
-        return queuePlayer
+
+        // Parse available HLS quality variants
+        parseHLSQualities(from: url)
+
+        return player
+    }
+
+    private func applyPreferredQuality() {
+        if let tier = preferredQuality {
+            avPlayer.currentItem?.preferredPeakBitRate = Double(tier.bandwidth)
+        } else {
+            // Auto — no limit, let AVPlayer adapt
+            avPlayer.currentItem?.preferredPeakBitRate = 0
+        }
+    }
+
+    private func parseHLSQualities(from url: URL) {
+        let urlString = url.absoluteString.lowercased()
+        guard urlString.contains("m3u8") else { return }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5
+        request.cachePolicy = .returnCacheDataElseLoad
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            guard let data, error == nil,
+                  let manifest = String(data: data, encoding: .utf8) else { return }
+
+            var tiers: [HLSQualityTier] = []
+            let lines = manifest.components(separatedBy: .newlines)
+
+            for line in lines {
+                guard line.hasPrefix("#EXT-X-STREAM-INF") else { continue }
+
+                var bandwidth: Int?
+                var width: Int?
+                var height: Int?
+
+                // Parse BANDWIDTH
+                if let bwRange = line.range(of: "BANDWIDTH=") {
+                    let afterBw = line[bwRange.upperBound...]
+                    let bwStr = afterBw.prefix(while: { $0.isNumber })
+                    bandwidth = Int(bwStr)
+                }
+
+                // Parse RESOLUTION
+                if let resRange = line.range(of: "RESOLUTION=") {
+                    let afterRes = line[resRange.upperBound...]
+                    let resStr = afterRes.prefix(while: { $0 != "," && $0 != "\n" && $0 != " " })
+                    let parts = resStr.split(separator: "x")
+                    if parts.count == 2 {
+                        width = Int(parts[0])
+                        height = Int(parts[1])
+                    }
+                }
+
+                if let bw = bandwidth, let w = width, let h = height, w > 0, h > 0 {
+                    tiers.append(HLSQualityTier(width: w, height: h, bandwidth: bw))
+                }
+            }
+
+            // Sort by resolution descending (highest first)
+            tiers.sort { ($0.width * $0.height) > ($1.width * $1.height) }
+
+            // Deduplicate by resolution label (some manifests have duplicate resolutions)
+            var seen = Set<String>()
+            tiers = tiers.filter { seen.insert($0.label).inserted }
+
+            DispatchQueue.main.async {
+                self?.availableQualities = tiers
+            }
+        }.resume()
+    }
+}
+
+/// Represents a single HLS quality variant.
+struct HLSQualityTier: Identifiable, Equatable {
+    let width: Int
+    let height: Int
+    let bandwidth: Int
+
+    var id: String { label }
+
+    /// Human-readable label like "1080p", "720p", etc.
+    var label: String {
+        // Use the larger dimension for the label (e.g. 1920x1080 → "1080p", 1080x1920 → "1080p")
+        let p = max(width, height) == width ? height : width
+        // For standard landscape, height is the label. For portrait, width is.
+        return "\(min(width, height))p"
+    }
+
+    /// Formatted bandwidth string like "2.5 Mbps"
+    var bandwidthLabel: String {
+        let mbps = Double(bandwidth) / 1_000_000
+        if mbps >= 1 {
+            return String(format: "%.1f Mbps", mbps)
+        } else {
+            return "\(bandwidth / 1000) kbps"
+        }
     }
 }
 

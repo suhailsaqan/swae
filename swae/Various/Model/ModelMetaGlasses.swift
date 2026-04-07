@@ -15,7 +15,17 @@ extension Model {
             self?.metaGlassesPipCompositor?.updateFrame(sampleBuffer)
         }
         manager.onStreamStopped = { [weak self] in
-            self?.media.removeBufferedVideo(cameraId: metaGlassesCameraId)
+            guard let self else { return }
+            self.media.removeBufferedVideo(cameraId: metaGlassesCameraId)
+            // Reset preview flag so the UI doesn't show a stale "Stop" button
+            // for a stream that died unexpectedly.
+            self.metaGlassesPreviewRequested = false
+        }
+        manager.onReconnectRequested = { [weak self] in
+            guard let self else { return }
+            // The manager wants to reconnect (auto-reconnect or foreground resume).
+            // Let the reference counting system decide whether to actually restart.
+            self.updateMetaGlassesStreamState()
         }
         metaGlassesManager = manager
     }
@@ -51,28 +61,32 @@ extension Model {
     private func ensureMetaGlassesStreamStarted() {
         Task { @MainActor in
             guard let manager = metaGlassesManager else { return }
-            // Don't start if already streaming or in the middle of reconnecting
-            guard !manager.isStreaming,
-                  manager.streamingStatus != "Reconnecting...",
-                  manager.streamingStatus != "Starting...",
-                  manager.streamingStatus != "Checking permissions...",
-                  manager.streamingStatus != "Requesting permission..."
-            else { return }
+            // Always register the buffered video on the current Processor.
+            // This is critical because reloadStream() creates a new Processor,
+            // destroying the old one's bufferedVideos dictionary. Without this,
+            // a resolution change while Meta Glasses is active causes frames
+            // to be silently dropped (the SDK session is still running but the
+            // new Processor has no entry for the camera ID).
             media.addBufferedVideo(
                 cameraId: metaGlassesCameraId,
                 name: "Meta Glasses",
                 latency: 0.15
             )
+            // Only start the SDK stream if it's not already running or transitioning.
+            guard !manager.isStreaming, !manager.streamingStatus.isTransitioning else { return }
             await manager.startStream(resolution: manager.selectedResolution)
         }
     }
 
     private func ensureMetaGlassesStreamStopped() {
         Task { @MainActor in
-            guard metaGlassesManager?.isStreaming == true else { return }
-            await metaGlassesManager?.stopStream()
+            guard let manager = metaGlassesManager else { return }
+            guard manager.isStreaming || manager.streamingStatus.isTransitioning else { return }
+            await manager.stopStream()
+            // Remove buffered video AFTER the stream has actually stopped
+            // to avoid the pipeline receiving frames for a removed camera ID.
+            media.removeBufferedVideo(cameraId: metaGlassesCameraId)
         }
-        media.removeBufferedVideo(cameraId: metaGlassesCameraId)
     }
 
     // MARK: - Settings Preview
@@ -128,8 +142,9 @@ extension Model {
         disableMetaGlassesPip()
         Task { @MainActor in
             await metaGlassesManager?.stopStream()
+            // Remove buffered video AFTER the stream has actually stopped.
+            media.removeBufferedVideo(cameraId: metaGlassesCameraId)
         }
-        media.removeBufferedVideo(cameraId: metaGlassesCameraId)
     }
 
     // MARK: - Background Lifecycle
@@ -142,8 +157,8 @@ extension Model {
 
     func metaGlassesWillEnterForeground() {
         // The manager handles its own foreground reconnection with a delay.
-        // Don't call updateMetaGlassesStreamState() here — let the manager's
-        // delayed reconnect handle it to avoid racing with scene reattachment.
+        // It will call onReconnectRequested which triggers updateMetaGlassesStreamState()
+        // so the reference counting system stays in control.
         Task { @MainActor in
             metaGlassesManager?.handleWillEnterForeground()
         }

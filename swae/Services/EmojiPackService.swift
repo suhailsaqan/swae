@@ -28,8 +28,30 @@ final class EmojiPackService {
     /// Flat lookup: shortcode → imageURL (for fast resolution)
     private(set) var shortcodeLookup: [String: URL] = [:]
     
+    /// Public URL for the default Swae emote (app icon hosted on swae.live)
+    static let defaultEmoteURL = URL(string: "https://swae.live/swae-icon.png")!
+    
+    /// Default Swae emote pack ID
+    static let defaultPackId = "builtin:swae"
+    
     init(appState: AppState) {
         self.appState = appState
+        loadDefaultPack()
+    }
+    
+    // MARK: - Default Swae Emote
+    
+    /// Loads a built-in Swae emote so the picker is never empty.
+    private func loadDefaultPack() {
+        guard let emoji = CustomEmoji(shortcode: "swae", imageURL: Self.defaultEmoteURL) else { return }
+        let pack = EmojiPack(
+            id: Self.defaultPackId,
+            name: "Swae",
+            authorPubkey: "",
+            emojis: [emoji]
+        )
+        packs.append(pack)
+        rebuildLookup()
     }
     
     // MARK: - Pack Loading

@@ -5,6 +5,7 @@
 //  Created by Suhail Saqan on 3/6/25.
 //
 
+import BreezSdkSpark
 import Foundation
 import NostrSDK
 import SwiftUI
@@ -29,6 +30,7 @@ enum WalletError: Error, LocalizedError {
 enum WalletConnectState {
     case new(WalletConnectURL)
     case existing(WalletConnectURL)
+    case spark(lud16: String?)
     case none
 }
 
@@ -57,6 +59,16 @@ class WalletModel: ObservableObject {
     /// The NWC client instance - created once and reused for all requests
     private var nwcClient: NWCClient?
 
+    // MARK: - Spark Wallet Service
+    /// Feature flag: set to true to use Spark backend instead of NWC/Coinos
+    static let useSparkBackend = true
+
+    /// The Spark wallet service instance
+    private(set) var sparkService: SparkWalletService?
+
+    /// The Lightning address from Spark (published to profile)
+    @Published private(set) var sparkLightningAddress: String?
+
     init(state: WalletConnectState, publicKey: PublicKey, appState: AppState) {
         self.connect_state = state
         self.previous_state = .none
@@ -67,11 +79,68 @@ class WalletModel: ObservableObject {
     init(publicKey: PublicKey, appState: AppState) {
         self.publicKey = publicKey
         self.appState = appState
-        if let nwc = nostrWalletConnectSecureStorage.nostrWalletConnectURL(for: publicKey) {
+        print("🔧 WalletModel.init: useSparkBackend=\(Self.useSparkBackend), pubkey=\(publicKey.hex.prefix(8))...")
+        if Self.useSparkBackend {
+            self.previous_state = .none
+            self.connect_state = .none
+
+            // Check if this user previously connected a Spark wallet
+            let udKey = "spark_wallet_\(publicKey.hex)"
+            let hasSparkWallet = UserDefaults.standard.bool(forKey: udKey)
+            #if DEBUG
+            print("🔧 WalletModel.init: UserDefaults key='\(udKey)' hasSparkWallet=\(hasSparkWallet)")
+            #endif
+
+            // Also check if the storage directory exists (belt and suspenders)
+            let dirName = "spark_\(String(publicKey.hex.prefix(16)))"
+            let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            let sparkDir = documentsDir.appendingPathComponent(dirName)
+            let dirExists = FileManager.default.fileExists(atPath: sparkDir.path)
+            #if DEBUG
+            print("🔧 WalletModel.init: sparkDir exists=\(dirExists)")
+            if let contents = try? FileManager.default.contentsOfDirectory(atPath: documentsDir.path) {
+                let sparkDirs = contents.filter { $0.hasPrefix("spark_") }
+                print("🔧 WalletModel.init: All spark dirs on disk: \(sparkDirs)")
+            }
+            let keypairAvailable = appState.privateKeySecureStorage.keypair(for: publicKey) != nil
+            print("🔧 WalletModel.init: keypair available in Keychain=\(keypairAvailable)")
+            #endif
+
+            if hasSparkWallet || dirExists {
+                #if DEBUG
+                print("🔧 WalletModel.init: Attempting Spark reconnection...")
+                #endif
+                appState.isAutoConnectingWallet = true
+                let pubKey = publicKey
+                Task { [weak self] in
+                    defer {
+                        Task { @MainActor in
+                            appState.isAutoConnectingWallet = false
+                        }
+                    }
+                    guard let self else { return }
+                    do {
+                        guard let keypair = appState.privateKeySecureStorage.keypair(for: pubKey) else {
+                            print("⚠️ Spark reconnect: No keypair in Keychain")
+                            return
+                        }
+                        try await self.connectSpark(
+                            privateKeyHex: keypair.privateKey.hex,
+                            apiKey: breezSdkApiKey,
+                            lnurlDomain: nil
+                        )
+                        print("✅ Spark wallet reconnected on launch")
+                    } catch {
+                        print("⚠️ Spark wallet reconnect failed: \(error)")
+                    }
+                }
+            } else {
+                print("🔧 WalletModel.init: No previous Spark wallet found, showing onboarding")
+            }
+        } else if let nwc = nostrWalletConnectSecureStorage.nostrWalletConnectURL(for: publicKey) {
             self.previous_state = .existing(nwc)
             self.connect_state = .existing(nwc)
             print("setting to existing, \(publicKey)")
-            // Create NWC client for existing connection
             self.nwcClient = try? NWCClient(walletConnectURL: nwc)
         } else {
             print("setting to none, \(publicKey)")
@@ -88,11 +157,22 @@ class WalletModel: ObservableObject {
     func disconnect() {
         // Capture the lud16 before clearing state so we can notify listeners
         let lud16: String?
-        if case .existing(let nwc) = connect_state {
+        switch connect_state {
+        case .existing(let nwc):
             lud16 = nwc.lud16
-        } else {
+        case .spark(let address):
+            lud16 = address
+        default:
             lud16 = nil
         }
+
+        // Disconnect Spark service
+        if let spark = sparkService {
+            Task { await spark.disconnect() }
+        }
+        sparkService = nil
+        sparkLightningAddress = nil
+        UserDefaults.standard.removeObject(forKey: "spark_wallet_\(publicKey.hex)")
 
         // Disconnect NWC client
         if let client = nwcClient {
@@ -137,13 +217,67 @@ class WalletModel: ObservableObject {
         }
     }
 
+    // MARK: - Spark Connection
+
+    /// Initialize and connect the Spark wallet from a Nostr private key
+    func connectSpark(privateKeyHex: String, apiKey: String, lnurlDomain: String? = nil) async throws {
+        let service = SparkWalletService()
+        try await service.initialize(
+            nostrPrivateKeyHex: privateKeyHex,
+            publicKeyHex: publicKey.hex,
+            apiKey: apiKey,
+            lnurlDomain: lnurlDomain
+        )
+        self.sparkService = service
+        service.delegate = self
+
+        // Register Lightning address
+        // First check if this wallet already has one, then try to register if not
+        var lud16: String?
+        do {
+            lud16 = try await service.getLightningAddress()
+            if lud16 == nil {
+                // No existing address — register one.
+                // Use the wallet's own identity pubkey (from getInfo) to generate a unique username
+                // that won't collide with other wallets derived from the same Nostr key.
+                let identityPubkey = try await service.getIdentityPubkey()
+                let username = String(identityPubkey.prefix(16))
+                do {
+                    lud16 = try await service.registerLightningAddress(username: username)
+                    print("⚡ Spark: Registered Lightning address: \(lud16 ?? "nil")")
+                } catch {
+                    print("⚠️ Spark: Lightning address registration failed: \(error)")
+                }
+            } else {
+                print("⚡ Spark: Existing Lightning address: \(lud16 ?? "nil")")
+            }
+        } catch {
+            print("⚠️ Spark: Lightning address setup failed: \(error)")
+        }
+
+        await MainActor.run {
+            self.sparkLightningAddress = lud16
+            self.connect_state = .spark(lud16: lud16)
+            self.previous_state = self.connect_state
+            // Persist that this user has a Spark wallet so we reconnect on next launch
+            UserDefaults.standard.set(true, forKey: "spark_wallet_\(self.publicKey.hex)")
+        }
+
+        // Notify so ContentView updates the profile lud16
+        if let lud16 {
+            notify(.spark_wallet_attached(lud16))
+        }
+
+        // Load wallet data
+        await loadWalletData()
+    }
+
     // MARK: - Wallet Data Management
 
     /// Loads wallet balance and transactions using the NWC client
     func loadWalletData() async {
         // Guard against concurrent loads — if already loading, skip
         guard !isLoading else {
-            print("⚠️ Wallet: Already loading, skipping duplicate call")
             return
         }
 
@@ -153,26 +287,16 @@ class WalletModel: ObservableObject {
         }
 
         do {
-            // Ensure we have an NWC client
-            guard let client = nwcClient else {
-                // Try to create one from existing connection
-                guard case .existing(let nwc) = connect_state else {
+            if Self.useSparkBackend, let spark = sparkService {
+                try await loadWithSpark(spark)
+            } else {
+                // Ensure we have an NWC client
+                guard let client = nwcClient ?? createClientIfNeeded() else {
                     print("❌ Wallet: No wallet connected - state: \(connect_state)")
                     throw WalletError.noWalletConnected
                 }
-                
-                // Create client if missing
-                let newClient = try NWCClient(walletConnectURL: nwc)
-                await MainActor.run {
-                    self.nwcClient = newClient
-                }
-                
-                // Use the new client
-                try await loadWithClient(newClient)
-                return
+                try await loadWithClient(client)
             }
-            
-            try await loadWithClient(client)
 
         } catch is CancellationError {
             print("⚠️ Wallet: Task cancelled, not showing error to user")
@@ -259,14 +383,103 @@ class WalletModel: ObservableObject {
         }
     }
 
+    /// Loads wallet data using the Spark service
+    private func loadWithSpark(_ spark: SparkWalletService) async throws {
+        // Balance
+        do {
+            let balanceMillisats = try await spark.getBalanceMillisats()
+            print("✅ Spark: Balance loaded: \(balanceMillisats)")
+            await MainActor.run { self.balance = balanceMillisats }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            print("⚠️ Spark: Balance failed: \(error)")
+        }
+
+        // Transactions
+        do {
+            let transactions = try await spark.listPayments(limit: 50)
+            print("✅ Spark: Transactions loaded: \(transactions.count)")
+
+            await MainActor.run {
+                self.transactions = transactions
+                self.isLoading = false
+                self.fetchMissingProfileMetadata(for: transactions)
+            }
+
+            // Enrich with zap receipts (same logic as NWC path)
+            let enriched = await MainActor.run {
+                enrichTransactionsWithZapReceipts(transactions)
+            }
+            let didEnrich = enriched.contains(where: { e in
+                transactions.first(where: { $0.id == e.id })?.isZap != e.isZap
+            })
+            if didEnrich {
+                await MainActor.run {
+                    self.transactions = enriched
+                    self.fetchMissingProfileMetadata(for: enriched)
+                }
+            }
+        } catch is CancellationError {
+            print("⚠️ Spark: Task cancelled during transaction load")
+            await MainActor.run { self.isLoading = false }
+        } catch {
+            print("⚠️ Spark: Transactions failed: \(error)")
+            await MainActor.run {
+                self.transactions = []
+                self.isLoading = false
+            }
+        }
+    }
+
     /// Refreshes wallet data
     func refreshWalletData() async {
         await loadWalletData()
     }
 
+    /// Refreshes only the wallet balance without fetching transactions.
+    /// Use this from streaming/polling contexts that only need the balance number.
+    func refreshBalanceOnly() async {
+        if Self.useSparkBackend, let spark = sparkService {
+            do {
+                let newBalance = try await spark.getBalanceMillisats()
+                await MainActor.run { self.balance = newBalance }
+            } catch {
+                print("⚠️ Spark: Balance-only refresh failed: \(error)")
+            }
+            return
+        }
+
+        // NWC fallback
+        guard let client = nwcClient ?? createClientIfNeeded() else {
+            print("❌ Wallet: No NWC client for balance refresh")
+            return
+        }
+
+        do {
+            try await client.connect()
+            let newBalance = try await client.getBalance()
+            await MainActor.run { self.balance = newBalance }
+        } catch is CancellationError {
+            // Silently ignore cancellation
+        } catch {
+            print("⚠️ Wallet: Balance-only refresh failed: \(error)")
+        }
+    }
+
+    /// Creates an NWC client from the existing connection if one isn't set yet.
+    private func createClientIfNeeded() -> NWCClient? {
+        guard case .existing(let nwc) = connect_state,
+              let newClient = try? NWCClient(walletConnectURL: nwc) else {
+            return nil
+        }
+        self.nwcClient = newClient
+        return newClient
+    }
+
     /// Refreshes only transactions (useful for pagination or filtering)
     func refreshTransactions(limit: Int = 50) async {
-        guard let client = nwcClient else {
+        guard let client = nwcClient ?? createClientIfNeeded() else {
             print("❌ Wallet: No NWC client for transaction refresh")
             return
         }
@@ -387,8 +600,15 @@ class WalletModel: ObservableObject {
         return nwcClient
     }
     
-    /// Pays a Lightning invoice using the NWC client
+    /// Pays a Lightning invoice using the Spark service or NWC client
     func payInvoice(_ bolt11: String) async throws -> String? {
+        if Self.useSparkBackend {
+            guard let spark = sparkService else {
+                throw WalletError.noWalletConnected
+            }
+            return try await spark.payInvoice(bolt11)
+        }
+
         guard let client = nwcClient else {
             throw WalletError.noWalletConnected
         }
@@ -403,6 +623,13 @@ class WalletModel: ObservableObject {
     ///   - description: Optional description for the invoice
     /// - Returns: Tuple containing the bolt11 invoice string and payment hash
     func makeInvoice(amountSats: Int, description: String? = nil) async throws -> (invoice: String, paymentHash: String) {
+        if Self.useSparkBackend {
+            guard let spark = sparkService else {
+                throw WalletError.noWalletConnected
+            }
+            return try await spark.makeInvoice(amountSats: amountSats, description: description)
+        }
+
         guard let client = nwcClient else {
             throw WalletError.noWalletConnected
         }
@@ -411,5 +638,33 @@ class WalletModel: ObservableObject {
         // NWC uses millisats, so convert sats to millisats
         let amountMillisats = amountSats * 1000
         return try await client.makeInvoice(amount: amountMillisats, description: description)
+    }
+}
+
+// MARK: - SparkWalletDelegate
+
+extension WalletModel: SparkWalletDelegate {
+    func sparkWalletDidSync() {
+        Task {
+            await loadWalletData()
+        }
+    }
+
+    func sparkWalletPaymentSucceeded(_ payment: BreezSdkSpark.Payment) {
+        Task {
+            await loadWalletData()
+        }
+    }
+
+    func sparkWalletPaymentFailed(_ payment: BreezSdkSpark.Payment) {
+        Task {
+            await loadWalletData()
+        }
+    }
+
+    func sparkWalletLightningAddressChanged(_ address: BreezSdkSpark.LightningAddressInfo?) {
+        Task { @MainActor in
+            self.sparkLightningAddress = address?.lightningAddress
+        }
     }
 }

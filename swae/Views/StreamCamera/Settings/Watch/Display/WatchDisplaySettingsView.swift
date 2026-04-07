@@ -9,7 +9,7 @@ struct WatchDisplaySettingsView: View {
                 NavigationLink {
                     WatchLocalOverlaysSettingsView(show: show)
                 } label: {
-                    Text("Local overlays")
+                    Text("Overlays")
                 }
             }
         }

@@ -20,9 +20,7 @@ struct CompactAudioLevelIconView: View {
             .foregroundColor(foregroundColor)
             .background(backgroundColor)
             .cornerRadius(5)
-            .padding(20)
-            .contentShape(Rectangle())
-            .padding(-20)
+            .contentShape(Rectangle().inset(by: -20))
     }
 }
 

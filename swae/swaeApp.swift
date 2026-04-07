@@ -19,8 +19,11 @@ class SwaeAppDelegate: UIResponder, UIApplicationDelegate {
         // Block all network requests
         // URLProtocol.registerClass(NetworkBlocker.self)
         
-        // Seed the Coinos API key into the Keychain on first launch
-        CoinosSecrets.bootstrapIfNeeded()
+        // Seed the Coinos API key into the Keychain on first launch.
+        // Dispatched async — Keychain reads can take 10-50ms and shouldn't block launch.
+        DispatchQueue.global(qos: .utility).async {
+            CoinosSecrets.bootstrapIfNeeded()
+        }
         
         // Apply rounded font design to UIKit components via appearance proxy
         applyGlobalUIKitFontAppearance()
@@ -123,41 +126,60 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate {
         self.window = window
         window.makeKeyAndVisible()
 
-        // Bridge animation: overlay that matches the launch screen, then fades out
+        // Bridge overlay — matches the launch storyboard so the user never sees
+        // a black/half-rendered frame. Removed when the feed signals it has
+        // finished its first layout + render pass.
         let launchOverlay = UIView(frame: window.bounds)
-        launchOverlay.backgroundColor = UIColor(red: 0.008, green: 0.008, blue: 0.035, alpha: 1.0) // #020209
+        launchOverlay.backgroundColor = UIColor(red: 0.008, green: 0.008, blue: 0.035, alpha: 1.0)
+        launchOverlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 
         let logoView = UIImageView(image: UIImage(named: "SwaeLogo"))
         logoView.contentMode = .scaleAspectFit
         logoView.frame = CGRect(x: 0, y: 0, width: 300, height: 75)
         logoView.center = CGPoint(x: window.bounds.midX, y: window.bounds.midY)
+        logoView.autoresizingMask = [
+            .flexibleTopMargin, .flexibleBottomMargin,
+            .flexibleLeftMargin, .flexibleRightMargin
+        ]
         launchOverlay.addSubview(logoView)
-
         window.addSubview(launchOverlay)
 
-        // Defer overlay fade to AFTER the first layout pass completes.
-        // The first CA::Transaction::commit (SwiftUI layout + collection view setup) takes
-        // ~375ms. Starting the fade immediately would reveal a black screen underneath
-        // because the skeleton cells haven't rendered yet. DispatchQueue.main.async ensures
-        // we wait for the current run loop iteration (including the first commit) to finish.
+        // Start networking after the first run loop tick.
         DispatchQueue.main.async {
-            // Start relay connections now that the first frame has rendered.
-            // This moves ~200ms of WebSocket setup off the pre-first-frame path.
             AppCoordinator.shared.startNetworking()
+        }
 
-            UIView.animate(
-                withDuration: 0.3,
-                delay: 0,
-                options: [.curveEaseIn]
-            ) {
-                logoView.transform = CGAffineTransform(scaleX: 0.85, y: 0.85)
-                logoView.alpha = 0
+        // Wait for the Metal gradient to actually render its first frame,
+        // then fade the overlay. This is the only signal that can't lie —
+        // it fires from inside GrainGradientView.render() after commandBuffer.commit().
+        var gradientObserver: NSObjectProtocol?
+        gradientObserver = NotificationCenter.default.addObserver(
+            forName: .grainGradientDidRenderFirstFrame,
+            object: nil,
+            queue: .main
+        ) { _ in
+            if let obs = gradientObserver {
+                NotificationCenter.default.removeObserver(obs)
+                gradientObserver = nil
+            }
+            UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseIn) {
+                launchOverlay.alpha = 0
             } completion: { _ in
-                UIView.animate(withDuration: 0.15) {
-                    launchOverlay.alpha = 0
-                } completion: { _ in
-                    launchOverlay.removeFromSuperview()
-                }
+                launchOverlay.removeFromSuperview()
+            }
+        }
+
+        // Safety timeout — if the notification never fires (e.g. onboarding flow),
+        // remove the overlay after 2 seconds so the app isn't stuck.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            guard launchOverlay.superview != nil else { return }
+            if let obs = gradientObserver {
+                NotificationCenter.default.removeObserver(obs)
+            }
+            UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseIn) {
+                launchOverlay.alpha = 0
+            } completion: { _ in
+                launchOverlay.removeFromSuperview()
             }
         }
 

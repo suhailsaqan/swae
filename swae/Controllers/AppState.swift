@@ -11,6 +11,22 @@ import OrderedCollections
 import Security
 import SwiftData
 import SwiftTrie
+import UIKit
+
+// MARK: - Profile Change Notification
+
+extension Notification.Name {
+    /// Posted when the active Nostr profile changes (via sign-in or account picker).
+    /// Model observes this to reset stream state for the new user.
+    static let activeProfileDidChange = Notification.Name("activeProfileDidChange")
+    /// Posted before a profile is deleted, with userInfo["publicKeyHex"].
+    static let profileWillBeDeleted = Notification.Name("profileWillBeDeleted")
+    /// Posted by VideoListViewController after its first layout pass completes.
+    /// The SceneDelegate listens for this to dismiss the launch overlay.
+    static let feedDidFinishInitialLayout = Notification.Name("feedDidFinishInitialLayout")
+    /// Posted by GrainGradientView after its first Metal frame is committed.
+    static let grainGradientDidRenderFirstFrame = Notification.Name("grainGradientDidRenderFirstFrame")
+}
 
 class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     static func == (lhs: AppState, rhs: AppState) -> Bool {
@@ -98,6 +114,66 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     @Published var pubkeyTrie = Trie<String>()
 
     @Published var playerConfig: PlayerConfig = .init()
+
+    /// Cache of detected video orientations, keyed by event ID.
+    /// Populated on-tap when the player opens. Survives within a session.
+    var detectedOrientations: [String: VideoAspectRatio] = [:]
+
+    /// Opens a stream in the player. Single entry point for all player opens.
+    /// - Parameters:
+    ///   - event: The live activity event to play
+    ///   - sourceView: The thumbnail view to animate from (nil = no expand animation)
+    ///   - thumbnailImage: The thumbnail image for the transition snapshot
+    @MainActor
+    func openStream(_ event: LiveActivitiesEvent, sourceView: UIView? = nil, thumbnailImage: UIImage? = nil) {
+        // Orientation detection
+        let cacheKey = event.id
+        if let cached = detectedOrientations[cacheKey] {
+            playerConfig.videoAspectRatio = cached
+        } else {
+            playerConfig.videoAspectRatio = .unknown
+            let streamURL = event.status == .ended
+                ? (event.recording ?? event.streaming)
+                : (event.streaming ?? event.recording)
+            if let url = streamURL {
+                HLSResolutionDetector.detect(from: url) { [weak self] resolution in
+                    DispatchQueue.main.async {
+                        guard let self, let resolution else { return }
+                        let ratio: VideoAspectRatio
+                        if resolution.aspectRatio < 0.8 { ratio = .portrait9_16 }
+                        else if resolution.aspectRatio > 1.2 { ratio = .landscape16_9 }
+                        else { ratio = .square1_1 }
+                        self.detectedOrientations[cacheKey] = ratio
+                        self.playerConfig.videoAspectRatio = ratio
+                    }
+                }
+            }
+        }
+
+        playerConfig.selectedLiveActivitiesEvent = event
+
+        // Create and present the player
+        let liveStream = event.toLiveStream()
+
+        let sourceRect = sourceView?.convert(sourceView!.bounds, to: nil) ?? .zero
+        let cornerRadius = sourceView?.layer.cornerRadius ?? 0
+
+        // Always use ReelsPlayerController — handles both portrait and landscape
+        let reelsController = ReelsPlayerController(
+            liveStream: liveStream,
+            liveActivitiesEvent: event,
+            appState: self
+        )
+        reelsController.setThumbnailImage(thumbnailImage)
+        let controller: any PlayerController = reelsController
+
+        RootViewController.instance.presentPlayer(
+            controller,
+            from: sourceRect,
+            cornerRadius: cornerRadius,
+            thumbnailImage: thumbnailImage
+        )
+    }
 
     @Published var wallet: WalletModel?
     @Published var isAutoConnectingWallet = false
@@ -220,11 +296,9 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     }
 
     var publicKey: PublicKey? {
-        // If cache is invalid or missing, refresh it
-        let currentPublicKeyHex = appSettings?.activeProfile?.publicKeyHex
-        if currentPublicKeyHex != cachedPublicKeyHex {
-            refreshCachedPublicKey()
-        }
+        // Return cached value directly — no SwiftData fetch on every access.
+        // Cache is refreshed in init() and when the active profile changes
+        // (via refreshCachedPublicKey called from switchProfile/signIn/etc).
         return cachedPublicKey
     }
 
@@ -527,6 +601,13 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
             refreshFollowedPubkeys()
         }
 
+        // Notify Model to clean up streams owned by this profile before deletion
+        NotificationCenter.default.post(
+            name: .profileWillBeDeleted,
+            object: nil,
+            userInfo: ["publicKeyHex": profile.publicKeyHex as Any]
+        )
+
         modelContext.delete(profile)
     }
 
@@ -560,6 +641,9 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
 
         updateRelayPool()
         refresh(hardRefresh: true)
+
+        // Notify Model to reset stream state for the new profile
+        NotificationCenter.default.post(name: .activeProfileDidChange, object: nil)
     }
 
     func signIn(keypair: Keypair, relayURLs: [URL]) {
@@ -643,6 +727,9 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
         updateRelayPool()
         pullMissingEventsFromPubkeysAndFollows([publicKey.hex])
         refresh()
+
+        // Notify Model to reset stream state for the new profile
+        NotificationCenter.default.post(name: .activeProfileDidChange, object: nil)
     }
 
     /// Automatically connects a Coinos wallet for the given keypair.
@@ -651,9 +738,14 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
     /// The existing wallet onboarding UI remains as a fallback if this fails.
     func autoConnectCoinosWallet(keypair: Keypair) {
         // Skip if wallet is already connected
-        if let wallet = self.wallet, case .existing = wallet.connect_state {
-            print("✅ Auto wallet: already connected, skipping")
-            return
+        if let wallet = self.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark:
+                print("✅ Auto wallet: already connected, skipping")
+                return
+            default:
+                break
+            }
         }
 
         isAutoConnectingWallet = true
@@ -676,6 +768,51 @@ class AppState: ObservableObject, Hashable, RelayURLValidating, EventCreating {
                 print("⚠️ Auto wallet connection failed (user can connect manually): \(error)")
             }
         }
+    }
+
+    /// Automatically connects a Spark wallet for the given keypair.
+    /// Called after profile creation / sign-in when useSparkBackend is enabled.
+    /// Runs in the background — failures are logged but don't block the user.
+    func autoConnectSparkWallet(keypair: Keypair) {
+        // Skip if wallet is already connected
+        if let wallet = self.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark:
+                print("✅ Auto Spark wallet: already connected, skipping")
+                return
+            default:
+                break
+            }
+        }
+
+        isAutoConnectingWallet = true
+
+        Task {
+            defer {
+                Task { @MainActor in self.isAutoConnectingWallet = false }
+            }
+            do {
+                try await self.wallet?.connectSpark(
+                    privateKeyHex: keypair.privateKey.hex,
+                    apiKey: breezApiKey,
+                    lnurlDomain: breezLnurlDomain
+                )
+                print("✅ Auto Spark wallet connection succeeded")
+            } catch {
+                print("⚠️ Auto Spark wallet connection failed: \(error)")
+            }
+        }
+    }
+
+    /// Breez API key — loaded from Config.xcconfig or hardcoded for development
+    private var breezApiKey: String {
+        return breezSdkApiKey
+    }
+
+    /// Breez LNURL domain for Lightning addresses
+    private var breezLnurlDomain: String? {
+        // Set to your domain after CNAME setup with Breez (e.g., "pay.swae.live")
+        return nil
     }
 
     var profiles: [Profile] {

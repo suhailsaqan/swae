@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 enum WizardPlatform {
@@ -178,10 +179,66 @@ extension Model {
             stream.codec = createStreamWizard.customProtocol.toDefaultCodec()
         }
         stream.audioBitrate = 128_000
+        stream.ownerPublicKeyHex = appState?.publicKey?.hex
         database.streams.append(stream)
         setCurrentStream(stream: stream)
         reloadStream()
         sceneUpdated(attachCamera: true, updateRemoteScene: false)
+
+        // Auto-enable NWC auto top-up for Zap Stream Core streams when wallet is connected.
+        // This ensures auto-pay is enabled regardless of which UI path created the stream.
+        if createStreamWizard.platform == .zapStreamCore {
+            autoEnableNwcForZapStreamCore()
+        }
+    }
+
+    /// Sends the user's NWC URI to the zap.stream server so streaming costs
+    /// are paid automatically from their wallet. Fire-and-forget.
+    private func autoEnableNwcForZapStreamCore() {
+        guard let wallet = appState?.wallet else { return }
+
+        switch wallet.connect_state {
+        case .existing(let nwc):
+            // Coinos path — use NWC URL directly
+            sendNwcUriForAutoEnable(nwc.to_url().absoluteString)
+
+        case .spark:
+            // Spark path — start on-device NWC responder
+            guard let spark = wallet.sparkService else { return }
+            Task { [weak self] in
+                do {
+                    let responder = NWCResponder()
+                    let nwcURL = try await responder.start(sparkService: spark)
+                    await MainActor.run {
+                        self?.nwcResponder = responder
+                        self?.sendNwcUriForAutoEnable(nwcURL.to_url().absoluteString)
+                    }
+                } catch {
+                    print("❌ NWCResponder start failed in wizard: \(error)")
+                }
+            }
+
+        default:
+            return
+        }
+    }
+
+    private func sendNwcUriForAutoEnable(_ nwcUri: String) {
+        let config = ZapStreamCoreConfig(baseUrl: stream.zapStreamCoreBaseUrl)
+        let client = ZapStreamCoreApiClient(config: config)
+
+        var cancellable: AnyCancellable?
+        cancellable = client.updateAccount(appState: appState!, nwcUri: nwcUri)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { _ in
+                    _ = cancellable
+                },
+                receiveValue: { [weak self] _ in
+                    self?.zapStreamCoreHasNwc = true
+                    self?.refreshZapStreamCoreBalance()
+                }
+            )
     }
 
     func resetWizard() {

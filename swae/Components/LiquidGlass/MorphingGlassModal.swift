@@ -450,6 +450,11 @@ class MorphingGlassModal: UIView {
         set { expandedContent.onStreamDetailFpsChanged = newValue }
     }
 
+    var onStreamDetailBitrateChanged: ((Int) -> Void)? {
+        get { expandedContent.onStreamDetailBitrateChanged }
+        set { expandedContent.onStreamDetailBitrateChanged = newValue }
+    }
+
     var onStreamDetailAudioBitrateChanged: ((Int) -> Void)? {
         get { expandedContent.onStreamDetailAudioBitrateChanged }
         set { expandedContent.onStreamDetailAudioBitrateChanged = newValue }

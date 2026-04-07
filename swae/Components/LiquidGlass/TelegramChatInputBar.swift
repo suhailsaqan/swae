@@ -565,6 +565,7 @@ class LiquidGlassTextField: UIView {
     // Callbacks
     var onTextChanged: ((String) -> Void)?
     var onEmojiTapped: (() -> Void)?
+    var onBeginEditing: (() -> Void)?
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -737,7 +738,7 @@ class LiquidGlassTextField: UIView {
 
 extension LiquidGlassTextField: UITextViewDelegate {
     func textViewDidBeginEditing(_ textView: UITextView) {
-        // Subtle highlight animation could go here
+        onBeginEditing?()
     }
     
     func textViewDidEndEditing(_ textView: UITextView) {

@@ -254,6 +254,11 @@ struct MetaGlassesSettingsView: View {
         }
     }
 
+    /// Whether the stream is effectively active (running or transitioning).
+    private var isStreamEffectivelyActive: Bool {
+        manager.isStreaming || manager.streamingStatus.isTransitioning
+    }
+
     private var previewControlCard: some View {
         VStack(spacing: 8) {
             HStack(spacing: 12) {
@@ -268,7 +273,7 @@ struct MetaGlassesSettingsView: View {
                 Text("Preview")
                     .font(.body.weight(.medium))
                 Spacer()
-                if model.isMetaGlassesPreviewActive {
+                if model.isMetaGlassesPreviewActive || isStreamEffectivelyActive {
                     Button("Stop", role: .destructive) {
                         model.stopMetaGlassesPreview()
                     }
@@ -282,6 +287,19 @@ struct MetaGlassesSettingsView: View {
                             .font(.subheadline.weight(.medium))
                             .foregroundColor(.accentPurple)
                     }
+                }
+            }
+            // Show intermediate status so the user knows what's happening
+            if manager.streamingStatus.isTransitioning
+                || manager.streamingStatus == .waitingForReconnect
+                || manager.streamingStatus == .waitingForDevice
+            {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text(manager.streamingStatus.displayString)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             if model.isMetaGlassesNeededByScene {

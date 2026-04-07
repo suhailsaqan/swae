@@ -4,6 +4,52 @@ import MWDATCamera
 import MWDATCore
 import UIKit
 
+/// Represents the high-level streaming lifecycle so the model layer
+/// can guard against duplicate starts without fragile string comparisons.
+enum MetaGlassesStreamingStatus: Equatable {
+    case stopped
+    case checkingPermissions
+    case requestingPermission
+    case permissionDenied
+    case permissionError
+    case starting
+    case streaming
+    case stopping
+    case paused
+    case waitingForDevice
+    case waitingForReconnect
+    case reconnecting
+    case unknown
+
+    var displayString: String {
+        switch self {
+        case .stopped: return "Stopped"
+        case .checkingPermissions: return "Checking permissions..."
+        case .requestingPermission: return "Requesting permission..."
+        case .permissionDenied: return "Permission denied"
+        case .permissionError: return "Permission error"
+        case .starting: return "Starting..."
+        case .streaming: return "Streaming"
+        case .stopping: return "Stopping..."
+        case .paused: return "Paused"
+        case .waitingForDevice: return "Waiting for glasses..."
+        case .waitingForReconnect: return "Waiting for reconnect..."
+        case .reconnecting: return "Reconnecting..."
+        case .unknown: return "Unknown"
+        }
+    }
+
+    /// Whether the manager is in the middle of starting up.
+    var isTransitioning: Bool {
+        switch self {
+        case .checkingPermissions, .requestingPermission, .starting, .reconnecting:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 @MainActor
 final class MetaGlassesManager: ObservableObject {
     @Published var isRegistered = false
@@ -11,18 +57,24 @@ final class MetaGlassesManager: ObservableObject {
     @Published var devices: [DeviceIdentifier] = []
     @Published var hasActiveDevice = false
     @Published var isStreaming = false
-    @Published var streamingStatus: String = "Stopped"
+    @Published var streamingStatus: MetaGlassesStreamingStatus = .stopped
     @Published var previewFrame: UIImage?
     @Published var error: String?
     @Published var frameCount: UInt64 = 0
     @Published var capturedPhoto: UIImage?
     @Published var showPhotoPreview = false
+    @Published var selectedResolution: StreamingResolution = .high
 
     /// Callback for feeding raw CMSampleBuffers into Swae's video pipeline.
     var onVideoFrame: ((CMSampleBuffer) -> Void)?
 
     /// Callback when stream stops unexpectedly (disconnect, error, hinges closed).
     var onStreamStopped: (() -> Void)?
+
+    /// Callback when auto-reconnect or foreground reconnect wants to restart.
+    /// The model layer should call updateMetaGlassesStreamState() to decide
+    /// whether to actually restart based on reference counting.
+    var onReconnectRequested: (() -> Void)?
 
     /// Stable camera ID used by the buffered video system.
     let cameraId = UUID()
@@ -38,7 +90,10 @@ final class MetaGlassesManager: ObservableObject {
     private var activeDeviceTask: Task<Void, Never>?
     private var autoReconnectTask: Task<Void, Never>?
     private var lastResolution: StreamingResolution = .high
-    private var wasStreamingBeforeBackground = false
+    var wasStreamingBeforeBackground = false
+
+    /// Reusable CIContext for preview frame rendering — creating one per frame is expensive.
+    private let previewCIContext = CIContext()
 
     init() {
         deviceSelector = AutoDeviceSelector(wearables: Wearables.shared)
@@ -65,8 +120,8 @@ final class MetaGlassesManager: ObservableObject {
                 let hadDevice = self.hasActiveDevice
                 self.hasActiveDevice = device != nil
                 // Auto-reconnect: device came back while we were waiting
-                if device != nil, !hadDevice, self.streamingStatus == "Waiting for reconnect..." {
-                    self.scheduleAutoReconnect()
+                if device != nil, !hadDevice, self.streamingStatus == .waitingForReconnect {
+                    self.requestReconnect()
                 }
             }
         }
@@ -86,6 +141,11 @@ final class MetaGlassesManager: ObservableObject {
     }
 
     func disconnect() async {
+        // Stop the stream cleanly before unregistering to avoid relying
+        // on SDK teardown behavior for cleanup.
+        if isStreaming || streamingStatus.isTransitioning {
+            await stopStream()
+        }
         do {
             try await Wearables.shared.startUnregistration()
         } catch {
@@ -107,7 +167,7 @@ final class MetaGlassesManager: ObservableObject {
         error = nil
         lastResolution = resolution
         frameCount = 0
-        streamingStatus = "Checking permissions..."
+        streamingStatus = .checkingPermissions
 
         // Permission flow matching official CameraAccess sample exactly
         let permission = Permission.camera
@@ -117,25 +177,25 @@ final class MetaGlassesManager: ObservableObject {
                 await beginStreamSession(resolution: resolution)
                 return
             }
-            streamingStatus = "Requesting permission..."
+            streamingStatus = .requestingPermission
             let requestStatus = try await Wearables.shared.requestPermission(permission)
             if requestStatus == .granted {
                 await beginStreamSession(resolution: resolution)
                 return
             }
             error = "Camera permission denied. Grant permission in the Meta AI app."
-            streamingStatus = "Permission denied"
+            streamingStatus = .permissionDenied
         } catch let permError as PermissionError {
             self.error = "Permission error: \(permError.description)"
-            streamingStatus = "Permission error"
+            streamingStatus = .permissionError
         } catch {
             self.error = "Permission error: \(error.localizedDescription)"
-            streamingStatus = "Permission error"
+            streamingStatus = .permissionError
         }
     }
 
     private func beginStreamSession(resolution: StreamingResolution) async {
-        streamingStatus = "Starting..."
+        streamingStatus = .starting
         let config = StreamSessionConfig(
             videoCodec: .raw,
             resolution: resolution,
@@ -153,40 +213,40 @@ final class MetaGlassesManager: ObservableObject {
                 let wasStreaming = self.isStreaming
                 switch state {
                 case .stopped:
-                    self.streamingStatus = "Stopped"
+                    self.streamingStatus = .stopped
                     self.isStreaming = false
                     if wasStreaming {
                         self.onStreamStopped?()
                     }
                 case .waitingForDevice:
-                    self.streamingStatus = "Waiting for glasses..."
+                    self.streamingStatus = .waitingForDevice
                 case .starting:
-                    self.streamingStatus = "Starting..."
+                    self.streamingStatus = .starting
                 case .streaming:
-                    self.streamingStatus = "Streaming"
+                    self.streamingStatus = .streaming
                     self.isStreaming = true
                     self.error = nil
                 case .stopping:
-                    self.streamingStatus = "Stopping..."
+                    self.streamingStatus = .stopping
                 case .paused:
-                    self.streamingStatus = "Paused"
+                    self.streamingStatus = .paused
                     self.isStreaming = false
                 @unknown default:
-                    self.streamingStatus = "Unknown"
+                    self.streamingStatus = .unknown
                 }
             }
         }
 
         // Capture callback outside the Sendable closure to avoid main-actor isolation issue
         let frameCallback = self.onVideoFrame
+        let ciContext = self.previewCIContext
         videoToken = session.videoFramePublisher.listen { [weak self] frame in
             frameCallback?(frame.sampleBuffer)
             // Build a higher-quality preview from the raw CMSampleBuffer
             let buffer = frame.sampleBuffer
             if let pixelBuffer = CMSampleBufferGetImageBuffer(buffer) {
                 let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-                let context = CIContext()
-                if let cgImage = context.createCGImage(ciImage, from: ciImage.extent) {
+                if let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) {
                     let uiImage = UIImage(cgImage: cgImage)
                     Task { @MainActor in
                         self?.previewFrame = uiImage
@@ -202,7 +262,7 @@ final class MetaGlassesManager: ObservableObject {
                 let message = self.formatError(sessionError)
                 self.error = message
                 if self.isRecoverableError(sessionError) {
-                    self.scheduleAutoReconnect()
+                    self.requestReconnect()
                 }
             }
         }
@@ -224,13 +284,19 @@ final class MetaGlassesManager: ObservableObject {
         autoReconnectTask?.cancel()
         autoReconnectTask = nil
         await streamSession?.stop()
+        cleanupSession()
+    }
+
+    /// Tears down session state and tokens without stopping the session itself.
+    /// Used after stopStream() and during reconnection cleanup.
+    private func cleanupSession() {
         streamSession = nil
         stateToken = nil
         videoToken = nil
         errorToken = nil
         photoToken = nil
         isStreaming = false
-        streamingStatus = "Stopped"
+        streamingStatus = .stopped
         previewFrame = nil
         frameCount = 0
     }
@@ -253,45 +319,44 @@ final class MetaGlassesManager: ObservableObject {
         if wasStreamingBeforeBackground {
             wasStreamingBeforeBackground = false
             // Clean up any stale session state
-            streamSession = nil
-            stateToken = nil
-            videoToken = nil
-            errorToken = nil
-            photoToken = nil
-            isStreaming = false
-            streamingStatus = "Reconnecting..."
-            // Delay to let glasses BLE state settle after background teardown
-            Task {
+            cleanupSession()
+            streamingStatus = .reconnecting
+            // Delay to let glasses BLE state settle after background teardown,
+            // then ask the model layer to re-evaluate via callback.
+            autoReconnectTask?.cancel()
+            autoReconnectTask = Task {
                 try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
-                guard !Task.isCancelled, self.hasActiveDevice else {
-                    self.streamingStatus = "Stopped"
+                guard !Task.isCancelled else { return }
+                guard self.hasActiveDevice else {
+                    self.streamingStatus = .stopped
                     return
                 }
-                await self.startStream(resolution: self.lastResolution)
+                self.onReconnectRequested?()
             }
         }
     }
 
-    // MARK: - Auto Reconnect
+    // MARK: - Reconnection
 
-    private func scheduleAutoReconnect() {
+    /// Asks the model layer to re-evaluate whether the stream should restart.
+    /// This keeps the model's reference counting in control instead of
+    /// the manager restarting the stream on its own.
+    private func requestReconnect() {
         autoReconnectTask?.cancel()
-        streamingStatus = "Waiting for reconnect..."
+        streamingStatus = .waitingForReconnect
         autoReconnectTask = Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 second delay
             guard !Task.isCancelled else { return }
             guard self.hasActiveDevice else {
-                self.streamingStatus = "Waiting for glasses..."
+                self.streamingStatus = .waitingForDevice
                 return
             }
-            // Clean up old session
+            // Clean up old session before requesting restart
             await self.streamSession?.stop()
-            self.streamSession = nil
-            self.stateToken = nil
-            self.videoToken = nil
-            self.errorToken = nil
-            // Restart
-            await self.startStream(resolution: self.lastResolution)
+            self.cleanupSession()
+            self.streamingStatus = .reconnecting
+            // Let the model layer decide whether to restart
+            self.onReconnectRequested?()
         }
     }
 

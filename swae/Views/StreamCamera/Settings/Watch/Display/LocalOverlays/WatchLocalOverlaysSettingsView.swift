@@ -21,6 +21,6 @@ struct WatchLocalOverlaysSettingsView: View {
                     }
             }
         }
-        .navigationTitle("Local overlays")
+        .navigationTitle("Overlays")
     }
 }

@@ -203,9 +203,13 @@ class ZapStreamCorePaymentViewModel: ObservableObject {
 
     /// Check wallet connection status on appear
     func checkWalletStatus(appState: AppState) {
-        if let wallet = appState.wallet,
-           case .existing = wallet.connect_state {
-            walletConnected = true
+        if let wallet = appState.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark:
+                walletConnected = true
+            default:
+                walletConnected = false
+            }
         } else {
             walletConnected = false
         }
@@ -213,9 +217,11 @@ class ZapStreamCorePaymentViewModel: ObservableObject {
 
     /// Attempt to pay the invoice automatically using the user's NWC wallet
     func attemptAutoPayWithWallet(invoice: ZapStreamCoreInvoice, appState: AppState) {
-        guard let walletModel = appState.wallet,
-              case .existing = walletModel.connect_state else {
-            // No wallet connected — user will see the manual QR flow
+        guard let walletModel = appState.wallet else { return }
+        switch walletModel.connect_state {
+        case .existing, .spark:
+            break
+        default:
             return
         }
 

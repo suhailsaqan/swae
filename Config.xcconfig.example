@@ -1,0 +1,7 @@
+// Meta Wearables Device Access Toolkit credentials
+// Copy this file to Config.xcconfig and fill in your values from https://wearables.developer.meta.com/
+// For Developer Mode testing, you can leave these empty or set META_APP_ID to an empty string
+// NOTE: Replace pipe characters (|) in CLIENT_TOKEN with __PIPE__ since xcconfig can't handle |
+// Example: AR|123|abc becomes AR__PIPE__123__PIPE__abc
+META_APP_ID = 
+CLIENT_TOKEN = 

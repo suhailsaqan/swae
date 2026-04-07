@@ -584,6 +584,25 @@ private struct AutoSceneSwitcherStatusView: View {
     }
 }
 
+private struct ServerFpsStatusView: View {
+    @EnvironmentObject var model: Model
+    @ObservedObject var show: SettingsShow
+    let textPlacement: StreamOverlayIconAndTextPlacement
+
+    var body: some View {
+        if show.serverFps, model.stream.zapStreamCoreEnabled, model.isLive,
+           let fps = model.zapStreamServerFps
+        {
+            StreamOverlayIconAndTextView(
+                icon: "gauge.with.dots.needle.33percent",
+                text: "\(Int(fps)) FPS",
+                textPlacement: textPlacement,
+                color: fps < Double(model.stream.fps) * 0.5 ? .orange : .white
+            )
+        }
+    }
+}
+
 private struct StatusesView: View {
     @EnvironmentObject var model: Model
     @ObservedObject var show: SettingsShow
@@ -636,6 +655,10 @@ private struct StatusesView: View {
         StreamUptimeStatusView(show: model.database.show,
                                streamUptime: model.streamUptime,
                                textPlacement: textPlacement)
+        ServerFpsStatusView(
+            show: model.database.show,
+            textPlacement: textPlacement
+        )
         LocationStatusView(
             show: model.database.show,
             location: model.database.location,
@@ -696,9 +719,7 @@ private struct AudioView: View {
     var body: some View {
         if show.audioLevel {
             AudioLevelView(model: model)
-                .padding(20)
-                .contentShape(Rectangle())
-                .padding(-20)
+                .contentShape(Rectangle().inset(by: -20))
         }
     }
 }

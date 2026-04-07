@@ -130,12 +130,13 @@ final class OnboardingViewController: UIViewController {
         logoLabel.textAlignment = .center
         logoLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        // Gradient text
+        // Gradient text — size based on actual text bounds
+        let textSize = logoLabel.intrinsicContentSize
         let gradientLayer = CAGradientLayer()
         gradientLayer.colors = [UIColor.cyan.cgColor, UIColor.accentPurple.cgColor, UIColor.systemPurple.cgColor]
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
         gradientLayer.endPoint = CGPoint(x: 1, y: 1)
-        gradientLayer.frame = CGRect(x: 0, y: 0, width: 200, height: 70)
+        gradientLayer.frame = CGRect(origin: .zero, size: CGSize(width: textSize.width + 20, height: textSize.height + 10))
         
         let renderer = UIGraphicsImageRenderer(size: gradientLayer.frame.size)
         let gradientImage = renderer.image { ctx in
@@ -167,10 +168,10 @@ final class OnboardingViewController: UIViewController {
         view.addSubview(contentContainer)
         
         NSLayoutConstraint.activate([
-            contentContainer.topAnchor.constraint(equalTo: taglineLabel.bottomAnchor, constant: 8),
+            contentContainer.topAnchor.constraint(equalTo: taglineLabel.bottomAnchor, constant: 24),
             contentContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             contentContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            contentContainer.bottomAnchor.constraint(equalTo: actionButton.topAnchor, constant: -16),
+            contentContainer.bottomAnchor.constraint(equalTo: actionButton.topAnchor, constant: -24),
         ])
     }
     
@@ -196,9 +197,9 @@ final class OnboardingViewController: UIViewController {
         
         NSLayoutConstraint.activate([
             particleContainer.centerXAnchor.constraint(equalTo: contentContainer.centerXAnchor),
-            particleContainer.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor, constant: -60),
-            particleContainer.widthAnchor.constraint(equalToConstant: 200),
-            particleContainer.heightAnchor.constraint(equalToConstant: 200),
+            particleContainer.centerYAnchor.constraint(equalTo: contentContainer.centerYAnchor, constant: -50),
+            particleContainer.widthAnchor.constraint(equalToConstant: 220),
+            particleContainer.heightAnchor.constraint(equalToConstant: 220),
             
             hostingController.view.topAnchor.constraint(equalTo: particleContainer.topAnchor),
             hostingController.view.leadingAnchor.constraint(equalTo: particleContainer.leadingAnchor),
@@ -217,7 +218,7 @@ final class OnboardingViewController: UIViewController {
         contentContainer.addSubview(featureTitleLabel)
         
         // Description
-        featureDescriptionLabel.font = .systemFont(ofSize: 15)
+        featureDescriptionLabel.font = .systemFont(ofSize: 16)
         featureDescriptionLabel.textColor = .secondaryLabel
         featureDescriptionLabel.textAlignment = .center
         featureDescriptionLabel.numberOfLines = 0
@@ -230,13 +231,13 @@ final class OnboardingViewController: UIViewController {
         featureDescriptionLabel.text = feature.description
         
         NSLayoutConstraint.activate([
-            featureTitleLabel.topAnchor.constraint(equalTo: particleContainer.bottomAnchor, constant: 16),
+            featureTitleLabel.topAnchor.constraint(equalTo: particleContainer.bottomAnchor, constant: 24),
             featureTitleLabel.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: 32),
             featureTitleLabel.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -32),
             
-            featureDescriptionLabel.topAnchor.constraint(equalTo: featureTitleLabel.bottomAnchor, constant: 8),
-            featureDescriptionLabel.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: 32),
-            featureDescriptionLabel.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -32),
+            featureDescriptionLabel.topAnchor.constraint(equalTo: featureTitleLabel.bottomAnchor, constant: 12),
+            featureDescriptionLabel.leadingAnchor.constraint(equalTo: contentContainer.leadingAnchor, constant: 40),
+            featureDescriptionLabel.trailingAnchor.constraint(equalTo: contentContainer.trailingAnchor, constant: -40),
         ])
     }
     
@@ -449,17 +450,17 @@ struct MetalParticleWrapper: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(currentColor).opacity(0.2),
-                            Color(currentColor).opacity(0.05),
+                            Color(currentColor).opacity(0.3),
+                            Color(currentColor).opacity(0.1),
                             Color.clear
                         ],
                         center: .center,
                         startRadius: 0,
-                        endRadius: 120
+                        endRadius: 130
                     )
                 )
-                .frame(width: 240, height: 240)
-                .blur(radius: 20)
+                .frame(width: 260, height: 260)
+                .blur(radius: 25)
             
             MetalParticleViewWithCoordinator(
                 touchLocation: $touchLocation,

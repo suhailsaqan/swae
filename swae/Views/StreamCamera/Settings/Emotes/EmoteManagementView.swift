@@ -162,7 +162,7 @@ struct EmoteManagementView: View {
 
         // Also preserve any existing "a" tag references to emoji sets
         if let service = appState.emojiPackService {
-            for pack in service.packs where pack.authorPubkey != keypair.publicKey.hex {
+            for pack in service.packs where pack.authorPubkey != keypair.publicKey.hex && pack.id != EmojiPackService.defaultPackId {
                 tags.append(Tag(name: "a", value: pack.id))
             }
         }

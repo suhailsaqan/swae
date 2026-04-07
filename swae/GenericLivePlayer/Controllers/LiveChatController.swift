@@ -92,6 +92,24 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     
     // Track if we're in streamer mode (shows dashboard) or viewer mode (shows legacy header)
     var isStreamerMode: Bool = false
+    
+    // When true, this controller is embedded inside ReelsPlayerController as a child VC.
+    // Disables standalone input bar, inputAccessoryView, keyboard handling, and uses black backgrounds.
+    var isEmbeddedInReels: Bool = false
+
+    /// Keyboard height passed from ReelsPlayerController when embedded in reels mode.
+    /// Used to adjust table content insets so chat messages aren't hidden behind the keyboard.
+    private(set) var reelsKeyboardHeight: CGFloat = 0
+
+    /// Called by ReelsPlayerController to update the chat table insets when the keyboard appears/disappears.
+    func updateKeyboardInset(_ keyboardHeight: CGFloat) {
+        reelsKeyboardHeight = keyboardHeight
+        let wasAtBottom = isScrolledNearBottom()
+        updateTableContentInsetForKeyboard()
+        if wasAtBottom {
+            scrollToNewestMessage(animated: false)
+        }
+    }
 
     var cancellables: Set<AnyCancellable> = []
 
@@ -120,6 +138,11 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     private var isShowingSkeletons = true
     private let skeletonContainerView = UIView()
     private var skeletonViews: [ChatSkeletonRowView] = []
+    
+    // Empty state view (shown when no chat messages)
+    private let emptyChatView = UIView()
+    private let emptyChatBubbleIcon = UIImageView()
+    private let emptyChatLabel = UILabel()
 
     // AppState reference
     weak var appState: AppState?
@@ -137,8 +160,8 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
         }
     }
 
-    var videoController: GenericLivePlayerController? {
-        parent as? GenericLivePlayerController
+    var videoController: (any PlayerController)? {
+        parent as? (any PlayerController)
     }
     
     var miniPlayerController: MiniPlayerSupport? {
@@ -232,6 +255,9 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
         
         // Setup skeleton loading view
         setupSkeletonView()
+        
+        // Setup empty chat state view
+        setupEmptyChatView()
 
         // Tap anywhere to dismiss keyboard (works with interactive drag dismiss)
         setupTapToDismissKeyboard()
@@ -245,6 +271,14 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
 
         // Subscribe to real chat data from AppState
         subscribeToLiveChat()
+        
+        // Reels mode overrides — must be after all setup
+        if isEmbeddedInReels {
+            commentsTable.backgroundColor = .clear
+            skeletonContainerView.backgroundColor = .black
+            emptyChatView.backgroundColor = .clear
+            commentsTable.keyboardDismissMode = .interactive
+        }
     }
     
     /// Gets the safe area top inset from the key window.
@@ -489,6 +523,80 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
         }
     }
     
+    private func setupEmptyChatView() {
+        emptyChatView.translatesAutoresizingMaskIntoConstraints = false
+        emptyChatView.isHidden = true  // Hidden until skeletons dismiss with no data
+        emptyChatView.alpha = 0
+        view.addSubview(emptyChatView)
+        
+        // Vertical stack: icon + label
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        emptyChatView.addSubview(stack)
+        
+        // Speech bubble icon with subtle tint
+        let bubbleConfig = UIImage.SymbolConfiguration(pointSize: 40, weight: .light)
+        emptyChatBubbleIcon.image = UIImage(systemName: "bubble.left.and.bubble.right", withConfiguration: bubbleConfig)
+        emptyChatBubbleIcon.tintColor = .tertiaryLabel
+        emptyChatBubbleIcon.contentMode = .scaleAspectFit
+        
+        // Label
+        emptyChatLabel.text = "No chat messages yet"
+        emptyChatLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        emptyChatLabel.textColor = .tertiaryLabel
+        emptyChatLabel.textAlignment = .center
+        
+        // Subtitle
+        let subtitleLabel = UILabel()
+        subtitleLabel.text = "Be the first to say something ✨"
+        subtitleLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        subtitleLabel.textColor = .secondaryLabel
+        subtitleLabel.textAlignment = .center
+        
+        stack.addArrangedSubview(emptyChatBubbleIcon)
+        stack.addArrangedSubview(emptyChatLabel)
+        stack.addArrangedSubview(subtitleLabel)
+        
+        NSLayoutConstraint.activate([
+            emptyChatView.topAnchor.constraint(equalTo: commentsTable.topAnchor),
+            emptyChatView.leadingAnchor.constraint(equalTo: commentsTable.leadingAnchor),
+            emptyChatView.trailingAnchor.constraint(equalTo: commentsTable.trailingAnchor),
+            emptyChatView.bottomAnchor.constraint(equalTo: commentsTable.bottomAnchor),
+            
+            stack.centerXAnchor.constraint(equalTo: emptyChatView.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: emptyChatView.centerYAnchor, constant: -20),
+        ])
+    }
+    
+    private func updateEmptyChatVisibility(animated: Bool = true) {
+        let shouldShow = chatItems.isEmpty && !isShowingSkeletons
+        
+        if shouldShow && emptyChatView.isHidden {
+            emptyChatView.isHidden = false
+            if animated {
+                UIView.animate(withDuration: 0.3) {
+                    self.emptyChatView.alpha = 1
+                }
+            } else {
+                emptyChatView.alpha = 1
+            }
+        } else if !shouldShow && !emptyChatView.isHidden {
+            if animated {
+                UIView.animate(withDuration: 0.2) {
+                    self.emptyChatView.alpha = 0
+                } completion: { _ in
+                    self.emptyChatView.isHidden = true
+                }
+            } else {
+                emptyChatView.alpha = 0
+                emptyChatView.isHidden = true
+            }
+        }
+    }
+    
     private func hideSkeletons() {
         guard isShowingSkeletons else { return }
         isShowingSkeletons = false
@@ -498,6 +606,8 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
         } completion: { _ in
             self.skeletonContainerView.isHidden = true
             self.skeletonViews.forEach { $0.stopAnimating() }
+            // Show empty state if no messages arrived
+            self.updateEmptyChatVisibility()
         }
     }
 
@@ -514,7 +624,9 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
         
         // Make input accessory view background transparent (Telegram style)
         // This is safe to call even when not first responder
-        makeInputAccessoryBackgroundTransparent()
+        if !isEmbeddedInReels {
+            makeInputAccessoryBackgroundTransparent()
+        }
         
         // Update content inset now that we have proper frame
         updateTableContentInsetForKeyboard()
@@ -523,7 +635,10 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         // Update content inset when layout changes (rotation, etc.)
-        // Only update if keyboard is not visible to avoid conflicts
+        // Only update if keyboard is not visible to avoid conflicts.
+        // In reels mode, ReelsPlayerController manages insets via updateKeyboardInset(),
+        // so skip here to avoid competing animations that cause a bounce.
+        if isEmbeddedInReels { return }
         if !isKeyboardVisible {
             updateTableContentInsetForKeyboard()
         }
@@ -557,11 +672,11 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     override var canBecomeFirstResponder: Bool {
-        return true
+        return !isEmbeddedInReels
     }
 
     override var inputAccessoryView: UIView? {
-        return input
+        return isEmbeddedInReels ? nil : input
     }
 
     private func setupInputObservers() {
@@ -605,6 +720,7 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     // MARK: - Keyboard Handling
     
     private func handleKeyboardWillShow(_ notification: Notification) {
+        guard !isEmbeddedInReels else { return }
         guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
         
         let keyboardHeight = keyboardFrame.height
@@ -634,6 +750,7 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     }
     
     private func handleKeyboardWillHide(_ notification: Notification) {
+        guard !isEmbeddedInReels else { return }
         let animationDuration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let animationCurve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? 0
         
@@ -649,6 +766,7 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     }
     
     private func handleKeyboardWillChangeFrame(_ notification: Notification) {
+        guard !isEmbeddedInReels else { return }
         // This handles interactive keyboard dismissal
         // The keyboard frame changes as user drags
         guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
@@ -671,6 +789,35 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     /// Updates the table content inset based on current keyboard state
     /// For flipped table: top inset = visual bottom (space for input bar/keyboard)
     private func updateTableContentInsetForKeyboard() {
+        if isEmbeddedInReels {
+            // Flipped table: top = visual bottom (near input bar)
+            // Need enough inset so content doesn't scroll behind the inputAccessoryView
+            let inputBarHeight: CGFloat = 60
+            let safeAreaBottom = view.window?.safeAreaInsets.bottom ?? 34
+            let keyboardExtra = reelsKeyboardHeight
+            // When keyboard is up, the inputAccessoryView sits on top of the keyboard,
+            // so we need keyboard height (which includes the input bar) instead of just the bar.
+            let topInset: CGFloat
+            if keyboardExtra > 0 {
+                topInset = keyboardExtra + 10
+            } else {
+                topInset = inputBarHeight + safeAreaBottom + 10
+            }
+            commentsTable.contentInset = UIEdgeInsets(
+                top: topInset,  // Visual bottom — space for input bar + keyboard
+                left: 0,
+                bottom: 10,  // Visual top — space from header
+                right: 0
+            )
+            commentsTable.scrollIndicatorInsets = UIEdgeInsets(
+                top: topInset - 10,
+                left: 0,
+                bottom: 0,
+                right: 0
+            )
+            return
+        }
+        
         let baseInset = calculateBaseInputBarInset()
         
         let topInset: CGFloat
@@ -700,6 +847,7 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     
     /// Calculates the base inset needed for the input bar when keyboard is hidden
     private func calculateBaseInputBarInset() -> CGFloat {
+        if isEmbeddedInReels { return 0 }
         // Input bar intrinsic height is 60, but it also has safe area padding
         let inputBarHeight: CGFloat = 60
         let safeAreaBottom = view.safeAreaInsets.bottom
@@ -716,6 +864,13 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     /// Scrolls to show the newest message (visual bottom, which is row 0 in flipped table)
     private func scrollToNewestMessage(animated: Bool) {
         guard chatItems.count > 0 else { return }
+        // Skip scroll if the table isn't actually visible on screen.
+        // During the expand animation (progress=0), the comments container is
+        // positioned off-screen. scrollToRow forces cell creation + height
+        // measurement (~30ms) which is wasted work when nothing is visible.
+        if isEmbeddedInReels, let container = view.superview, container.frame.minY >= container.superview?.bounds.height ?? 0 {
+            return
+        }
         // For flipped table, row 0 is at the visual bottom (newest message)
         commentsTable.scrollToRow(at: IndexPath(row: 0, section: 0), at: .top, animated: animated)
     }
@@ -766,9 +921,13 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     // MARK: - Zap Integration
     
     private func updateWalletState() {
-        if let wallet = appState?.wallet,
-           case .existing = wallet.connect_state {
-            input.hasConnectedWallet = true
+        if let wallet = appState?.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark:
+                input.hasConnectedWallet = true
+            default:
+                input.hasConnectedWallet = false
+            }
         } else {
             input.hasConnectedWallet = false
         }
@@ -881,8 +1040,11 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
     }
     
     @objc private func dismissKeyboardIfNeeded() {
-        // Only dismiss if text view is actually first responder
-        if input.textField.textView.isFirstResponder {
+        if isEmbeddedInReels {
+            // inputBar lives in the parent ReelsPlayerController's responder chain,
+            // so endEditing on our own view won't reach it — use the window instead.
+            view.window?.endEditing(true)
+        } else if input.textField.textView.isFirstResponder {
             input.textField.textView.resignFirstResponder()
         }
     }
@@ -954,6 +1116,18 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
             // Search field resigned — restore the chat input bar
             self?.becomeFirstResponder()
         }
+    }
+
+    // MARK: - Reels Mode Send Helpers
+
+    /// Called by the reels input bar to send a message.
+    func sendMessageFromReels(_ text: String) {
+        sendMessageWithText(text)
+    }
+
+    /// Called by the reels input bar to send a zap.
+    func sendZapFromReels(amount: Int64, message: String?) {
+        sendZap(amount: amount, message: message)
     }
 
     /// Send message with the provided text (called from TelegramChatInputBar callback)
@@ -1258,6 +1432,7 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
         // Hide skeleton loader once we have data
         if !messages.isEmpty || !zaps.isEmpty || !raids.isEmpty {
             hideSkeletons()
+            updateEmptyChatVisibility()
         }
         
         if !initialLoadComplete {
@@ -2274,12 +2449,7 @@ class LiveChatController: UIViewController, UIGestureRecognizerDelegate {
 extension LiveChatController: UITableViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard scrollView.isDragging, chatItems.count > 20 else { return }
-
-        let offset = scrollView.contentOffset.y
-        
-        // Support both GenericLivePlayerController and ControlPanelViewController
-        videoController?.chatControllerRequestMiniPlayer(offset > 10)
-        miniPlayerController?.chatControllerRequestMiniPlayer(offset > 10)
+        // Mini player mode removed — no-op for scroll-based collapse
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -2423,9 +2593,11 @@ extension LiveChatController: UITableViewDataSource {
         miniPlayerController?.chatControllerRequestMiniPlayer(true)
         
         // Dismiss the player and navigate to profile
-        if let playerController = videoController {
+        if videoController != nil {
             print("📱 Dismissing video controller and navigating...")
-            playerController.dismiss(animated: true) { [weak self] in
+            RootViewController.instance.dismissPlayer()
+            // Small delay to let dismiss animation start
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.navigateToProfile(pubkeyHex: pubkeyHex)
             }
         } else {
@@ -2474,8 +2646,10 @@ extension LiveChatController: UITableViewDataSource {
         view.endEditing(true)
         
         // Dismiss current player and open target stream
-        if let playerController = videoController {
-            playerController.dismiss(animated: true) { [weak self] in
+        if videoController != nil {
+            RootViewController.instance.dismissPlayer()
+            // Small delay to let dismiss animation start
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.navigateToStream(targetStream)
             }
         } else {
@@ -2487,24 +2661,8 @@ extension LiveChatController: UITableViewDataSource {
     private func navigateToStream(_ event: LiveActivitiesEvent) {
         guard let appState = appState else { return }
         
-        // Create LiveStream from LiveActivitiesEvent using the extension method
-        let liveStream = event.toLiveStream()
-        
-        // Find the root view controller
-        let rootVC = RootViewController.instance
-        
-        // Present the new stream player
-        let playerVC = GenericLivePlayerController(
-            liveStream: liveStream,
-            liveActivitiesEvent: event,
-            appState: appState
-        )
-        playerVC.modalPresentationStyle = .fullScreen
-        
-        // Small delay to ensure dismiss animation completes
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            rootVC.present(playerVC, animated: true)
-        }
+        // Open the stream through AppState's single entry point
+        appState.openStream(event)
     }
     
     /// Navigates to a profile by finding the tab bar controller and pushing

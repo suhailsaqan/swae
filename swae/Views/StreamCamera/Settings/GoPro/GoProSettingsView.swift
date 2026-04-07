@@ -286,12 +286,14 @@ struct GoProDeviceDetailView: View {
     var body: some View {
         Group {
             bleSection
-            wifiSection
-            qualitySection
-            rtmpInfoCard
-            advancedLink
-            statusCard
-            actionButton
+            if device.bluetoothPeripheralId != nil {
+                wifiSection
+                qualitySection
+                rtmpInfoCard
+                advancedLink
+                statusCard
+                actionButton
+            }
         }
     }
 

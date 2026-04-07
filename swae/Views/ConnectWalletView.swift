@@ -462,6 +462,8 @@ struct ConnectWalletView: View {
                 AreYouSure(nwc: nwc)
             case .existing(let nwc):
                 WalletMainView(walletModel: model)
+            case .spark:
+                WalletMainView(walletModel: model)
             case .none:
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {

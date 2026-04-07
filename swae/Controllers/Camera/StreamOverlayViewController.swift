@@ -250,7 +250,6 @@ class StreamOverlayViewController: UIViewController {
     private func setupSwiftUIIslands() {
         guard let model = model else { return }
         let leadingPad = leadingPadding()
-        let tapTargetExpansion: CGFloat = 20
 
         // Left status
         let leftView = LeftStatusContentView(model: model, database: model.database)
@@ -264,13 +263,15 @@ class StreamOverlayViewController: UIViewController {
         leftVC.didMove(toParent: self)
 
         let leftLeading = leftVC.view.leadingAnchor.constraint(
-            equalTo: view.leadingAnchor, constant: leadingPad - tapTargetExpansion
+            equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: leadingPad
         )
         NSLayoutConstraint.activate([
             leftVC.view.topAnchor.constraint(
-                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16 - tapTargetExpansion
+                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16
             ),
             leftLeading,
+            // Prevent left overlay from exceeding half the screen width
+            leftVC.view.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, multiplier: 0.5),
         ])
         leftStatusHostingVC = leftVC
         leftLeadingConstraint = leftLeading
@@ -288,11 +289,13 @@ class StreamOverlayViewController: UIViewController {
 
         NSLayoutConstraint.activate([
             rightTopVC.view.topAnchor.constraint(
-                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16 - tapTargetExpansion
+                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16
             ),
             rightTopVC.view.trailingAnchor.constraint(
-                equalTo: view.trailingAnchor, constant: -16
+                equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16
             ),
+            // Prevent right overlay from exceeding half the screen width
+            rightTopVC.view.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, multiplier: 0.5),
         ])
         rightTopStatusHostingVC = rightTopVC
 
@@ -471,13 +474,12 @@ class StreamOverlayViewController: UIViewController {
         guard let model = model else { return }
         let chatSettings = model.database.chat
         let leadingPad = leadingPadding()
-        let tapTargetExpansion: CGFloat = 20
 
         // Update chat bottom clearance
         chatBottomClearance.constant = orientation.isPortrait ? -85 : -chatSettings.bottomPoints
 
         // Update leading padding for left status and debug
-        leftLeadingConstraint?.constant = leadingPad - tapTargetExpansion
+        leftLeadingConstraint?.constant = leadingPad
         debugLeadingConstraint?.constant = leadingPad
 
         // Update chat size

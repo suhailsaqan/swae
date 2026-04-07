@@ -248,13 +248,14 @@ class ControlPanelViewController: UIViewController {
                       let model = self.model,
                       model.stream.zapStreamCoreEnabled else { return }
                 
-                // Find the current user's live event
+                // Find the most recent live event for this user (highest createdAt).
+                // Avoids latching onto stale events from previous streams.
                 guard let userPubkey = appState.keypair?.publicKey.hex else { return }
-                let userLiveEvent = allEvents.values
-                    .flatMap { $0 }
-                    .first(where: {
-                        $0.hostPubkeyHex == userPubkey && $0.status == .live
-                    })
+                let allLiveEvents: [LiveActivitiesEvent] = allEvents.values.flatMap { $0 }
+                let userLiveEvents = allLiveEvents.filter {
+                    $0.hostPubkeyHex == userPubkey && $0.status == .live
+                }
+                let userLiveEvent = userLiveEvents.max(by: { $0.createdAt < $1.createdAt })
                 
                 guard let newEvent = userLiveEvent else { return }
                 

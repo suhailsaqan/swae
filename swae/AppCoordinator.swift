@@ -61,13 +61,6 @@ final class AppCoordinator: ObservableObject {
         guard !isInitialized else { return }
         isInitialized = true
         
-        // Initialize Meta Wearables SDK (must be before Model creation)
-        do {
-            try Wearables.configure()
-        } catch {
-            print("⚠️ Meta Wearables SDK failed to configure: \(error)")
-        }
-        
         // Register Nostr transformer
         NostrEventValueTransformer.register()
 
@@ -92,8 +85,19 @@ final class AppCoordinator: ObservableObject {
         // Set app state reference on model
         model.appState = appState
         
-        // Initialize Meta Glasses integration
-        model.setupMetaGlasses()
+        // Migrate legacy streams to have profile ownership
+        model.migrateStreamOwnership()
+        
+        // Initialize Meta Wearables SDK and Meta Glasses integration.
+        // Deferred to a Task so the ~50-100ms SDK init doesn't block first frame.
+        Task { @MainActor in
+            do {
+                try Wearables.configure()
+            } catch {
+                print("⚠️ Meta Wearables SDK failed to configure: \(error)")
+            }
+            model.setupMetaGlasses()
+        }
         
         // Set up zap plasma effect callback
         appState.onZapReceived = { [weak model] amount in
@@ -109,18 +113,10 @@ final class AppCoordinator: ObservableObject {
         appState.isInitialSyncInProgress = true
         isLoadingInitialEvents = true
         
-        // 3. Connect to relays immediately.
-        //    Each relay that connects will call refresh(relay:) via relayStateDidChange.
-        appState.updateRelayPool()
-        appState.refreshFollowedPubkeys()
-        
-        // 4. Start fallback timer.
-        startFallbackTimer()
-        
-        // 5. Set completion callback — cancels fallback timer when relay data arrives.
-        appState.onInitialSyncComplete = { [weak self] in
-            self?.onRelayDataReady()
-        }
+        // 3–5. Relay connections, fallback timer, and completion callback are
+        //       deferred to startNetworking(), called by SceneDelegate after
+        //       the first frame renders. This removes ~200ms of WebSocket
+        //       connection setup from the pre-first-frame critical path.
         
         // 6. Run one-time migration to backfill kind/createdAt columns on existing events.
         //    This runs on the background actor so it doesn't block startup.
@@ -157,6 +153,19 @@ final class AppCoordinator: ObservableObject {
     }
 
     // MARK: - Relay-First Loading
+
+    /// Starts relay connections, follow list refresh, and fallback timer.
+    /// Called by SceneDelegate AFTER the first frame renders (via DispatchQueue.main.async)
+    /// to keep WebSocket connection setup (~200ms) off the pre-first-frame critical path.
+    @MainActor
+    func startNetworking() {
+        appState.updateRelayPool()
+        appState.refreshFollowedPubkeys()
+        startFallbackTimer()
+        appState.onInitialSyncComplete = { [weak self] in
+            self?.onRelayDataReady()
+        }
+    }
 
     private func startFallbackTimer() {
         fallbackTimer = Timer.scheduledTimer(withTimeInterval: fallbackTimeout, repeats: false) { [weak self] _ in

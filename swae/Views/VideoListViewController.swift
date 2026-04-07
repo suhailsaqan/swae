@@ -242,6 +242,9 @@ final class VideoListViewController: UIViewController {
             collectionView.bringSubviewToFront(heroHeader)
 
             hasSetInitialInset = true
+
+            // Signal the SceneDelegate that the feed is laid out and ready to be shown.
+            NotificationCenter.default.post(name: .feedDidFinishInitialLayout, object: nil)
         } else {
             // Update hero header width on rotation/size changes (maintain current height/y)
             var frame = heroHeader.frame
@@ -559,40 +562,42 @@ final class VideoListViewController: UIViewController {
     private func hideSearchOverlay(animated: Bool) {
         guard let overlay = searchResultsOverlay else { return }
         
-        // Clear search state
-        searchViewModel.searchText = ""
-        searchViewModel.searchResults = []
-        searchViewModel.isSearching = false
-        
         // Unsubscribe from keyboard notifications
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
         
-        // Restore the tab bar
-        mainTabBarController?.setCustomTabBarHidden(false, animated: animated)
+        // DON'T clear search results yet — let the overlay fade out with content still visible.
+        // Clearing now causes the table view to flash empty during the fade-out animation.
         
         let animations = {
             overlay.alpha = 0
-            overlay.transform = CGAffineTransform(scaleX: 0.98, y: 0.98)
         }
         
         let completion: (Bool) -> Void = { _ in
             overlay.isHidden = true
             overlay.transform = .identity
+            
+            // Clear search state AFTER the overlay is fully hidden
+            self.searchViewModel.searchText = ""
+            self.searchViewModel.searchResults = []
+            self.searchViewModel.isSearching = false
         }
         
         if animated && !UIAccessibility.isReduceMotionEnabled {
-            // Match search bar collapse animation: duration 0.4, same spring parameters
+            // Delay tab bar appearance so it doesn't pop in while the overlay is still fading
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                self?.mainTabBarController?.setCustomTabBarHidden(false, animated: true)
+            }
+            
             UIView.animate(
-                withDuration: 0.4,
+                withDuration: 0.35,
                 delay: 0,
-                usingSpringWithDamping: 0.85,
-                initialSpringVelocity: 0.3,
-                options: .allowUserInteraction,
+                options: [.curveEaseIn, .allowUserInteraction],
                 animations: animations,
                 completion: completion
             )
         } else {
+            mainTabBarController?.setCustomTabBarHidden(false, animated: false)
             animations()
             completion(true)
         }
@@ -698,7 +703,7 @@ final class VideoListViewController: UIViewController {
         let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
 
         let section = NSCollectionLayoutSection(group: group)
-        section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
+        section.orthogonalScrollingBehavior = .continuous
         section.interGroupSpacing = 14
         section.contentInsets = NSDirectionalEdgeInsets(
             top: 0, leading: 16, bottom: 32, trailing: 16)
@@ -732,7 +737,7 @@ final class VideoListViewController: UIViewController {
         let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
 
         let section = NSCollectionLayoutSection(group: group)
-        section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
+        section.orthogonalScrollingBehavior = .continuous
         section.interGroupSpacing = 12
         section.contentInsets = NSDirectionalEdgeInsets(
             top: 0, leading: 16, bottom: 32, trailing: 16)
@@ -815,7 +820,14 @@ final class VideoListViewController: UIViewController {
         // MARK: Feed visibility and background/foreground — unchanged
         handle_notify(.feed_visibility)
             .sink { [weak self] visible in
-                if visible { self?.heroHeader.resumeVideo() }
+                if visible {
+                    self?.heroHeader.resumeVideo()
+                    // Run deferred rebuild if data changed while player was open
+                    if self?.needsRebuild == true {
+                        self?.needsRebuild = false
+                        self?.rebuildSections()
+                    }
+                }
                 else { self?.heroHeader.pauseVideo() }
             }
             .store(in: &cancellables)
@@ -869,6 +881,13 @@ final class VideoListViewController: UIViewController {
     }
     
     private func rebuildSections() {
+        // Skip rebuilds while a player is covering the feed — defer until player dismisses.
+        // RootViewController.currentPlayerController is non-nil when a video is open.
+        if RootViewController.instance.currentPlayerController != nil {
+            needsRebuild = true
+            return
+        }
+
         // Reentrancy guard: if we're already inside a batch update, defer the rebuild
         if isRebuildingSections {
             needsRebuild = true

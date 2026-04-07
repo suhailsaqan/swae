@@ -252,48 +252,7 @@ class InstagramNavigationController: UIViewController {
     }
 
     private func getDeviceCornerRadius() -> CGFloat {
-        // Get the device's actual corner radius from the window scene
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-            let window = windowScene.windows.first
-        {
-
-            // For devices with rounded corners (iPhone X and later)
-            if window.safeAreaInsets.top > 20 {
-                // Instagram uses the exact device corner radius
-                // This matches the native iOS display corner radius
-                let screenBounds = UIScreen.main.bounds
-                let scale = UIScreen.main.scale
-
-                // Calculate the precise corner radius based on device
-                // This matches Instagram's implementation exactly
-                switch (screenBounds.width, screenBounds.height) {
-                case (375, 812), (812, 375):  // iPhone X, XS, 11 Pro, 12 mini, 13 mini
-                    return 39.25
-                case (414, 896), (896, 414):  // iPhone XR, 11, XS Max
-                    return 39.25
-                case (390, 844), (844, 390):  // iPhone 12, 12 Pro, 13, 13 Pro, 14
-                    return 39.25
-                case (428, 926), (926, 428):  // iPhone 12 Pro Max, 13 Pro Max, 14 Plus
-                    return 39.25
-                case (393, 852), (852, 393):  // iPhone 14 Pro
-                    return 39.25
-                case (430, 932), (932, 430):  // iPhone 14 Pro Max
-                    return 39.25
-                case (430, 932), (932, 430):  // iPhone 15, 15 Plus
-                    return 39.25
-                case (393, 852), (852, 393):  // iPhone 15 Pro
-                    return 39.25
-                case (430, 932), (932, 430):  // iPhone 15 Pro Max
-                    return 39.25
-                default:
-                    // Fallback for future devices - use safe area detection
-                    return 39.25
-                }
-            }
-        }
-
-        // For devices without rounded corners (iPhone 8 and earlier)
-        return 0
+        UIScreen.displayCornerRadius
     }
 
     private func setupGestures() {

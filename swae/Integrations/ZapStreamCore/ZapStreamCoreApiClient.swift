@@ -247,6 +247,20 @@ struct ZapStreamCoreCost: Codable {
         self.unit = unit
         self.rate = rate
     }
+
+    /// Formats the rate for display, showing decimals only when needed.
+    /// e.g. 2.0 → "2", 2.5 → "2.5"
+    var formattedRate: String {
+        formatSatsRate(rate)
+    }
+}
+
+/// Formats a sats/min rate for display, showing decimals only when needed.
+/// e.g. 2.0 → "2", 2.5 → "2.5"
+func formatSatsRate(_ rate: Double) -> String {
+    rate.truncatingRemainder(dividingBy: 1) == 0
+        ? "\(Int(rate))"
+        : String(format: "%.1f", rate)
 }
 
 struct ZapStreamCoreTos: Codable {
@@ -325,10 +339,10 @@ class ZapStreamCoreApiClient: ObservableObject {
     static var mockNetworkDelay: TimeInterval = 0.8
     
     /// Mock account balance in sats
-    static var mockBalance: Int = 1000
+    static var mockBalance: Int = 000
     
     /// Mock streaming cost rate
-    static var mockCostRate: Double = 21.0
+    static var mockCostRate: Double = 1.0
     #endif
 
     init(config: ZapStreamCoreConfig) {
@@ -354,7 +368,7 @@ class ZapStreamCoreApiClient: ObservableObject {
                 )
             ],
             balance: Self.mockBalance,
-            tos: ZapStreamCoreTos(accepted: true, link: "https://zap.stream/tos"),
+            tos: ZapStreamCoreTos(accepted: false, link: "https://zap.stream/tos"),
             forwards: [],
             details: ZapStreamCoreStreamDetails(
                 title: "",
@@ -364,7 +378,7 @@ class ZapStreamCoreApiClient: ObservableObject {
                 contentWarning: nil,
                 goal: nil
             ),
-            hasNwc: false
+            hasNwc: true
         )
     }
     
@@ -672,7 +686,22 @@ class ZapStreamCoreApiClient: ObservableObject {
                         {
                             print("ZapStreamCore API Error Response: \(responseString)")
                         }
-                        promise(.failure(ZapStreamCoreError.authenticationFailed))
+                        // Try to extract server error message
+                        if let data = data,
+                           let errorBody = try? JSONDecoder().decode(
+                               [String: String].self, from: data),
+                           let message = errorBody["error"] ?? errorBody["message"]
+                        {
+                            promise(.failure(ZapStreamCoreError.apiError(message)))
+                        } else {
+                            switch httpResponse.statusCode {
+                            case 401:
+                                promise(.failure(ZapStreamCoreError.authenticationFailed))
+                            default:
+                                promise(.failure(ZapStreamCoreError.apiError(
+                                    "Server error (HTTP \(httpResponse.statusCode))")))
+                            }
+                        }
                         return
                     }
 
@@ -1626,15 +1655,15 @@ enum ZapStreamCoreError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidConfiguration:
-            return "Invalid configuration"
+            return String(localized: "Stream settings are incomplete. Check your configuration.")
         case .authenticationFailed:
-            return "Authentication failed"
+            return String(localized: "Sign-in expired. Please sign in again.")
         case .invalidResponse:
-            return "Invalid response from server"
+            return String(localized: "Unexpected response from the server.")
         case .apiError(let message):
-            return "API Error: \(message)"
+            return message
         case .networkError(let error):
-            return "Network Error: \(error.localizedDescription)"
+            return String(localized: "Network error: \(error.localizedDescription)")
         }
     }
 }

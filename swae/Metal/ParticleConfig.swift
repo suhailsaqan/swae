@@ -23,8 +23,8 @@ struct ParticleConfig {
         repulsionForce: 4.0,
         springStiffness: 7.0,
         damping: 2.0,
-        particleCount: 15000,
-        particleSize: 5.0
+        particleCount: 20000,
+        particleSize: 3.0
     )
     
     /// Config for the rotating ring button (camera tab)

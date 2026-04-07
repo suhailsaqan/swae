@@ -41,6 +41,7 @@ struct StreamSetupView: View {
     private var canCreate: Bool {
         !streamName.trimmingCharacters(in: .whitespaces).isEmpty
             && accountInfo != nil
+            && (accountInfo!.tos?.accepted ?? false || model.zapStreamCoreTosAccepted)
             && !isLoading
             && !isCreating
     }
@@ -60,6 +61,7 @@ struct StreamSetupView: View {
             VStack(spacing: 24) {
                 headerView
                 connectionStatusView
+                
                 streamNameField
                 streamDescriptionField
                 StreamCoverImageView(imageURL: $streamImage)
@@ -70,6 +72,14 @@ struct StreamSetupView: View {
                     additionalTags: $additionalTags
                 )
                 .disabled(accountInfo == nil)
+                
+                // TOS acceptance for new users (shown at end of flow)
+                if let account = accountInfo,
+                   account.tos?.accepted == false,
+                   !model.zapStreamCoreTosAccepted {
+                    ZapStreamCoreTosView(stream: model.stream)
+                }
+                
                 createButton
                 Spacer(minLength: 40)
                 customServerLink
@@ -236,7 +246,6 @@ struct StreamSetupView: View {
 
     
     private func connectedView(_ account: ZapStreamCoreAccountResponse) -> some View {
-        let balance = model.zapStreamCoreBalance ?? account.balance
         return HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.title2)
@@ -251,23 +260,18 @@ struct StreamSetupView: View {
                         .font(.caption.monospaced())
                 }
                 
-                Text("Balance: \(balance) sats")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            if let cost = account.endpoints.first?.cost {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(Int(cost.rate)) sats/\(cost.unit)")
-                        .font(.caption.weight(.medium))
+                if let cost = account.endpoints.first?.cost, cost.rate > 0 {
+                    Text("Streaming cost: \(cost.formattedRate) sats/\(cost.unit)")
+                        .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("streaming cost")
-                        .font(.caption2)
+                } else {
+                    Text("Ready to stream")
+                        .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
+            
+            Spacer()
         }
         .padding(16)
         .background(
@@ -442,6 +446,8 @@ struct StreamSetupView: View {
 
                     // Seed the shared model balance
                     self.model.zapStreamCoreBalance = accountResponse.balance
+                    self.model.zapStreamCoreTosAccepted = accountResponse.tos?.accepted ?? false
+                    self.model.zapStreamCoreTosLink = accountResponse.tos?.link
                     if let cost = accountResponse.endpoints.first?.cost {
                         self.model.zapStreamCoreRate = cost.rate
                     }

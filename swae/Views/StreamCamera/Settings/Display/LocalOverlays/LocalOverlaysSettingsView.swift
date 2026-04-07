@@ -37,11 +37,11 @@ struct LocalOverlaysSettingsView: View {
                 } icon: {
                     Image(systemName: "megaphone")
                 }
-                Label {
-                    Toggle("Chat", isOn: $show.chat)
-                } icon: {
-                    Image(systemName: "message")
-                }
+                // Label {
+                //     Toggle("Chat", isOn: $show.chat)
+                // } icon: {
+                //     Image(systemName: "message")
+                // }
                 Label {
                     Toggle("Viewers", isOn: $show.viewers)
                 } icon: {
@@ -69,21 +69,21 @@ struct LocalOverlaysSettingsView: View {
                 // } icon: {
                 //     Image(systemName: "app.connected.to.app.below.fill")
                 // }
-                Label {
-                    Toggle("Remote control", isOn: $show.remoteControl)
-                } icon: {
-                    Image(systemName: "appletvremote.gen1")
-                }
+                // Label {
+                //     Toggle("Remote control", isOn: $show.remoteControl)
+                // } icon: {
+                //     Image(systemName: "appletvremote.gen1")
+                // }
                 Label {
                     Toggle("DJI devices", isOn: $show.djiDevices)
                 } icon: {
                     Image(systemName: "appletvremote.gen1")
                 }
-                Label {
-                    Toggle("Game controllers", isOn: $show.gameController)
-                } icon: {
-                    Image(systemName: "gamecontroller")
-                }
+                // Label {
+                //     Toggle("Game controllers", isOn: $show.gameController)
+                // } icon: {
+                //     Image(systemName: "gamecontroller")
+                // }
                 Label {
                     Toggle("Bitrate", isOn: $show.speed)
                 } icon: {
@@ -95,49 +95,54 @@ struct LocalOverlaysSettingsView: View {
                     Image(systemName: "deskclock")
                 }
                 Label {
+                    Toggle("Server FPS", isOn: $show.serverFps)
+                } icon: {
+                    Image(systemName: "gauge.with.dots.needle.33percent")
+                }
+                Label {
                     Toggle("Browser widgets", isOn: $show.browserWidgets)
                 } icon: {
                     Image(systemName: "globe")
                 }
-                Label {
-                    Toggle("Bonding", isOn: $show.bonding)
-                } icon: {
-                    Image(systemName: "phone.connection")
-                }
-                Label {
-                    Toggle("Bonding RTTs", isOn: $show.bondingRtts)
-                } icon: {
-                    Image(systemName: "phone.connection")
-                }
-                Label {
-                    Toggle("Cat printers", isOn: $show.catPrinter)
-                } icon: {
-                    Image(systemName: "pawprint")
-                }
-                Label {
-                    Toggle("Cycling power devices", isOn: $show.cyclingPowerDevice)
-                } icon: {
-                    Image(systemName: "bicycle")
-                }
-                Label {
-                    Toggle("Heart rate devices", isOn: $show.heartRateDevice)
-                } icon: {
-                    Image(systemName: "heart")
-                }
+                // Label {
+                //     Toggle("Bonding", isOn: $show.bonding)
+                // } icon: {
+                //     Image(systemName: "phone.connection")
+                // }
+                // Label {
+                //     Toggle("Bonding RTTs", isOn: $show.bondingRtts)
+                // } icon: {
+                //     Image(systemName: "phone.connection")
+                // }
+                // Label {
+                //     Toggle("Cat printers", isOn: $show.catPrinter)
+                // } icon: {
+                //     Image(systemName: "pawprint")
+                // }
+                // Label {
+                //     Toggle("Cycling power devices", isOn: $show.cyclingPowerDevice)
+                // } icon: {
+                //     Image(systemName: "bicycle")
+                // }
+                // Label {
+                //     Toggle("Heart rate devices", isOn: $show.heartRateDevice)
+                // } icon: {
+                //     Image(systemName: "heart")
+                // }
             }
-            Section {
-                Label {
-                    Toggle("Zoom presets", isOn: $show.zoomPresets)
-                } icon: {
-                    Image(systemName: "magnifyingglass")
-                }
-            } header: {
-                Text("Bottom right")
-            } footer: {
-                Text("")
-                Text("Local overlays do not appear on stream.")
-            }
+            // Section {
+            //     Label {
+            //         Toggle("Zoom presets", isOn: $show.zoomPresets)
+            //     } icon: {
+            //         Image(systemName: "magnifyingglass")
+            //     }
+            // } header: {
+            //     Text("Bottom right")
+            // } footer: {
+            //     Text("")
+            //     Text("Overlays do not appear on stream.")
+            // }
         }
-        .navigationTitle("Local overlays")
+        .navigationTitle("Overlays")
     }
 }

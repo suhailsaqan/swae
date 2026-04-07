@@ -82,6 +82,14 @@ extension Model {
 
         // Check if zap-stream-core is enabled and configured
         if stream.zapStreamCoreEnabled {
+            // Prevent streaming without a signed-in user
+            guard appState?.publicKey != nil else {
+                makeErrorToast(
+                    title: String(localized: "Sign In Required"),
+                    subTitle: String(localized: "Please sign in to stream with zap.stream.")
+                )
+                return
+            }
             startZapStreamCoreStream(delayed: delayed)
             return
         }
@@ -126,6 +134,8 @@ extension Model {
     func stopStream(stopObsStreamIfEnabled: Bool = true, stopObsRecordingIfEnabled: Bool = true)
         -> Bool
     {
+        connectionTimeoutTimer?.invalidate()
+        connectionTimeoutTimer = nil
         setIsLive(value: false)
         updateScreenAutoOff()
         realtimeIrl?.stop()
@@ -138,6 +148,7 @@ extension Model {
         // Unsubscribe from own live event when stopping a zap-stream-core stream
         if stream.zapStreamCoreEnabled {
             appState?.unsubscribeFromOwnLiveEvent()
+            stopZapStreamMetrics()
         }
 
         streamTotalBytes += UInt64(media.streamTotal())
@@ -204,6 +215,26 @@ extension Model {
         streamState = .connecting
         latestLowBitrateTime = .now
         moblink.streamer?.stopTunnels()
+
+        // Backstop timeout: if we're still .connecting after 20s, something is stuck.
+        // Normal failures are handled by onDisconnected + max retry.
+        // This catches edge cases where the socket never reports failure.
+        connectionTimeoutTimer?.invalidate()
+        connectionTimeoutTimer = Timer.scheduledTimer(
+            withTimeInterval: 20.0, repeats: false
+        ) { [weak self] _ in
+            guard let self, self.streaming, self.streamState == .connecting else { return }
+            logger.warning("stream: Connection timed out (backstop)")
+            self.makeErrorToast(
+                title: String(localized: "Connection Timed Out"),
+                subTitle: String(
+                    localized: "Could not reach the server. Check your connection and try again."
+                ),
+                vibrate: true
+            )
+            _ = self.stopStream()
+        }
+
         if stream.twitchMultiTrackEnabled {
             startNetStreamMultiTrack()
         } else {
@@ -361,13 +392,87 @@ extension Model {
     }
 
     func setCurrentStream() {
-        setCurrentStream(stream: database.streams.first(where: { $0.enabled }) ?? fallbackStream)
+        let profileStreams = streamsForCurrentProfile
+        setCurrentStream(stream: profileStreams.first(where: { $0.enabled })
+                         ?? profileStreams.first
+                         ?? fallbackStream)
+    }
+
+    /// Returns streams owned by the current profile, or legacy unowned streams.
+    var streamsForCurrentProfile: [SettingsStream] {
+        let currentPubkey = appState?.publicKey?.hex
+        return database.streams.filter { stream in
+            stream.ownerPublicKeyHex == currentPubkey || stream.ownerPublicKeyHex == nil
+        }
     }
 
     func findStream(id: UUID) -> SettingsStream? {
         return database.streams.first { stream in
             stream.id == id
         }
+    }
+
+    // MARK: - Profile Switch Stream Reset
+
+    /// Tears down all streaming state and re-initializes for the new user profile.
+    /// Called via NotificationCenter when the active Nostr profile changes.
+    func resetStreamStateForProfileSwitch() {
+        logger.info("stream: Resetting stream state for profile switch")
+
+        // 1. Stop any active stream (prevents streaming on wrong account)
+        if streaming {
+            _ = stopStream()
+        }
+
+        // 2. Tear down zap-stream-core API client and stream session
+        zapStreamCoreApiClient = nil
+        zapStreamCoreStream = nil
+
+        // 3. Clear cached zap-stream-core account state
+        zapStreamCoreBalance = nil
+        zapStreamCoreRate = 0
+        zapStreamCoreHasNwc = false
+        zapStreamCoreTosAccepted = false
+        zapStreamCoreTosLink = nil
+
+        // 4. Stop balance polling
+        stopBalancePolling()
+        balanceRefreshCancellable?.cancel()
+        balanceRefreshCancellable = nil
+
+        // 5. Tear down metrics WebSocket
+        stopZapStreamMetrics()
+
+        // 6. Stop nostr chat bridge
+        stopNostrChatBridge()
+
+        // 7. Unsubscribe from own live event
+        appState?.unsubscribeFromOwnLiveEvent()
+
+        // 8. Re-select the correct stream for the new profile
+        setCurrentStream()
+
+        // 9. Clear cached URL/key on the newly selected stream if it uses zap-stream-core.
+        //    This forces re-fetch from API on next "Go Live" so the correct user's
+        //    ingest endpoint is used.
+        if stream.zapStreamCoreEnabled {
+            stream.url = defaultStreamUrl
+            stream.zapStreamCoreStreamKey = ""
+        }
+
+        // 10. Re-initialize zap-stream-core if the new stream uses it
+        setupZapStreamCore()
+
+        // 11. Reload the stream pipeline (codecs, resolution, etc.)
+        reloadStream()
+
+        // 12. Persist immediately so cleared URL survives app crash
+        store()
+
+        // 13. Proactively fetch the new user's account info
+        refreshZapStreamCoreBalance()
+
+        logger.info("stream: Profile switch reset complete")
     }
 
     func reloadStream() {
@@ -550,6 +655,9 @@ extension Model {
     }
 
     private func onConnected() {
+        connectionTimeoutTimer?.invalidate()
+        connectionTimeoutTimer = nil
+        connectFailureCount = 0
         makeYouAreLiveToast()
         streamStartTime = .now
         streamState = .connected
@@ -557,22 +665,49 @@ extension Model {
     }
 
     private func onDisconnected(reason: String) {
+        connectionTimeoutTimer?.invalidate()
+        connectionTimeoutTimer = nil
         guard streaming else {
             return
         }
         logger.info("stream: Disconnected with reason \(reason)")
-        let subTitle = String(localized: "Attempting again in 5 seconds.")
+
         if streamState == .connected {
+            // Was live, lost connection mid-stream — always retry, reset counter
+            connectFailureCount = 0
             streamTotalBytes += UInt64(media.streamTotal())
             streamingHistoryStream?.numberOfFffffs! += 1
-            makeFffffToast(subTitle: subTitle)
+            makeFffffToast(subTitle: String(localized: "Attempting again in 5 seconds."))
         } else if streamState == .connecting {
-            makeConnectFailureToast(subTitle: subTitle)
+            // Never connected — count failures
+            connectFailureCount += 1
+            if connectFailureCount >= maxConnectFailures {
+                logger.warning("stream: Giving up after \(connectFailureCount) failed attempts")
+                connectFailureCount = 0
+                streamState = .disconnected
+                // stopStream() shows "Stream ended" toast — show error toast AFTER
+                // so it overwrites the generic "ended" message.
+                _ = stopStream()
+                makeErrorToast(
+                    title: failedToConnectMessage(stream.name),
+                    subTitle: String(
+                        localized: "Could not connect after \(maxConnectFailures) attempts."
+                    ),
+                    vibrate: true
+                )
+                return
+            }
+            makeConnectFailureToast(
+                subTitle: String(
+                    localized: "Attempt \(connectFailureCount)/\(maxConnectFailures). Retrying in 5 seconds."
+                )
+            )
         }
+
         streamState = .disconnected
         stopNetStream()
         reconnectTimer.startSingleShot(timeout: 5) {
-            logger.info("stream: Reconnecting")
+            logger.info("stream: Reconnecting (attempt \(self.connectFailureCount + 1))")
             self.startNetStream()
         }
     }
@@ -924,10 +1059,23 @@ extension Model {
 
     func updateDebugOverlay() {
         if database.debug.debugOverlay {
-            debugOverlay.debugLines =
-                [String(localized: "CPU: \(Int(debugOverlay.cpuUsage))")]
+            var lines = [String(localized: "CPU: \(Int(debugOverlay.cpuUsage))")]
                 + latestDebugLines
                 + latestDebugActions
+            // Append server-side metrics when streaming via zap-stream-core
+            if stream.zapStreamCoreEnabled, isLive {
+                if let fps = zapStreamServerFps {
+                    lines.append("Server FPS: \(Int(fps))")
+                }
+                if let viewers = zapStreamServerViewers {
+                    lines.append("Viewers: \(viewers)")
+                }
+                if let lastSeg = zapStreamLastSegmentTime {
+                    let age = Int(Date().timeIntervalSince(lastSeg))
+                    lines.append("Segment age: \(age)s")
+                }
+            }
+            debugOverlay.debugLines = lines
             if logger.debugEnabled, isLive {
                 logger.debug(latestDebugLines.joined(separator: ", "))
             }
@@ -1112,20 +1260,62 @@ extension Model: MediaDelegate {
             return
         }
 
-        // Validate zap-stream-core configuration - no API key needed with Nostr auth
-        // Authentication is handled automatically through AppState
+        // ── VALIDATION PHASE (no state changes yet) ──
 
-        // Initialize zap-stream-core API client if not already done
-        if zapStreamCoreApiClient == nil {
-            let config = ZapStreamCoreConfig(
-                baseUrl: stream.zapStreamCoreBaseUrl,
-                streamTitle: stream.zapStreamCoreStreamTitle.isEmpty
-                    ? stream.name : stream.zapStreamCoreStreamTitle,
-                streamDescription: stream.zapStreamCoreStreamDescription,
-                isPublic: stream.zapStreamCoreIsPublic
+        // Check TOS acceptance
+        if !zapStreamCoreTosAccepted {
+            makeErrorToast(
+                title: String(localized: "Terms of Service Required"),
+                subTitle: String(
+                    localized: "Accept the terms in your stream settings to go live."
+                )
             )
-            zapStreamCoreApiClient = ZapStreamCoreApiClient(config: config)
+            return
         }
+
+        // Check balance is sufficient (if known)
+        if let balance = zapStreamCoreBalance, balance <= 0 {
+            makeErrorToast(
+                title: String(localized: "Insufficient Balance"),
+                subTitle: String(
+                    localized: "Top up your zap.stream balance to go live."
+                )
+            )
+            return
+        }
+
+        // Check stream URL is configured
+        let url = stream.url
+        guard url != defaultStreamUrl, !url.isEmpty else {
+            makeErrorToast(
+                title: String(localized: "Stream Not Configured"),
+                subTitle: String(
+                    localized: "Open stream settings to connect to zap.stream."
+                )
+            )
+            return
+        }
+
+        // Check URL is a valid streaming protocol (not HTTPS fallback)
+        guard url.hasPrefix("rtmp://") || url.hasPrefix("rtmps://")
+              || url.hasPrefix("srt://") || url.hasPrefix("srtla://") else {
+            // URL looks wrong — try to auto-fetch from API
+            fetchStreamUrlThenStart(delayed: delayed)
+            return
+        }
+
+        // ── EXECUTION PHASE (state changes happen here) ──
+
+        // Always (re-)create the API client with current stream settings so that
+        // title/description changes made in PreStreamSheet are picked up.
+        let config = ZapStreamCoreConfig(
+            baseUrl: stream.zapStreamCoreBaseUrl,
+            streamTitle: stream.zapStreamCoreStreamTitle.isEmpty
+                ? stream.name : stream.zapStreamCoreStreamTitle,
+            streamDescription: stream.zapStreamCoreStreamDescription,
+            isPublic: stream.zapStreamCoreIsPublic
+        )
+        zapStreamCoreApiClient = ZapStreamCoreApiClient(config: config)
 
         // Initialize zap-stream-core stream if not already done
         if zapStreamCoreStream == nil {
@@ -1147,30 +1337,12 @@ extension Model: MediaDelegate {
         streamTotalChatMessages = 0
         updateScreenAutoOff()
 
-        // Start zap-stream-core stream
         // Push metadata to server BEFORE starting RTMP connection.
-        // This sets the account's default stream details so when the server
-        // creates the Nostr event upon receiving the RTMP connection, it uses
-        // the correct title, description, image, and tags.
         pushZapStreamCoreMetadata()
 
         // Subscribe to our own live event BEFORE starting the RTMP connection.
-        // The zap-stream-core server will publish a kind 30311 event when it
-        // detects our RTMP connection. We need this subscription open to receive it.
         if let userPubkey = appState?.keypair?.publicKey.hex {
             appState?.subscribeToOwnLiveEvent(pubkey: userPubkey)
-        }
-
-        // Use existing stream configuration - stream directly to the configured RTMP URL
-        guard stream.url != defaultStreamUrl else {
-            makeErrorToast(
-                title: String(localized: "Stream URL Required"),
-                subTitle: String(
-                    localized:
-                        "Please configure your stream URL in Settings → Streams → \(stream.name) → URL."
-                )
-            )
-            return
         }
 
         startNetStream()
@@ -1191,8 +1363,67 @@ extension Model: MediaDelegate {
         streamingHistoryStream!.updateLowestBatteryLevel(level: battery.level)
 
         // Ensure the nostr chat bridge is running now that we're live.
-        // The bridge may have failed to start earlier if conditions weren't met.
+        // Ensure the nostr chat bridge is running now that we're live.
         ensureNostrChatBridge()
+
+        // Start observing for the live event so we can connect the metrics WebSocket.
+        startZapStreamMetricsObserver()
+    }
+
+    /// Attempts to fetch the stream URL from the API when the stored URL is invalid.
+    /// On success, retries startZapStreamCoreStream with the correct URL.
+    private func fetchStreamUrlThenStart(delayed: Bool) {
+        guard let appState else {
+            makeErrorToast(
+                title: String(localized: "Sign In Required"),
+                subTitle: String(localized: "Please sign in to stream.")
+            )
+            return
+        }
+
+        logger.info("zap-stream-core: Fetching stream URL from API...")
+        let config = ZapStreamCoreConfig(baseUrl: stream.zapStreamCoreBaseUrl)
+        let client = ZapStreamCoreApiClient(config: config)
+
+        var cancellable: AnyCancellable?
+        cancellable = client.getAccountInfo(appState: appState)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case .failure(let error) = completion {
+                        self?.makeErrorToast(
+                            title: String(localized: "Connection Failed"),
+                            subTitle: error.localizedDescription
+                        )
+                    }
+                    _ = cancellable
+                },
+                receiveValue: { [weak self] account in
+                    guard let self else { return }
+                    self.zapStreamCoreTosAccepted = account.tos?.accepted ?? false
+                    self.zapStreamCoreTosLink = account.tos?.link
+                    self.zapStreamCoreBalance = account.balance
+                    self.zapStreamCoreHasNwc = account.hasNwc
+                    if let cost = account.endpoints.first?.cost {
+                        self.zapStreamCoreRate = cost.rate
+                    }
+
+                    if let endpoint = account.endpoints.first {
+                        let fullUrl = "\(endpoint.url)/\(endpoint.key)"
+                        self.stream.url = fullUrl
+                        self.stream.zapStreamCoreStreamKey = endpoint.key
+                        logger.info("zap-stream-core: Fetched URL: \(fullUrl)")
+                        self.startZapStreamCoreStream(delayed: delayed)
+                    } else {
+                        self.makeErrorToast(
+                            title: String(localized: "No Stream Endpoint"),
+                            subTitle: String(
+                                localized: "Top up your balance to get a streaming endpoint."
+                            )
+                        )
+                    }
+                }
+            )
     }
 
     func stopZapStreamCoreStream() {
@@ -1223,7 +1454,14 @@ extension Model: MediaDelegate {
         )
         .receive(on: DispatchQueue.main)
         .sink(
-            receiveCompletion: { _ in
+            receiveCompletion: { [weak self] completion in
+                if case .failure(let error) = completion {
+                    logger.warning("zap-stream-core: Metadata push failed: \(error)")
+                    self?.makeWarningToast(
+                        title: String(localized: "Stream info may not be updated"),
+                        subTitle: nil
+                    )
+                }
                 cancellable = nil // Release after completion
             },
             receiveValue: { _ in
@@ -1271,44 +1509,119 @@ extension Model: MediaDelegate {
 // MARK: - ZapStreamCoreStreamDelegate
 
 extension Model: ZapStreamCoreStreamDelegate {
-    func zapStreamCoreOnConnected() {
-        DispatchQueue.main.async {
-            self.streamState = .connected
-            self.makeYouAreLiveToast()
-            self.streamStartTime = .now
-            self.updateStreamUptime(now: .now)
-        }
-    }
-
-    func zapStreamCoreOnDisconnected(reason: String) {
-        DispatchQueue.main.async {
-            self.streamState = .disconnected
-            self.onDisconnected(reason: reason)
-        }
-    }
-
     func zapStreamCoreOnError(error: Error) {
         DispatchQueue.main.async {
             self.makeErrorToast(
-                title: String(localized: "Zap Stream Core Error"),
+                title: String(localized: "Zap Stream Error"),
                 subTitle: error.localizedDescription
             )
         }
     }
+}
 
-    func zapStreamCoreOnStreamStarted(streamId: String) {
+// MARK: - Zap Stream Metrics WebSocket
+
+extension Model {
+    /// Start observing for the own live event so we can connect the metrics WebSocket
+    /// once the stream_id is known. Called from startZapStreamCoreStream().
+    func startZapStreamMetricsObserver() {
+        guard let appState, let keypair = appState.keypair else { return }
+
+        metricsLiveEventCancellable = appState.$liveActivitiesEvents
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [weak self] allEvents in
+                guard let self else { return }
+                // Already connected — don't reconnect
+                guard self.zapStreamMetricsClient == nil else { return }
+                guard self.streaming, self.stream.zapStreamCoreEnabled else { return }
+
+                let userPubkey = keypair.publicKey.hex
+                let allLive = allEvents.values.flatMap { $0 }
+                let ownLive = allLive.filter { $0.hostPubkeyHex == userPubkey && $0.status == .live }
+                guard let event = ownLive.max(by: { $0.createdAt < $1.createdAt }),
+                      let streamId = event.identifier,
+                      !streamId.isEmpty
+                else { return }
+
+                logger.info("zap-stream-metrics: Own live event found, stream_id=\(streamId)")
+                let client = ZapStreamCoreMetricsClient(
+                    baseUrl: self.stream.zapStreamCoreBaseUrl,
+                    keypair: keypair
+                )
+                client.delegate = self
+                client.connect(streamId: streamId)
+                self.zapStreamMetricsClient = client
+            }
+    }
+
+    /// Stop the metrics WebSocket and clean up. Called from stopStream().
+    func stopZapStreamMetrics() {
+        metricsLiveEventCancellable?.cancel()
+        metricsLiveEventCancellable = nil
+        zapStreamMetricsClient?.disconnect()
+        zapStreamMetricsClient = nil
+        zapStreamServerViewers = nil
+        zapStreamServerFps = nil
+        zapStreamLastSegmentTime = nil
+        hasShownSegmentStaleWarning = false
+        hasShownFpsWarning = false
+    }
+
+    /// Check for server-side segment staleness. Call periodically while streaming.
+    func checkZapStreamServerHealth() {
+        guard stream.zapStreamCoreEnabled, streaming, streamState == .connected else { return }
+
+        // Segment staleness check
+        if let lastSegment = zapStreamLastSegmentTime {
+            let staleness = Date().timeIntervalSince(lastSegment)
+            if staleness > 30, !hasShownSegmentStaleWarning {
+                hasShownSegmentStaleWarning = true
+                makeWarningToast(
+                    title: String(localized: "⚠️ Stream may be interrupted"),
+                    subTitle: String(
+                        localized: "Server hasn't received video for \(Int(staleness))s."
+                    )
+                )
+            }
+            if staleness < 10 {
+                hasShownSegmentStaleWarning = false
+            }
+        }
+
+        // FPS degradation check
+        if let serverFps = zapStreamServerFps, serverFps > 0 {
+            let targetFps = Double(stream.fps)
+            if serverFps < targetFps * 0.5, !hasShownFpsWarning {
+                hasShownFpsWarning = true
+                makeWarningToast(
+                    title: String(localized: "⚠️ Low frame rate on server"),
+                    subTitle: String(
+                        localized: "Server receiving \(Int(serverFps)) FPS (target: \(Int(targetFps)))."
+                    )
+                )
+            }
+            if serverFps >= targetFps * 0.8 {
+                hasShownFpsWarning = false
+            }
+        }
+    }
+}
+
+// MARK: - ZapStreamCoreMetricsDelegate
+
+extension Model: ZapStreamCoreMetricsDelegate {
+    func zapStreamMetricsUpdated(_ metrics: ZapStreamMetrics) {
         DispatchQueue.main.async {
-            logger.info("zap-stream-core: Stream started with ID: \(streamId)")
+            self.zapStreamServerViewers = metrics.viewers
+            self.zapStreamServerFps = metrics.averageFps
+            if let date = ISO8601DateFormatter().date(from: metrics.lastSegmentTime) {
+                self.zapStreamLastSegmentTime = date
+            }
         }
     }
 
-    func zapStreamCoreOnStreamStopped(streamId: String) {
-        DispatchQueue.main.async {
-            logger.info("zap-stream-core: Stream stopped with ID: \(streamId)")
-            self.streaming = false
-            self.streamState = .disconnected
-            self.makeStreamEndedToast()
-        }
+    func zapStreamMetricsError(_ message: String) {
+        logger.warning("zap-stream-metrics: \(message)")
     }
 }
 

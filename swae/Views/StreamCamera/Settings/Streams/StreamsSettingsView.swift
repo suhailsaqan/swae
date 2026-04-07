@@ -168,7 +168,9 @@ private struct StreamCardView: View {
             }
             
             Button {
-                database.streams.append(stream.clone())
+                let cloned = stream.clone()
+                cloned.ownerPublicKeyHex = stream.ownerPublicKeyHex
+                database.streams.append(cloned)
             } label: {
                 Label("Duplicate", systemImage: "doc.on.doc")
             }
@@ -250,7 +252,7 @@ struct StreamsSettingsView: View {
                             .padding(.horizontal, 4)
                         
                         VStack(spacing: 8) {
-                            ForEach(database.streams) { stream in
+                            ForEach(model.streamsForCurrentProfile) { stream in
                                 StreamCardView(database: database, stream: stream)
                             }
                         }

@@ -171,6 +171,7 @@ class ExpandedControlsModal: UIView {
     // Stream detail new settings callbacks
     var onStreamDetailResolutionChanged: ((Int) -> Void)?
     var onStreamDetailFpsChanged: ((Int) -> Void)?
+    var onStreamDetailBitrateChanged: ((Int) -> Void)?
     var onStreamDetailAudioBitrateChanged: ((Int) -> Void)?
     var onStreamDetailAdaptiveResolutionChanged: ((Bool) -> Void)?
     var onStreamDetailLowLightBoostChanged: ((Bool) -> Void)?
@@ -780,6 +781,7 @@ class ExpandedControlsModal: UIView {
                 vv.onBack = { [weak self] in self?.showInlineContent(.streamDetail) }
                 vv.onResolutionSelected = { [weak self] i in self?.onStreamDetailResolutionChanged?(i) }
                 vv.onFpsSelected = { [weak self] i in self?.onStreamDetailFpsChanged?(i) }
+                vv.onBitrateSelected = { [weak self] i in self?.onStreamDetailBitrateChanged?(i) }
                 vv.onAdaptiveResolutionToggled = { [weak self] v in self?.onStreamDetailAdaptiveResolutionChanged?(v) }
                 vv.onLowLightBoostToggled = { [weak self] v in self?.onStreamDetailLowLightBoostChanged?(v) }
                 addSubview(vv)
@@ -792,6 +794,8 @@ class ExpandedControlsModal: UIView {
                     activeResolutionIndex: data.resolutionIndex,
                     fpsOptions: data.availableFps,
                     activeFpsIndex: data.fpsIndex,
+                    bitrateOptions: data.availableBitrates,
+                    activeBitrateIndex: data.bitrateIndex,
                     isAdaptiveResolution: data.isAdaptiveResolution,
                     isLowLightBoostAvailable: data.isLowLightBoostAvailable,
                     isLowLightBoostEnabled: data.isLowLightBoostEnabled,
@@ -986,8 +990,8 @@ class ExpandedControlsModal: UIView {
         streamDetailView?.endAutoTopupLoading()
     }
 
-    func updateStreamDetailAutoTopupState(hasNwc: Bool, hasWallet: Bool) {
-        streamDetailView?.updateAutoTopupState(hasNwc: hasNwc, hasWallet: hasWallet)
+    func updateStreamDetailAutoTopupState(hasNwc: Bool, hasWallet: Bool, balance: Int? = nil, rate: Double? = nil, walletBalance: Int64? = nil) {
+        streamDetailView?.updateAutoTopupState(hasNwc: hasNwc, hasWallet: hasWallet, balance: balance, rate: rate, walletBalance: walletBalance)
     }
 
     /// Reconfigures the stream detail view with fresh data (e.g., after balance refresh).

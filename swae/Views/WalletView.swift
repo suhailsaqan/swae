@@ -23,15 +23,29 @@ struct WalletView: View {
 
     var body: some View {
         NavigationStack {
-            switch model.connect_state {
-            case .new:
-                ConnectWalletView(model: model)
-                    .environmentObject(appState)
-            case .none:
-                ConnectWalletView(model: model)
-                    .environmentObject(appState)
-            case .existing(let nwc):
-                MainWalletView(nwc: nwc)
+            if appState.isAutoConnectingWallet {
+                // Auto wallet setup in progress — show loading instead of onboarding
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                    Text("Setting up your wallet...")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                switch model.connect_state {
+                case .new:
+                    ConnectWalletView(model: model)
+                        .environmentObject(appState)
+                case .none:
+                    ConnectWalletView(model: model)
+                        .environmentObject(appState)
+                case .existing(let nwc):
+                    MainWalletView(nwc: nwc)
+                case .spark:
+                    WalletMainView(walletModel: model)
+                }
             }
         }
     }

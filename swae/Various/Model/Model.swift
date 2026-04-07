@@ -456,12 +456,28 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     var zapStreamCoreStream: ZapStreamCoreStream?
     weak var appState: AppState?
 
+    // MARK: - Zap Stream Core Metrics (WebSocket)
+    var zapStreamMetricsClient: ZapStreamCoreMetricsClient?
+    var zapStreamServerViewers: Int?
+    var zapStreamServerFps: Double?
+    var zapStreamLastSegmentTime: Date?
+    var hasShownSegmentStaleWarning = false
+    var hasShownFpsWarning = false
+    var metricsLiveEventCancellable: AnyCancellable?
+
     // MARK: - Zap Stream Core Balance (shared source of truth)
     @Published var zapStreamCoreBalance: Int?
     @Published var zapStreamCoreRate: Double = 0
     @Published var zapStreamCoreHasNwc: Bool = false
+    @Published var zapStreamCoreTosAccepted: Bool = false
+    @Published var zapStreamCoreTosLink: String?
+    /// On-device NWC responder for Spark wallet auto-pay (active while streaming)
+    var nwcResponder: NWCResponder?
     private var balancePollingTimer: Timer?
-    private var balanceRefreshCancellable: AnyCancellable?
+    var balanceRefreshCancellable: AnyCancellable?
+    var connectionTimeoutTimer: Timer?
+    var connectFailureCount = 0
+    let maxConnectFailures = 3
 
     /// Fetch the latest balance from the zap-stream-core API.
     func refreshZapStreamCoreBalance(completion: (() -> Void)? = nil) {
@@ -487,8 +503,19 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
                 receiveValue: { [weak self] account in
                     self?.zapStreamCoreBalance = account.balance
                     self?.zapStreamCoreHasNwc = account.hasNwc
+                    self?.zapStreamCoreTosAccepted = account.tos?.accepted ?? false
+                    self?.zapStreamCoreTosLink = account.tos?.link
                     if let cost = account.endpoints.first?.cost {
                         self?.zapStreamCoreRate = cost.rate
+                    }
+                    // Defense-in-depth: update stream URL/key if they don't match
+                    // the current user's endpoint (e.g., after a profile switch)
+                    if let endpoint = account.endpoints.first, let self {
+                        let expectedUrl = "\(endpoint.url)/\(endpoint.key)"
+                        if self.stream.url != expectedUrl {
+                            self.stream.url = expectedUrl
+                            self.stream.zapStreamCoreStreamKey = endpoint.key
+                        }
                     }
                 }
             )
@@ -498,8 +525,10 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     func startBalancePolling() {
         guard balancePollingTimer == nil else { return }
         refreshZapStreamCoreBalance()
+        refreshWalletBalanceIfNeeded()
         balancePollingTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.refreshZapStreamCoreBalance()
+            self?.refreshWalletBalanceIfNeeded()
         }
     }
 
@@ -507,6 +536,14 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     func stopBalancePolling() {
         balancePollingTimer?.invalidate()
         balancePollingTimer = nil
+    }
+
+    /// Loads the wallet balance if auto top-up is active and balance hasn't been loaded yet.
+    func refreshWalletBalanceIfNeeded(force: Bool = false) {
+        guard zapStreamCoreHasNwc,
+              let wallet = appState?.wallet else { return }
+        guard force || wallet.balance == nil else { return }
+        Task { await wallet.refreshBalanceOnly() }
     }
     var workoutActiveEnergyBurned: Int?
     var workoutDistance: Int?
@@ -616,7 +653,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     var isAppActive = true
     var initialVolume: Float?
     var latestVolumeChangeSequenceNumber: Int?
-    let volumeView = MPVolumeView(frame: .zero)
+    lazy var volumeView = MPVolumeView(frame: .zero)
     var latestSetVolumeTime = ContinuousClock.now
     private var appStoreUpdateListenerTask: Task<Void, Error>?
     var products: [String: Product] = [:]
@@ -625,8 +662,8 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     var streamLog: Deque<String> = []
     private var ipMonitor = IPMonitor()
     var faceEffect = FaceEffect(fps: 30)
-    var zapPlasmaEffect = ZapPlasmaEffect()
-    var movieEffect = MovieEffect()
+    lazy var zapPlasmaEffect = ZapPlasmaEffect()
+    lazy var movieEffect = MovieEffect()
     var whirlpoolEffect = WhirlpoolEffect(angle: .pi / 2)
     var pinchEffect = PinchEffect(scale: 0.5)
     var fourThreeEffect = FourThreeEffect()
@@ -645,7 +682,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
     let weatherManager = WeatherManager()
     let geographyManager = GeographyManager()
     var onDocumentPickerUrl: ((URL) -> Void)?
-    private var healthStore = HKHealthStore()
+    private lazy var healthStore = HKHealthStore()
 
     weak var processor: Processor? {
         didSet {
@@ -653,16 +690,35 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Whether deferred (camera/streaming) setup has completed.
+    /// Checked by ContentView before attaching camera to prevent black screen.
+    private(set) var hasDeferredSetupCompleted = false
+
     override init() {
         super.init()
+        // Keep settings.load() here — database is accessed by AppCoordinator
+        // before setupMinimal() (e.g. migrateStreamOwnership, setupMetaGlasses).
         showLoadSettingsFailed = !settings.load()
-        streamingHistory.load()
-        recordingsStorage.load()
-        replaysStorage.load()
+        // Defer non-critical storage loads to setupMinimal() — these are only
+        // accessed during streaming/recording, not during feed display.
         updateIsPortrait()
         // Always start in portrait — camera orientation is applied
         // when user navigates to camera screen
         AppDelegate.orientationLock = .portrait
+
+        // Observe profile changes to reset stream state (registered once in init, not setup)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleActiveProfileDidChange),
+            name: .activeProfileDidChange,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleProfileWillBeDeleted),
+            name: .profileWillBeDeleted,
+            object: nil
+        )
     }
 
     /// Whether the camera screen is currently visible to the user.
@@ -922,94 +978,38 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         } catch {}
     }
 
-    func setup() {
+    // MARK: - Startup Performance: Split Setup
+    //
+    // setup() was a single ~500ms synchronous method that blocked the first frame.
+    // It's now split into:
+    //   setupMinimal()  — Only what the feed screen needs. Runs on .onAppear.
+    //   setupDeferred() — Camera, streaming, Bluetooth, file cleanup, timers.
+    //                     Runs after the first frame renders via Task.yield().
+    //
+    // The original setup() is kept as a convenience that calls both sequentially,
+    // used as a fallback if the user swipes to camera before deferred setup completes.
+
+    /// Fast-path setup: only what's needed for the feed screen to render.
+    /// Takes ~50ms instead of ~500ms.
+    func setupMinimal() {
         setCurrentStream()
-        bluetoothCentralManger = CBCentralManager(delegate: self, queue: .main)
-        deleteTrash()
-        cameraPreviewLayer = cameraPreviewView.previewLayer
         media.delegate = self
-        createUrlSession()
-        setupAppIntents()
-        faxReceiver.delegate = self
-        fixAlertMedias()
-        setAllowVideoRangePixelFormat()
-        setExternalDisplayContent()
-        portraitVideoOffsetFromTop = database.portraitVideoOffsetFromTop
-        audioUnitRemoveWindNoise = database.debug.removeWindNoise
-        quickButtonChatState.showFirstTimeChatterMessage = database.chat.showFirstTimeChatterMessage
-        quickButtonChatState.showNewFollowerMessage = database.chat.showNewFollowerMessage
-        autoSceneSwitcher.currentSwitcherId = database.autoSceneSwitchers.switcherId
-        supportsAppleLog = hasAppleLog()
-        chat.interactiveChat = getGlobalButton(type: .interactiveChat)?.isOn ?? false
-        _ = updateShowCameraPreview()
-        setDisplayPortrait(portrait: database.portrait)
-        setBitrateDropFix()
-        let webPCoder = SDImageWebPCoder.shared
-        SDImageCodersManager.shared.addCoder(webPCoder)
-        UIDevice.current.isBatteryMonitoringEnabled = true
-        logger.handler = debugLog(message:)
-        logger.debugEnabled = database.debug.logLevel == .debug
-        updateCameraLists()
-        updateBatteryLevel()
-        setPixelFormat()
-        setMetalPetalFilters()
         // Use lightweight .playback session on startup so background music
         // from other apps isn't interrupted. The full .playAndRecord session
         // is activated later when the user navigates to the camera screen.
         setupFeedAudioSession()
-        reloadSpeechToText()
-        if let cameraDevice = preferredCamera(position: .back) {
-            (cameraZoomXMinimum, cameraZoomXMaximum) =
-                cameraDevice
-                .getUIZoomRange(hasUltraWideCamera: hasUltraWideBackCamera())
-            if let preset = backZoomPresets().first {
-                zoom.backPresetId = preset.id
-                zoom.backX = preset.x
-            } else {
-                zoom.backX = cameraZoomXMinimum
-            }
-            zoom.x = zoom.backX
-        }
-        zoom.frontPresetId = database.zoom.front[0].id
-        streamPreviewView.videoGravity = .resizeAspectFill
-        externalDisplayStreamPreviewView.videoGravity = .resizeAspectFill
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        logger.handler = debugLog(message:)
+        logger.debugEnabled = database.debug.logLevel == .debug
+        updateBatteryLevel()
+        updateBatteryState()
         updateDigitalClock(now: Date())
-        twitchChat = TwitchChat(delegate: self)
-        reloadStream()
-        // Don't attach camera on startup - ContentView will handle it based on navigation state
-        resetSelectedScene(attachCamera: false)
-
-        // Request location permission if location is enabled in settings
-        if database.location.enabled {
-            locationManager.requestPermissionIfNeeded()
-        }
-        setupAudio()
-        startPeriodicTimers()
-        setupThermalState()
-        updateQuickButtonStates()
-        removeUnusedImages()
-        removeUnusedAlertMedias()
-        removeUnusedVTubers()
-        removeUnusedPngTubers()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(orientationDidChange),
-            name: UIDevice.orientationDidChangeNotification,
-            object: nil)
         cosmetics.iconImage = database.iconImage
-        Task {
-            appStoreUpdateListenerTask = listenForAppStoreTransactions()
-            await getProductsFromAppStore()
-            await updateProductFromAppStore()
-            DispatchQueue.main.async {
-                self.updateIconImageFromDatabase()
-            }
-        }
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(systemVolumeDidChange),
-            name: Notification.Name("SystemVolumeDidChange"),
-            object: nil)
+        updateOrientation()
+        updateIsPortrait()
+        currentStreamId = stream.id
+
+        // Observers needed while on the feed screen
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(applicationDidChangeActive),
@@ -1032,11 +1032,6 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
             object: nil)
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleRestoreStreamingAudioSession),
-            name: NSNotification.Name("RestoreStreamingAudioSession"),
-            object: nil)
-        NotificationCenter.default.addObserver(
-            self,
             selector: #selector(handleDidEnterBackgroundNotification),
             name: UIApplication.didEnterBackgroundNotification,
             object: nil)
@@ -1050,6 +1045,99 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
             selector: #selector(handleWillTerminate),
             name: UIApplication.willTerminateNotification,
             object: nil)
+    }
+
+    /// Deferred setup: camera, streaming pipeline, Bluetooth, file cleanup, timers, etc.
+    /// Called after the first frame renders, or synchronously if user swipes to camera early.
+    func setupDeferred() {
+        guard !hasDeferredSetupCompleted else { return }
+        hasDeferredSetupCompleted = true
+
+        // Load storage that's only needed for streaming/recording (moved from setupMinimal)
+        streamingHistory.load()
+        recordingsStorage.load()
+        replaysStorage.load()
+
+        bluetoothCentralManger = CBCentralManager(delegate: self, queue: .main)
+        deleteTrash()
+        cameraPreviewLayer = cameraPreviewView.previewLayer
+        createUrlSession()
+        setupAppIntents()
+        faxReceiver.delegate = self
+        fixAlertMedias()
+        setAllowVideoRangePixelFormat()
+        setExternalDisplayContent()
+        portraitVideoOffsetFromTop = database.portraitVideoOffsetFromTop
+        audioUnitRemoveWindNoise = database.debug.removeWindNoise
+        quickButtonChatState.showFirstTimeChatterMessage = database.chat.showFirstTimeChatterMessage
+        quickButtonChatState.showNewFollowerMessage = database.chat.showNewFollowerMessage
+        autoSceneSwitcher.currentSwitcherId = database.autoSceneSwitchers.switcherId
+        supportsAppleLog = hasAppleLog()
+        chat.interactiveChat = getGlobalButton(type: .interactiveChat)?.isOn ?? false
+        _ = updateShowCameraPreview()
+        setDisplayPortrait(portrait: database.portrait)
+        setBitrateDropFix()
+        let webPCoder = SDImageWebPCoder.shared
+        SDImageCodersManager.shared.addCoder(webPCoder)
+        updateCameraLists()
+        setPixelFormat()
+        setMetalPetalFilters()
+        reloadSpeechToText()
+        if let cameraDevice = preferredCamera(position: .back) {
+            (cameraZoomXMinimum, cameraZoomXMaximum) =
+                cameraDevice
+                .getUIZoomRange(hasUltraWideCamera: hasUltraWideBackCamera())
+            if let preset = backZoomPresets().first {
+                zoom.backPresetId = preset.id
+                zoom.backX = preset.x
+            } else {
+                zoom.backX = cameraZoomXMinimum
+            }
+            zoom.x = zoom.backX
+        }
+        zoom.frontPresetId = database.zoom.front[0].id
+        streamPreviewView.videoGravity = .resizeAspectFill
+        externalDisplayStreamPreviewView.videoGravity = .resizeAspectFill
+        twitchChat = TwitchChat(delegate: self)
+        reloadStream()
+        // Don't attach camera on startup - ContentView will handle it based on navigation state
+        resetSelectedScene(attachCamera: false)
+
+        // Request location permission if location is enabled in settings
+        if database.location.enabled {
+            locationManager.requestPermissionIfNeeded()
+        }
+        setupAudio()
+        startPeriodicTimers()
+        setupThermalState()
+        updateQuickButtonStates()
+        removeUnusedImages()
+        removeUnusedAlertMedias()
+        removeUnusedVTubers()
+        removeUnusedPngTubers()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(orientationDidChange),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil)
+        Task {
+            appStoreUpdateListenerTask = listenForAppStoreTransactions()
+            await getProductsFromAppStore()
+            await updateProductFromAppStore()
+            DispatchQueue.main.async {
+                self.updateIconImageFromDatabase()
+            }
+        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(systemVolumeDidChange),
+            name: Notification.Name("SystemVolumeDidChange"),
+            object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRestoreStreamingAudioSession),
+            name: NSNotification.Name("RestoreStreamingAudioSession"),
+            object: nil)
         updateOrientation()
         reloadRtmpServer()
         reloadSrtlaServer()
@@ -1062,7 +1150,6 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
             selector: #selector(handleBatteryStateDidChangeNotification),
             name: UIDevice.batteryStateDidChangeNotification,
             object: nil)
-        updateBatteryState()
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleGameControllerDidConnect),
@@ -1075,7 +1162,6 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
             object: nil)
         GCController.startWirelessControllerDiscovery {}
         reloadLocation()
-        currentStreamId = stream.id
         lutUpdated()
         NotificationCenter.default.addObserver(
             self,
@@ -1138,6 +1224,13 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         gForceManager = GForceManager(motionManager: motionManager)
         startGForceManager()
         loadStealthModeImage()
+    }
+
+    /// Legacy convenience: runs both minimal and deferred setup synchronously.
+    /// Used as fallback when camera is needed before deferred setup completed.
+    func setup() {
+        setupMinimal()
+        setupDeferred()
     }
 
     @objc func applicationDidChangeActive(notification: NSNotification) {
@@ -1405,10 +1498,24 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
 
     @objc func handleRestoreStreamingAudioSession() {
         // Only restore the full .playAndRecord session if actively streaming.
+        // If a video player is active (mini player), keep the .playback session
+        // without .mixWithOthers so background audio continues reliably.
         // Otherwise fall back to the lightweight .playback session.
         if isLive || streaming {
             setupAudioSession()
             media.attachDefaultAudioDevice(builtinDelay: database.debug.builtinAudioAndVideoDelay)
+        } else if RootViewController.instance.currentPlayerController != nil {
+            // Player is still alive (mini player) — keep dedicated playback session
+            // so background audio isn't interrupted.
+            processorControlQueue.async {
+                let session = AVAudioSession.sharedInstance()
+                do {
+                    try session.setCategory(.playback, mode: .moviePlayback)
+                    try session.setActive(true)
+                } catch {
+                    logger.error("app: Player audio session error \(error)")
+                }
+            }
         } else {
             setupFeedAudioSession()
         }
@@ -1579,6 +1686,28 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         if (isLive || isRecording) && stream.backgroundStreaming {
             return .full
         }
+        // Meta Glasses requires background BLE — keep alive when streaming from glasses
+        if isLive, getSelectedScene()?.cameraPosition == .metaGlasses {
+            return .full
+        }
+        // Also keep alive if Meta Glasses PiP is active during a live stream
+        if isLive, isMetaGlassesPipEnabled {
+            return .full
+        }
+        // Keep audio session alive during an active collab call so WebRTC
+        // audio continues in the background. The collab background task
+        // handler manages the lifecycle and will end the call if iOS
+        // reclaims background time.
+        if collabCallState.isActive {
+            return .full
+        }
+        // Keep audio session alive when the user is watching a live stream
+        // or recording so background audio playback continues.
+        if let liveVC = RootViewController.instance.currentPlayerController,
+           let player = liveVC.videoPlayer,
+           player.playbackState == .playing || player.playbackState == .loading {
+            return .full
+        }
         if isLive || isRecording {
             return .off
         }
@@ -1705,6 +1834,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
                 self.media.updateVideoStreamBitrate(bitrate: self.stream.bitrate)
             }
             self.updateViewers()
+            self.checkZapStreamServerHealth()
             self.updateCurrentSsid()
             self.teslaGetChargeState()
             self.moblink.streamer?.updateStatus()
@@ -1795,6 +1925,10 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
         }
         if isKickViewersConfigured(), let numberOfViewers = kickViewers?.numberOfViewers {
             newNumberOfViewers += numberOfViewers
+            hasInfo = true
+        }
+        if let zapViewers = zapStreamServerViewers {
+            newNumberOfViewers += zapViewers
             hasInfo = true
         }
         var newValue: String
@@ -1941,6 +2075,33 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
 
     func store() {
         settings.store()
+    }
+
+    // MARK: - Profile Change Handling
+
+    @objc private func handleActiveProfileDidChange() {
+        resetStreamStateForProfileSwitch()
+    }
+
+    @objc private func handleProfileWillBeDeleted(_ notification: Notification) {
+        guard let pubkeyHex = notification.userInfo?["publicKeyHex"] as? String else { return }
+        // Remove streams owned by the deleted profile
+        database.streams.removeAll { $0.ownerPublicKeyHex == pubkeyHex }
+        store()
+    }
+
+    /// Tags all existing unowned streams with the current profile's pubkey.
+    /// Called once after appState is set during app launch.
+    func migrateStreamOwnership() {
+        guard let currentPubkey = appState?.publicKey?.hex else { return }
+        var migrated = false
+        for stream in database.streams where stream.ownerPublicKeyHex == nil {
+            stream.ownerPublicKeyHex = currentPubkey
+            migrated = true
+        }
+        if migrated {
+            store()
+        }
     }
 
     func networkInterfaceNamesUpdated() {
@@ -2164,6 +2325,7 @@ final class Model: NSObject, ObservableObject, @unchecked Sendable {
 
     func isViewersConfigured() -> Bool {
         return isTwitchViewersConfigured() || isKickViewersConfigured()
+            || (stream.zapStreamCoreEnabled && zapStreamMetricsClient != nil)
     }
 
     func isYouTubeLiveChatConfigured() -> Bool {

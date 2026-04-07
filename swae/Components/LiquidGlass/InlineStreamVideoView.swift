@@ -7,6 +7,7 @@ class InlineStreamVideoView: UIView {
 
     var onResolutionSelected: ((Int) -> Void)?
     var onFpsSelected: ((Int) -> Void)?
+    var onBitrateSelected: ((Int) -> Void)?
     var onAdaptiveResolutionToggled: ((Bool) -> Void)?
     var onLowLightBoostToggled: ((Bool) -> Void)?
     var onBack: (() -> Void)?
@@ -15,8 +16,10 @@ class InlineStreamVideoView: UIView {
 
     private var resolutionButtons: [UIButton] = []
     private var fpsButtons: [UIButton] = []
+    private var bitrateButtons: [UIButton] = []
     private var activeResolutionIndex: Int = 0
     private var activeFpsIndex: Int = 0
+    private var activeBitrateIndex: Int = 0
     private var isLocked: Bool = false
 
     // MARK: - Views
@@ -34,6 +37,11 @@ class InlineStreamVideoView: UIView {
     // FPS
     private let fpsHeader = UILabel()
     private let fpsStack = UIStackView()
+
+    // Bitrate
+    private let bitrateHeader = UILabel()
+    private let bitrateStack = UIStackView()
+    private let bitrateDescLabel = UILabel()
 
     // Adaptive resolution
     private let adaptiveRow = UIView()
@@ -110,6 +118,7 @@ class InlineStreamVideoView: UIView {
 
         buildResolutionSection()
         buildFpsSection()
+        buildBitrateSection()
         buildAdaptiveSection()
         buildLLBSection()
         buildLockedLabel()
@@ -141,6 +150,27 @@ class InlineStreamVideoView: UIView {
         fpsStack.spacing = 8
         fpsStack.alignment = .fill
         stack.addArrangedSubview(fpsStack)
+    }
+
+    private func buildBitrateSection() {
+        bitrateHeader.translatesAutoresizingMaskIntoConstraints = false
+        bitrateHeader.text = "BITRATE"
+        bitrateHeader.font = .systemFont(ofSize: 11, weight: .semibold)
+        bitrateHeader.textColor = UIColor(white: 1.0, alpha: 0.4)
+        stack.addArrangedSubview(bitrateHeader)
+
+        bitrateStack.translatesAutoresizingMaskIntoConstraints = false
+        bitrateStack.axis = .vertical
+        bitrateStack.spacing = 8
+        bitrateStack.alignment = .fill
+        stack.addArrangedSubview(bitrateStack)
+
+        bitrateDescLabel.translatesAutoresizingMaskIntoConstraints = false
+        bitrateDescLabel.text = "5-8 Mbps is usually enough for decent quality"
+        bitrateDescLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        bitrateDescLabel.textColor = UIColor(white: 1.0, alpha: 0.4)
+        bitrateDescLabel.numberOfLines = 0
+        stack.addArrangedSubview(bitrateDescLabel)
     }
 
     private func buildAdaptiveSection() {
@@ -226,6 +256,8 @@ class InlineStreamVideoView: UIView {
         activeResolutionIndex: Int,
         fpsOptions: [String],
         activeFpsIndex: Int,
+        bitrateOptions: [String],
+        activeBitrateIndex: Int,
         isAdaptiveResolution: Bool,
         isLowLightBoostAvailable: Bool,
         isLowLightBoostEnabled: Bool,
@@ -233,10 +265,12 @@ class InlineStreamVideoView: UIView {
     ) {
         self.activeResolutionIndex = activeResolutionIndex
         self.activeFpsIndex = activeFpsIndex
+        self.activeBitrateIndex = activeBitrateIndex
         self.isLocked = isLocked
 
         rebuildPills(in: resolutionStack, options: resolutionOptions, activeIndex: activeResolutionIndex, buttons: &resolutionButtons, action: #selector(resolutionTapped(_:)))
         rebuildPills(in: fpsStack, options: fpsOptions, activeIndex: activeFpsIndex, buttons: &fpsButtons, action: #selector(fpsTapped(_:)))
+        rebuildPills(in: bitrateStack, options: bitrateOptions, activeIndex: activeBitrateIndex, buttons: &bitrateButtons, action: #selector(bitrateTapped(_:)))
 
         adaptiveToggle.isOn = isAdaptiveResolution
         llbToggle.isOn = isLowLightBoostEnabled
@@ -246,10 +280,12 @@ class InlineStreamVideoView: UIView {
         lockedLabel.isHidden = !isLocked
         resolutionStack.isUserInteractionEnabled = !isLocked
         fpsStack.isUserInteractionEnabled = !isLocked
+        bitrateStack.isUserInteractionEnabled = !isLocked
         adaptiveToggle.isEnabled = !isLocked
         llbToggle.isEnabled = !isLocked
         resolutionStack.alpha = isLocked ? 0.4 : 1.0
         fpsStack.alpha = isLocked ? 0.4 : 1.0
+        bitrateStack.alpha = isLocked ? 0.4 : 1.0
     }
 
     // MARK: - Pill Builder
@@ -339,6 +375,13 @@ class InlineStreamVideoView: UIView {
         activeFpsIndex = sender.tag
         updatePillSelection(fpsButtons, selectedIndex: sender.tag)
         onFpsSelected?(sender.tag)
+    }
+
+    @objc private func bitrateTapped(_ sender: UIButton) {
+        guard !isLocked else { return }
+        activeBitrateIndex = sender.tag
+        updatePillSelection(bitrateButtons, selectedIndex: sender.tag)
+        onBitrateSelected?(sender.tag)
     }
 
     @objc private func adaptiveChanged() {

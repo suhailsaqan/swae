@@ -634,7 +634,7 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
     @Published var bitrate: UInt32 = 5_000_000
     @Published var codec: SettingsStreamCodec = .h265hevc
     @Published var bFrames: Bool = false
-    @Published var adaptiveEncoderResolution: Bool = false
+    @Published var adaptiveEncoderResolution: Bool = true
     var adaptiveBitrate: Bool = true
     var srt: SettingsStreamSrt = .init()
     var rtmp: SettingsStreamRtmp = .init()
@@ -648,7 +648,7 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
     @Published var realtimeIrlEnabled: Bool = false
     var realtimeIrlPushKey: String = ""
     @Published var portrait: Bool = true
-    @Published var backgroundStreaming: Bool = false
+    @Published var backgroundStreaming: Bool = true
     @Published var estimatedViewerDelay: Float = 8.0
     var twitchMultiTrackEnabled: Bool = false
     @Published var ntpPoolAddress: String = "time.apple.com"
@@ -680,6 +680,11 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
     var zapPlasmaEffectCustomColorHex: String = "#FF9900"
     var zapPlasmaEffectSoundEnabled: Bool = true
     var zapPlasmaEffectSoundVolume: Float = 0.7  // 0.0 - 1.0
+
+    // MARK: - Profile Ownership
+    /// The Nostr public key hex of the profile that owns this stream.
+    /// nil means the stream is a legacy/global stream (pre-migration).
+    var ownerPublicKeyHex: String?
 
     static func == (lhs: SettingsStream, rhs: SettingsStream) -> Bool {
         lhs.id == rhs.id
@@ -770,7 +775,8 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
             zapPlasmaEffectColorPreset,
             zapPlasmaEffectCustomColorHex,
             zapPlasmaEffectSoundEnabled,
-            zapPlasmaEffectSoundVolume
+            zapPlasmaEffectSoundVolume,
+            ownerPublicKeyHex
     }
 
     func encode(to encoder: Encoder) throws {
@@ -858,6 +864,7 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
         try container.encode(.zapPlasmaEffectCustomColorHex, zapPlasmaEffectCustomColorHex)
         try container.encode(.zapPlasmaEffectSoundEnabled, zapPlasmaEffectSoundEnabled)
         try container.encode(.zapPlasmaEffectSoundVolume, zapPlasmaEffectSoundVolume)
+        try container.encodeIfPresent(ownerPublicKeyHex, forKey: .ownerPublicKeyHex)
     }
 
     required init(from decoder: Decoder) throws {
@@ -905,7 +912,7 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
         bitrate = container.decode(.bitrate, UInt32.self, 5_000_000)
         codec = container.decode(.codec, SettingsStreamCodec.self, .h265hevc)
         bFrames = container.decode(.bFrames, Bool.self, false)
-        adaptiveEncoderResolution = container.decode(.adaptiveEncoderResolution, Bool.self, false)
+        adaptiveEncoderResolution = container.decode(.adaptiveEncoderResolution, Bool.self, true)
         adaptiveBitrate = container.decode(.adaptiveBitrate, Bool.self, true)
         srt = container.decode(.srt, SettingsStreamSrt.self, .init())
         rtmp = container.decode(.rtmp, SettingsStreamRtmp.self, .init())
@@ -921,7 +928,7 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
         realtimeIrlEnabled = container.decode(.realtimeIrlEnabled, Bool.self, false)
         realtimeIrlPushKey = container.decode(.realtimeIrlPushKey, String.self, "")
         portrait = container.decode(.portrait, Bool.self, false)
-        backgroundStreaming = container.decode(.backgroundStreaming, Bool.self, false)
+        backgroundStreaming = container.decode(.backgroundStreaming, Bool.self, true)
         estimatedViewerDelay = container.decode(.estimatedViewerDelay, Float.self, 8.0)
         twitchMultiTrackEnabled = container.decode(.twitchMultiTrackEnabled, Bool.self, false)
         ntpPoolAddress = container.decode(.ntpPoolAddress, String.self, "time.apple.com")
@@ -962,6 +969,7 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
             .zapPlasmaEffectSoundEnabled, Bool.self, true)
         zapPlasmaEffectSoundVolume = container.decode(
             .zapPlasmaEffectSoundVolume, Float.self, 0.7)
+        ownerPublicKeyHex = try? container.decodeIfPresent(String.self, forKey: .ownerPublicKeyHex)
     }
 
     func clone() -> SettingsStream {
@@ -1038,6 +1046,7 @@ class SettingsStream: Codable, Identifiable, Equatable, ObservableObject, Named 
         new.zapPlasmaEffectCustomColorHex = zapPlasmaEffectCustomColorHex
         new.zapPlasmaEffectSoundEnabled = zapPlasmaEffectSoundEnabled
         new.zapPlasmaEffectSoundVolume = zapPlasmaEffectSoundVolume
+        new.ownerPublicKeyHex = ownerPublicKeyHex
         return new
     }
 
@@ -3475,7 +3484,7 @@ enum SettingsQuickButtonType: String, Codable, CaseIterable {
     case obs = "OBS"
     case remote = "Remote"
     case draw = "Draw"
-    case localOverlays = "Local overlays"
+    case localOverlays = "Overlays"
     case browser = "Browser"
     case lut = "LUT"
     case cameraPreview = "Camera preview"
@@ -3702,7 +3711,7 @@ class SettingsShow: Codable, ObservableObject {
     @Published var location: Bool = true
     @Published var remoteControl: Bool = true
     @Published var browserWidgets: Bool = true
-    @Published var bonding: Bool = true
+    @Published var bonding: Bool = false
     @Published var events: Bool = true
     @Published var djiDevices: Bool = true
     @Published var bondingRtts: Bool = false
@@ -3710,6 +3719,7 @@ class SettingsShow: Codable, ObservableObject {
     @Published var catPrinter: Bool = true
     @Published var cyclingPowerDevice: Bool = true
     @Published var heartRateDevice: Bool = true
+    @Published var serverFps: Bool = true
 
     init() {}
 
@@ -3738,7 +3748,8 @@ class SettingsShow: Codable, ObservableObject {
             moblink,
             catPrinter,
             cyclingPowerDevice,
-            heartRateDevice
+            heartRateDevice,
+            serverFps
     }
 
     func encode(to encoder: Encoder) throws {
@@ -3768,6 +3779,7 @@ class SettingsShow: Codable, ObservableObject {
         try container.encode(.catPrinter, catPrinter)
         try container.encode(.cyclingPowerDevice, cyclingPowerDevice)
         try container.encode(.heartRateDevice, heartRateDevice)
+        try container.encode(.serverFps, serverFps)
     }
 
     required init(from decoder: Decoder) throws {
@@ -3797,6 +3809,7 @@ class SettingsShow: Codable, ObservableObject {
         catPrinter = container.decode(.catPrinter, Bool.self, true)
         cyclingPowerDevice = container.decode(.cyclingPowerDevice, Bool.self, true)
         heartRateDevice = container.decode(.heartRateDevice, Bool.self, true)
+        serverFps = container.decode(.serverFps, Bool.self, true)
     }
 }
 
@@ -8158,7 +8171,7 @@ private func addMissingQuickButtons(database: Database) {
     button.systemImageNameOff = "hand.pinch"
     updateQuickButton(database: database, button: button)
 
-    button = SettingsQuickButton(name: String(localized: "Local overlays"))
+    button = SettingsQuickButton(name: String(localized: "Overlays"))
     button.id = UUID()
     button.type = .localOverlays
     button.imageType = "System name"
@@ -8418,9 +8431,22 @@ final class Settings {
 
     @AppStorage("settings") var storage = ""
 
+    private static let binaryCacheKey = "settings_binary_cache"
+
     func load() -> Bool {
         do {
+            // Try fast binary (PropertyList) cache first — typically 3-5x faster than JSON
+            if let cached = loadFromBinaryCache() {
+                realDatabase = cached
+                addSensitiveData(database: realDatabase)
+                migrateFromOlderVersions()
+                return true
+            }
+            // Fall back to JSON
             try tryLoadAndMigrate(settings: storage)
+            // Write binary cache for next launch (sensitive data already in memory,
+            // but we strip it before caching — same as JSON path)
+            saveBinaryCacheStripped()
             return true
         } catch {
             logger.info("settings: Failed to load with error \(error). Using default.")
@@ -8438,11 +8464,32 @@ final class Settings {
     func store() {
         do {
             let database = extractSensitiveData(fromDatabase: realDatabase)
+            // At this point, realDatabase has sensitive tokens stripped
             storage = try realDatabase.toString()
+            saveBinaryCache(realDatabase)
             insertSensitiveData(toDatabase: realDatabase, fromDatabase: database)
         } catch {
             logger.error("settings: Failed to store.")
         }
+    }
+
+    private func saveBinaryCache(_ database: Database) {
+        if let data = try? PropertyListEncoder().encode(database) {
+            UserDefaults.standard.set(data, forKey: Self.binaryCacheKey)
+        }
+    }
+
+    /// Strips sensitive data, writes binary cache, then restores. Used on first load from JSON.
+    private func saveBinaryCacheStripped() {
+        let backup = extractSensitiveData(fromDatabase: realDatabase)
+        saveBinaryCache(realDatabase)
+        insertSensitiveData(toDatabase: realDatabase, fromDatabase: backup)
+    }
+
+    private func loadFromBinaryCache() -> Database? {
+        guard !storage.isEmpty else { return nil }  // First launch — no settings yet
+        guard let data = UserDefaults.standard.data(forKey: Self.binaryCacheKey) else { return nil }
+        return try? PropertyListDecoder().decode(Database.self, from: data)
     }
 
     func reset() {
@@ -8507,50 +8554,52 @@ final class Settings {
     }
 
     private func migrateFromOlderVersions() {
+        var needsStore = false
+
         for button in realDatabase.quickButtons where button.type == .image {
             if button.name != String(localized: "Camera") {
                 button.name = String(localized: "Camera")
-                store()
+                needsStore = true
             }
             if button.systemImageNameOn != "camera.fill" {
                 button.systemImageNameOn = "camera.fill"
-                store()
+                needsStore = true
             }
             if button.systemImageNameOff != "camera" {
                 button.systemImageNameOff = "camera"
-                store()
+                needsStore = true
             }
         }
         for stream in realDatabase.streams where stream.srt.connectionPriorities == nil {
             stream.srt.connectionPriorities = .init()
-            store()
+            needsStore = true
         }
         for stream in realDatabase.streams where stream.srt.overheadBandwidth == nil {
             stream.srt.overheadBandwidth = realDatabase.debug.srtOverheadBandwidth
-            store()
+            needsStore = true
         }
         for stream in realDatabase.streams where stream.srt.maximumBandwidthFollowInput == nil {
             stream.srt.maximumBandwidthFollowInput = realDatabase.debug.maximumBandwidthFollowInput
-            store()
+            needsStore = true
         }
         for stream in realDatabase.streams where stream.srt.adaptiveBitrate == nil {
             stream.srt.adaptiveBitrate = .init()
-            store()
+            needsStore = true
         }
         for stream in realDatabase.streams {
             for priority in stream.srt.connectionPriorities!.priorities
             where priority.enabled == nil {
                 priority.enabled = true
-                store()
+                needsStore = true
             }
         }
         for stream in database.streams where stream.srt.adaptiveBitrate!.fastIrlSettings == nil {
             stream.srt.adaptiveBitrate!.fastIrlSettings = .init()
-            store()
+            needsStore = true
         }
         for stream in database.streams where stream.srt.adaptiveBitrateEnabled == nil {
             stream.srt.adaptiveBitrateEnabled = stream.adaptiveBitrate
-            store()
+            needsStore = true
         }
         var videoEffectWidgets: [SettingsWidget] = []
         for widget in realDatabase.widgets where widget.type == .videoEffect {
@@ -8567,39 +8616,39 @@ final class Settings {
                     }
                 }
             }
-            store()
+            needsStore = true
         }
         for stream in realDatabase.streams
         where stream.srt.adaptiveBitrate!.customSettings.minimumBitrate == nil {
             stream.srt.adaptiveBitrate!.customSettings.minimumBitrate = 250
-            store()
+            needsStore = true
         }
         for stream in realDatabase.streams
         where stream.srt.adaptiveBitrate!.fastIrlSettings!.minimumBitrate == nil {
             stream.srt.adaptiveBitrate!.fastIrlSettings!.minimumBitrate = 250
-            store()
+            needsStore = true
         }
         for stream in realDatabase.streams where stream.srt.adaptiveBitrate!.belaboxSettings == nil
         {
             stream.srt.adaptiveBitrate!.belaboxSettings = .init()
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.map.northUp == nil {
             widget.map.northUp = false
-            store()
+            needsStore = true
         }
         for widget in database.widgets where widget.map.delay == nil {
             widget.map.delay = 0.0
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.alerts.twitch == nil {
             widget.alerts.twitch = .init()
-            store()
+            needsStore = true
         }
         updateBundledAlertsMediaGallery(database: realDatabase)
         for widget in realDatabase.widgets where widget.map.migrated == nil {
             widget.map.migrated = false
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where !widget.map.migrated! {
             widget.map.migrated = true
@@ -8643,11 +8692,11 @@ final class Settings {
                     }
                 }
             }
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.alerts.chatBot == nil {
             widget.alerts.chatBot = .init()
-            store()
+            needsStore = true
         }
         let allLuts = realDatabase.color.bundledLuts + realDatabase.color.diskLuts
         for lut in allLuts where lut.enabled == nil {
@@ -8656,75 +8705,80 @@ final class Settings {
             } else {
                 lut.enabled = false
             }
-            store()
+            needsStore = true
         }
         let newButtons = realDatabase.quickButtons.filter { $0.type != .lut }
         if realDatabase.quickButtons.count != newButtons.count {
             realDatabase.quickButtons = newButtons
-            store()
+            needsStore = true
         }
         for widget in database.widgets where widget.alerts.twitch!.raids == nil {
             widget.alerts.twitch!.raids = .init()
-            store()
+            needsStore = true
         }
         for widget in database.widgets where widget.alerts.twitch!.cheers == nil {
             widget.alerts.twitch!.cheers = .init()
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.videoSource.cropX > 1.0 {
             widget.videoSource.cropX = 0.0
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.videoSource.cropY > 1.0 {
             widget.videoSource.cropY = 0.0
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.videoSource.cropWidth > 1.0 {
             widget.videoSource.cropWidth = 1.0
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.videoSource.cropHeight > 1.0 {
             widget.videoSource.cropHeight = 1.0
-            store()
+            needsStore = true
         }
         for widget in database.widgets where widget.alerts.twitch!.cheerBits == nil {
             widget.alerts.twitch!.cheerBits = createDefaultCheerBits()
             widget.alerts.twitch!.cheerBits![0].alert = widget.alerts.twitch!.cheers!.clone()
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.alerts.speechToText == nil {
             widget.alerts.speechToText = .init()
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets where widget.alerts.needsSubtitles == nil {
             widget.alerts.needsSubtitles = false
-            store()
+            needsStore = true
         }
         for stream in realDatabase.streams where stream.srt.dnsLookupStrategy == nil {
             stream.srt.dnsLookupStrategy = .system
-            store()
+            needsStore = true
         }
         for key in realDatabase.keyboard.keys where key.widgetId == nil {
             key.widgetId = .init()
-            store()
+            needsStore = true
         }
         for widget in realDatabase.widgets {
             for command in widget.alerts.chatBot!.commands where command.imageType == nil {
                 command.imageType = .file
-                store()
+                needsStore = true
             }
             for command in widget.alerts.chatBot!.commands
             where command.imagePlaygroundImageId == nil {
                 command.imagePlaygroundImageId = .init()
-                store()
+                needsStore = true
             }
         }
         if realDatabase.tesla.enabled == nil {
             realDatabase.tesla.enabled = true
-            store()
+            needsStore = true
         }
         for button in realDatabase.quickButtons where button.page == nil {
             button.page = 1
+            needsStore = true
+        }
+
+        // Single store() at the end instead of up to 41 individual writes
+        if needsStore {
             store()
         }
     }

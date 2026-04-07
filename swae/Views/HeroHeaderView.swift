@@ -21,6 +21,12 @@ final class HeroHeaderView: UIView, UIGestureRecognizerDelegate {
     // MARK: - Thumbnail Components
     private let thumbnailImageView = UIImageView()
 
+    // MARK: - Transition Support
+    /// The view to use as the source rect for the expand transition
+    var transitionSourceView: UIView { containerContentView }
+    /// The thumbnail image for the transition snapshot
+    var transitionThumbnailImage: UIImage? { thumbnailImageView.image }
+
     // MARK: - Grain Gradient Components
     private let blurContainerView = UIView()
     private let grainGradientView = GrainGradientView()

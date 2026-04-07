@@ -30,11 +30,11 @@
 		<key>AppLinkURLScheme</key>
 		<string>swae://</string>
 		<key>MetaAppID</key>
-		<string>$(META_APP_ID)</string>
+		<string>784573381377998</string>
 		<key>ClientToken</key>
-		<string>$(CLIENT_TOKEN)</string>
+		<string>AR|784573381377998|2acce6fe0fccc2079060940438a3b432</string>
 		<key>TeamID</key>
-		<string>$(DEVELOPMENT_TEAM)</string>
+		<string>57S869M9UN</string>
 	</dict>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

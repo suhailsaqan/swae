@@ -183,29 +183,18 @@ struct StreamStatusHeroCard: View {
     // MARK: - Configured Content
     
     private var configuredContent: some View {
-        VStack(spacing: 12) {
-            // Stream info
-            if model.stream.zapStreamCoreEnabled {
-                zapStreamInfo
-            } else {
-                customStreamInfo
-            }
-            
-            // Action buttons
-            HStack(spacing: 12) {
-                NavigationLink {
-                    StreamSettingsView(database: model.database, stream: model.stream)
-                } label: {
-                    Text("Edit Stream")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color(.tertiarySystemGroupedBackground))
-                        .cornerRadius(10)
+        NavigationLink {
+            StreamSettingsView(database: model.database, stream: model.stream)
+        } label: {
+            VStack(spacing: 12) {
+                if model.stream.zapStreamCoreEnabled {
+                    zapStreamInfo
+                } else {
+                    customStreamInfo
                 }
             }
         }
+        .buttonStyle(.plain)
     }
     
     private var zapStreamInfo: some View {

@@ -16,9 +16,11 @@ struct ZapStreamNWCAutoTopupView: View {
     private var hasNwc: Bool { model.zapStreamCoreHasNwc }
 
     private var walletConnected: Bool {
-        if let wallet = appState.wallet,
-           case .existing = wallet.connect_state {
-            return true
+        if let wallet = appState.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark: return true
+            default: return false
+            }
         }
         return false
     }
@@ -49,7 +51,7 @@ struct ZapStreamNWCAutoTopupView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 13))
                     .foregroundColor(.green)
-                Text("Auto top-up active")
+                Text("Auto-paying from your wallet")
                     .font(.caption.weight(.medium))
                     .foregroundColor(.green)
                 Spacer()
@@ -93,7 +95,7 @@ struct ZapStreamNWCAutoTopupView: View {
                         Image(systemName: "bolt.fill")
                             .font(.caption)
                     }
-                    Text("Enable Auto Top-Up")
+                    Text("Auto-Pay From Wallet")
                         .font(.caption.weight(.semibold))
                 }
                 .foregroundColor(.black)
@@ -121,7 +123,7 @@ struct ZapStreamNWCAutoTopupView: View {
             Image(systemName: "bolt.circle")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            Text("Connect a wallet for auto top-ups")
+            Text("Connect a wallet for auto-payment")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -130,19 +132,50 @@ struct ZapStreamNWCAutoTopupView: View {
     // MARK: - Actions
 
     private func enableAutoTopup() {
-        guard let wallet = appState.wallet,
-              case .existing(let nwc) = wallet.connect_state else { return }
+        guard let wallet = appState.wallet else { return }
 
-        let nwcUri = nwc.to_url().absoluteString
         isUpdating = true
         errorMessage = nil
 
+        switch wallet.connect_state {
+        case .existing(let nwc):
+            // Coinos path — use NWC URL directly
+            let nwcUri = nwc.to_url().absoluteString
+            sendNwcUriToServer(nwcUri)
+
+        case .spark:
+            // Spark path — start on-device NWC responder
+            guard let spark = wallet.sparkService else {
+                isUpdating = false
+                errorMessage = "Wallet not available"
+                return
+            }
+            Task { @MainActor in
+                do {
+                    let responder = NWCResponder()
+                    let nwcURL = try await responder.start(sparkService: spark)
+                    model.nwcResponder = responder
+                    sendNwcUriToServer(nwcURL.to_url().absoluteString)
+                } catch {
+                    isUpdating = false
+                    errorMessage = "Failed to start auto-pay: \(error.localizedDescription)"
+                }
+            }
+
+        default:
+            isUpdating = false
+        }
+    }
+
+    private func sendNwcUriToServer(_ nwcUri: String) {
         apiClient.updateAccount(appState: appState, nwcUri: nwcUri)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [self] completion in
                     isUpdating = false
                     if case .failure(let error) = completion {
+                        model.nwcResponder?.stop()
+                        model.nwcResponder = nil
                         errorMessage = error.localizedDescription
                     }
                 },
@@ -167,6 +200,9 @@ struct ZapStreamNWCAutoTopupView: View {
                     }
                 },
                 receiveValue: { _ in
+                    // Stop the on-device NWC responder if running (Spark wallet)
+                    model.nwcResponder?.stop()
+                    model.nwcResponder = nil
                     model.refreshZapStreamCoreBalance()
                 }
             )

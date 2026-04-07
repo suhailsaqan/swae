@@ -119,6 +119,7 @@ class StreamerDashboardView: UIView {
     // Viewer mode - profile pic in compact bar (replaces title)
     private let streamerProfilePic = UIImageView()
     private let streamerNameLabel = UILabel()
+    private let compactStreamTitleLabel = UILabel()  // Stream title below name in compact bar
     
     // Expanded content (animated)
     private let expandedContainer = UIView()
@@ -130,12 +131,15 @@ class StreamerDashboardView: UIView {
     private let uniqueChattersLabel = UILabel()
     private let messagesPerMinLabel = UILabel()
     
-    // Viewer mode - expanded content (profile + follow button)
+    // Viewer mode - expanded content (profile + follow + stream info)
     private let viewerExpandedSection = UIView()
     private let expandedProfilePic = UIImageView()
     private let expandedNameLabel = UILabel()
-    private let expandedBioLabel = UILabel()
     private let followButton = UIButton(type: .system)
+    private let streamTitleLabel = UILabel()
+    private let streamSummaryLabel = UILabel()
+    private var viewerZappersContainer: UIView?
+    private let viewerZappersStack = UIStackView()
     private var isFollowing: Bool = false
     
     // MARK: - Initialization
@@ -233,6 +237,15 @@ class StreamerDashboardView: UIView {
         streamerNameLabel.translatesAutoresizingMaskIntoConstraints = false
         streamerNameLabel.isHidden = true
         compactContainer.addSubview(streamerNameLabel)
+        
+        // Viewer mode - stream title below name (hidden by default)
+        compactStreamTitleLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        compactStreamTitleLabel.textColor = .secondaryLabel
+        compactStreamTitleLabel.lineBreakMode = .byTruncatingTail
+        compactStreamTitleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        compactStreamTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        compactStreamTitleLabel.isHidden = true
+        compactContainer.addSubview(compactStreamTitleLabel)
         
         // Title (for streamer mode)
         titleLabel.font = .systemFont(ofSize: 14, weight: .semibold)
@@ -375,7 +388,7 @@ class StreamerDashboardView: UIView {
         topZappersStack.axis = .horizontal
         topZappersStack.spacing = 16
         topZappersStack.alignment = .center
-        topZappersStack.distribution = .fillEqually
+        topZappersStack.distribution = .fill
         topZappersStack.translatesAutoresizingMaskIntoConstraints = false
         topZappersSection.addSubview(topZappersStack)
         
@@ -431,67 +444,81 @@ class StreamerDashboardView: UIView {
     
     private func setupViewerExpandedSection() {
         viewerExpandedSection.translatesAutoresizingMaskIntoConstraints = false
-        viewerExpandedSection.isHidden = true  // Hidden by default (streamer mode)
+        viewerExpandedSection.isHidden = true
         expandedContainer.addSubview(viewerExpandedSection)
         
-        // Large profile pic
-        expandedProfilePic.contentMode = .scaleAspectFill
-        expandedProfilePic.clipsToBounds = true
-        expandedProfilePic.layer.cornerRadius = 28
-        expandedProfilePic.backgroundColor = .tertiarySystemFill
-        expandedProfilePic.translatesAutoresizingMaskIntoConstraints = false
-        expandedProfilePic.isUserInteractionEnabled = true
-        let expandedProfileTap = UITapGestureRecognizer(target: self, action: #selector(profilePicTapped))
-        expandedProfilePic.addGestureRecognizer(expandedProfileTap)
-        viewerExpandedSection.addSubview(expandedProfilePic)
+        // --- Section 1: Stream Info ---
+        streamTitleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        streamTitleLabel.textColor = .label
+        streamTitleLabel.numberOfLines = 2
+        streamTitleLabel.lineBreakMode = .byTruncatingTail
+        streamTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        viewerExpandedSection.addSubview(streamTitleLabel)
         
-        // Name label
-        expandedNameLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        expandedNameLabel.textColor = .label
-        expandedNameLabel.translatesAutoresizingMaskIntoConstraints = false
-        viewerExpandedSection.addSubview(expandedNameLabel)
+        streamSummaryLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        streamSummaryLabel.textColor = .secondaryLabel
+        streamSummaryLabel.numberOfLines = 2
+        streamSummaryLabel.lineBreakMode = .byTruncatingTail
+        streamSummaryLabel.translatesAutoresizingMaskIntoConstraints = false
+        viewerExpandedSection.addSubview(streamSummaryLabel)
         
-        // Bio label
-        expandedBioLabel.font = .systemFont(ofSize: 13, weight: .regular)
-        expandedBioLabel.textColor = .secondaryLabel
-        expandedBioLabel.numberOfLines = 2
-        expandedBioLabel.lineBreakMode = .byTruncatingTail
-        expandedBioLabel.translatesAutoresizingMaskIntoConstraints = false
-        viewerExpandedSection.addSubview(expandedBioLabel)
+        // --- Section 2: Top Zappers (viewer mode) ---
+        let viewerZappersSection = UIView()
+        viewerZappersSection.translatesAutoresizingMaskIntoConstraints = false
+        viewerExpandedSection.addSubview(viewerZappersSection)
+        self.viewerZappersContainer = viewerZappersSection
         
-        // Follow button
-        followButton.setTitle("Follow", for: .normal)
-        followButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        followButton.backgroundColor = .systemBlue
-        followButton.setTitleColor(.white, for: .normal)
-        followButton.layer.cornerRadius = 16
-        followButton.translatesAutoresizingMaskIntoConstraints = false
-        followButton.addTarget(self, action: #selector(followButtonTapped), for: .touchUpInside)
-        viewerExpandedSection.addSubview(followButton)
+        let zappersTitleLabel = UILabel()
+        zappersTitleLabel.text = "TOP ZAPPERS"
+        zappersTitleLabel.font = .systemFont(ofSize: 11, weight: .semibold)
+        zappersTitleLabel.textColor = .tertiaryLabel
+        zappersTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        viewerZappersSection.addSubview(zappersTitleLabel)
         
+        viewerZappersStack.axis = .horizontal
+        viewerZappersStack.spacing = 16
+        viewerZappersStack.alignment = .center
+        viewerZappersStack.distribution = .fill
+        viewerZappersStack.translatesAutoresizingMaskIntoConstraints = false
+        viewerZappersSection.addSubview(viewerZappersStack)
+        
+        // Initial empty state
+        let emptyZapLabel = UILabel()
+        emptyZapLabel.text = "Be the first to zap! ⚡"
+        emptyZapLabel.font = .systemFont(ofSize: 13)
+        emptyZapLabel.textColor = .tertiaryLabel
+        viewerZappersStack.addArrangedSubview(emptyZapLabel)
+        
+        // --- Constraints ---
         NSLayoutConstraint.activate([
             viewerExpandedSection.topAnchor.constraint(equalTo: expandedContainer.topAnchor),
             viewerExpandedSection.leadingAnchor.constraint(equalTo: expandedContainer.leadingAnchor),
             viewerExpandedSection.trailingAnchor.constraint(equalTo: expandedContainer.trailingAnchor),
             viewerExpandedSection.bottomAnchor.constraint(equalTo: expandedContainer.bottomAnchor),
             
-            expandedProfilePic.leadingAnchor.constraint(equalTo: viewerExpandedSection.leadingAnchor),
-            expandedProfilePic.topAnchor.constraint(equalTo: viewerExpandedSection.topAnchor, constant: 8),
-            expandedProfilePic.widthAnchor.constraint(equalToConstant: 56),
-            expandedProfilePic.heightAnchor.constraint(equalToConstant: 56),
+            // Stream title
+            streamTitleLabel.topAnchor.constraint(equalTo: viewerExpandedSection.topAnchor, constant: 4),
+            streamTitleLabel.leadingAnchor.constraint(equalTo: viewerExpandedSection.leadingAnchor),
+            streamTitleLabel.trailingAnchor.constraint(equalTo: viewerExpandedSection.trailingAnchor),
             
-            expandedNameLabel.leadingAnchor.constraint(equalTo: expandedProfilePic.trailingAnchor, constant: 12),
-            expandedNameLabel.topAnchor.constraint(equalTo: expandedProfilePic.topAnchor, constant: 4),
-            expandedNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: followButton.leadingAnchor, constant: -12),
+            // Stream summary (anchored to top since streamTitleLabel is hidden in viewer mode)
+            streamSummaryLabel.topAnchor.constraint(equalTo: viewerExpandedSection.topAnchor, constant: 0),
+            streamSummaryLabel.leadingAnchor.constraint(equalTo: viewerExpandedSection.leadingAnchor),
+            streamSummaryLabel.trailingAnchor.constraint(equalTo: viewerExpandedSection.trailingAnchor),
             
-            expandedBioLabel.leadingAnchor.constraint(equalTo: expandedProfilePic.trailingAnchor, constant: 12),
-            expandedBioLabel.topAnchor.constraint(equalTo: expandedNameLabel.bottomAnchor, constant: 2),
-            expandedBioLabel.trailingAnchor.constraint(equalTo: followButton.leadingAnchor, constant: -12),
+            // Top zappers section (directly after summary)
+            viewerZappersSection.topAnchor.constraint(equalTo: streamSummaryLabel.bottomAnchor, constant: 12),
+            viewerZappersSection.leadingAnchor.constraint(equalTo: viewerExpandedSection.leadingAnchor),
+            viewerZappersSection.trailingAnchor.constraint(equalTo: viewerExpandedSection.trailingAnchor),
+            viewerZappersSection.bottomAnchor.constraint(lessThanOrEqualTo: viewerExpandedSection.bottomAnchor),
             
-            followButton.trailingAnchor.constraint(equalTo: viewerExpandedSection.trailingAnchor),
-            followButton.centerYAnchor.constraint(equalTo: expandedProfilePic.centerYAnchor),
-            followButton.widthAnchor.constraint(equalToConstant: 80),
-            followButton.heightAnchor.constraint(equalToConstant: 32),
+            zappersTitleLabel.topAnchor.constraint(equalTo: viewerZappersSection.topAnchor),
+            zappersTitleLabel.leadingAnchor.constraint(equalTo: viewerZappersSection.leadingAnchor),
+            
+            viewerZappersStack.topAnchor.constraint(equalTo: zappersTitleLabel.bottomAnchor, constant: 8),
+            viewerZappersStack.leadingAnchor.constraint(equalTo: viewerZappersSection.leadingAnchor),
+            viewerZappersStack.trailingAnchor.constraint(lessThanOrEqualTo: viewerZappersSection.trailingAnchor),
+            viewerZappersStack.bottomAnchor.constraint(equalTo: viewerZappersSection.bottomAnchor),
         ])
     }
     
@@ -528,6 +555,11 @@ class StreamerDashboardView: UIView {
             titleLabel.isHidden = false
             streamerProfilePic.isHidden = true
             streamerNameLabel.isHidden = true
+            compactStreamTitleLabel.isHidden = true
+            
+            // Show LIVE badge in streamer mode
+            liveIndicator.isHidden = false
+            liveLabel.isHidden = false
             
             // Show activity section, hide viewer section
             topZappersSection.isHidden = false
@@ -542,12 +574,17 @@ class StreamerDashboardView: UIView {
             setExpanded(true, animated: false)
             
         case .viewer:
-            // Hide title, show profile pic
+            // Show profile pic + name + stream title in compact bar
             titleLabel.isHidden = true
             streamerProfilePic.isHidden = false
             streamerNameLabel.isHidden = false
+            compactStreamTitleLabel.isHidden = false
             
-            // Hide activity section, show viewer section
+            // Hide LIVE badge — already visible on the video overlay
+            liveIndicator.isHidden = true
+            liveLabel.isHidden = true
+            
+            // Hide streamer-mode sections, show viewer section
             topZappersSection.isHidden = true
             activitySection.isHidden = true
             viewerExpandedSection.isHidden = false
@@ -555,6 +592,36 @@ class StreamerDashboardView: UIView {
             // Enable expand/collapse for viewer mode
             isExpandCollapseEnabled = true
             chevronButton.isHidden = false
+            
+            // Dynamic height — will be recalculated from content
+            recalculateExpandedHeight()
+        }
+    }
+    
+    /// Calculate the expanded content height based on known viewer section layout.
+    func recalculateExpandedHeight() {
+        guard mode == .viewer else { return }
+        
+        // Summary label: measure actual text height
+        let summaryWidth = bounds.width > 0 ? bounds.width - 32 : UIScreen.main.bounds.width - 32
+        let summaryHeight = streamSummaryLabel.sizeThatFits(
+            CGSize(width: summaryWidth, height: .greatestFiniteMagnitude)
+        ).height
+        
+        // Layout:
+        //   2pt  top padding
+        // + summaryHeight (description text)
+        // + 16pt gap
+        // + 14pt zappers title
+        // + 8pt  gap
+        // + 32pt zappers row
+        // + 20pt bottom padding
+        expandedContentHeight = 2 + summaryHeight + 16 + 14 + 8 + 32 + 20
+        
+        // If already expanded, update the height constraint immediately
+        if case .expanded = currentState {
+            heightConstraint.constant = safeAreaTopInset + compactHeight + expandedContentHeight
+            superview?.layoutIfNeeded()
         }
     }
     
@@ -575,10 +642,15 @@ class StreamerDashboardView: UIView {
             streamerProfilePic.widthAnchor.constraint(equalToConstant: 32),
             streamerProfilePic.heightAnchor.constraint(equalToConstant: 32),
             
-            // Viewer mode - streamer name (after profile pic)
+            // Viewer mode - streamer name (after profile pic, top-aligned with profile pic)
             streamerNameLabel.leadingAnchor.constraint(equalTo: streamerProfilePic.trailingAnchor, constant: 8),
-            streamerNameLabel.centerYAnchor.constraint(equalTo: compactContainer.centerYAnchor),
+            streamerNameLabel.topAnchor.constraint(equalTo: streamerProfilePic.topAnchor),
             streamerNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: statsStackView.leadingAnchor, constant: -8),
+            
+            // Viewer mode - stream title below name, bottom-aligned with profile pic
+            compactStreamTitleLabel.leadingAnchor.constraint(equalTo: streamerProfilePic.trailingAnchor, constant: 8),
+            compactStreamTitleLabel.bottomAnchor.constraint(equalTo: streamerProfilePic.bottomAnchor),
+            compactStreamTitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: statsStackView.leadingAnchor, constant: -8),
             
             // Title (left side, for streamer mode - hidden in viewer mode)
             titleLabel.leadingAnchor.constraint(equalTo: compactContainer.leadingAnchor, constant: 16),
@@ -854,7 +926,7 @@ class StreamerDashboardView: UIView {
             self.streamStartTime = nil
         }
         
-        // Update title (hidden in viewer mode but kept for data)
+        // Update title (used in compact bar for viewer mode)
         titleLabel.text = title
         
         // Update live status — show REPLAY for ended streams with recordings
@@ -903,10 +975,13 @@ class StreamerDashboardView: UIView {
         let metadata = appState.metadataEvents[pubkey]?.userMetadata
         
         let displayName = metadata?.displayName ?? metadata?.name ?? String(pubkey.prefix(8))
-        let bio = metadata?.about ?? ""
         
-        // Update compact bar
+        // Update compact bar — show profile pic, name, and stream title
         streamerNameLabel.text = displayName
+        let streamTitle = liveActivitiesEvent?.title
+        compactStreamTitleLabel.text = streamTitle ?? "Live Stream"
+        
+        // Load profile pic into compact bar
         if let pictureURL = metadata?.pictureURL {
             streamerProfilePic.kf.setImage(with: pictureURL, placeholder: UIImage(systemName: "person.circle.fill"))
         } else {
@@ -914,15 +989,23 @@ class StreamerDashboardView: UIView {
             streamerProfilePic.tintColor = .tertiaryLabel
         }
         
-        // Update expanded section
-        expandedNameLabel.text = displayName
-        expandedBioLabel.text = bio.isEmpty ? "No bio" : bio
-        if let pictureURL = metadata?.pictureURL {
-            expandedProfilePic.kf.setImage(with: pictureURL, placeholder: UIImage(systemName: "person.circle.fill"))
+        // Update stream summary from the live event (title is in compact bar)
+        let streamSummary = liveActivitiesEvent?.summary
+        
+        streamTitleLabel.isHidden = true
+        if let summary = streamSummary, !summary.isEmpty {
+            streamSummaryLabel.text = summary
+            streamSummaryLabel.font = .systemFont(ofSize: 13, weight: .regular)
+            streamSummaryLabel.textColor = .secondaryLabel
         } else {
-            expandedProfilePic.image = UIImage(systemName: "person.circle.fill")
-            expandedProfilePic.tintColor = .tertiaryLabel
+            streamSummaryLabel.text = "No description"
+            streamSummaryLabel.font = .italicSystemFont(ofSize: 13)
+            streamSummaryLabel.textColor = .tertiaryLabel
         }
+        streamSummaryLabel.isHidden = false
+        
+        // Recalculate expanded height now that content is set
+        recalculateExpandedHeight()
         
         // Subscribe to metadata updates
         appState.$metadataEvents
@@ -931,12 +1014,9 @@ class StreamerDashboardView: UIView {
             .sink { [weak self] metadata in
                 let name = metadata.displayName ?? metadata.name ?? String(pubkey.prefix(8))
                 self?.streamerNameLabel.text = name
-                self?.expandedNameLabel.text = name
-                self?.expandedBioLabel.text = metadata.about ?? "No bio"
                 
                 if let pictureURL = metadata.pictureURL {
                     self?.streamerProfilePic.kf.setImage(with: pictureURL)
-                    self?.expandedProfilePic.kf.setImage(with: pictureURL)
                 }
             }
             .store(in: &cancellables)
@@ -1132,20 +1212,46 @@ class StreamerDashboardView: UIView {
             emptyLabel.font = .systemFont(ofSize: 13)
             emptyLabel.textColor = .tertiaryLabel
             topZappersStack.addArrangedSubview(emptyLabel)
-            return
+        } else {
+            let medals = ["🥇", "🥈", "🥉"]
+            for (index, zapper) in cachedTopZappers.enumerated() {
+                let zapperView = createZapperView(
+                    medal: medals[index],
+                    name: zapper.displayName,
+                    sats: zapper.totalSats,
+                    profilePicURL: zapper.profilePicURL
+                )
+                topZappersStack.addArrangedSubview(zapperView)
+            }
         }
         
-        let medals = ["🥇", "🥈", "🥉"]
+        // Also update viewer mode zappers stack
+        updateViewerZappersUI()
+    }
+    
+    private func updateViewerZappersUI() {
+        viewerZappersStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        for (index, zapper) in cachedTopZappers.enumerated() {
-            let zapperView = createZapperView(
-                medal: medals[index],
-                name: zapper.displayName,
-                sats: zapper.totalSats,
-                profilePicURL: zapper.profilePicURL
-            )
-            topZappersStack.addArrangedSubview(zapperView)
+        if cachedTopZappers.isEmpty {
+            let emptyLabel = UILabel()
+            emptyLabel.text = "Be the first to zap! ⚡"
+            emptyLabel.font = .systemFont(ofSize: 13)
+            emptyLabel.textColor = .tertiaryLabel
+            viewerZappersStack.addArrangedSubview(emptyLabel)
+        } else {
+            let medals = ["🥇", "🥈", "🥉"]
+            for (index, zapper) in cachedTopZappers.enumerated() {
+                let zapperView = createZapperView(
+                    medal: medals[index],
+                    name: zapper.displayName,
+                    sats: zapper.totalSats,
+                    profilePicURL: zapper.profilePicURL
+                )
+                viewerZappersStack.addArrangedSubview(zapperView)
+            }
         }
+        
+        // Recalculate height after zappers content changed (don't animate — height was reserved upfront)
     }
     
     private func createZapperView(medal: String, name: String, sats: Int64, profilePicURL: URL?) -> UIView {
@@ -1199,13 +1305,13 @@ class StreamerDashboardView: UIView {
             
             nameLabel.leadingAnchor.constraint(equalTo: profilePic.trailingAnchor, constant: 6),
             nameLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
-            nameLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 60),
+            nameLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             
             satsLabel.leadingAnchor.constraint(equalTo: profilePic.trailingAnchor, constant: 6),
             satsLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
+            satsLabel.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
             
             container.heightAnchor.constraint(equalToConstant: 32),
-            container.widthAnchor.constraint(greaterThanOrEqualToConstant: 80),
         ])
         
         return container

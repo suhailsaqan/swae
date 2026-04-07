@@ -382,9 +382,11 @@ struct WizardAutoTopupPrompt: View {
     private var hasNwc: Bool { model.zapStreamCoreHasNwc }
 
     private var walletConnected: Bool {
-        if let wallet = appState.wallet,
-           case .existing = wallet.connect_state {
-            return true
+        if let wallet = appState.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark: return true
+            default: return false
+            }
         }
         return false
     }
@@ -394,7 +396,7 @@ struct WizardAutoTopupPrompt: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.green)
-                Text("Auto top-up is active")
+                Text("Auto-paying from your wallet")
                     .font(.subheadline.weight(.medium))
                     .foregroundColor(.green)
                 Spacer()
@@ -407,7 +409,7 @@ struct WizardAutoTopupPrompt: View {
                 Image(systemName: "bolt.fill")
                     .foregroundColor(.yellow)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Enable auto top-up")
+                    Text("Enable wallet auto-payment")
                         .font(.subheadline.weight(.medium))
                     Text("Automatically maintain your balance from your wallet")
                         .font(.caption)

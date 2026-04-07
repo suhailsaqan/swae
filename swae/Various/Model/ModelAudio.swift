@@ -298,12 +298,25 @@ extension Model {
             // Always restore audio session when interruption ends, regardless of
             // .shouldResume flag. Some interruptions (Siri, brief phone calls) may
             // not set .shouldResume, leaving audio dead.
-            // Only use the full .playAndRecord session if actively streaming;
-            // otherwise restore the lightweight .playback session.
             if isLive || streaming {
                 setupAudioSession()
                 media.attachDefaultAudioDevice(
                     builtinDelay: database.debug.builtinAudioAndVideoDelay)
+            } else if RootViewController.instance.currentPlayerController != nil {
+                // Video player is active — restore dedicated playback session
+                // and resume playback so audio continues after the interruption.
+                processorControlQueue.async {
+                    let session = AVAudioSession.sharedInstance()
+                    do {
+                        try session.setCategory(.playback, mode: .moviePlayback)
+                        try session.setActive(true)
+                    } catch {
+                        logger.error("app: Player audio session restore error \(error)")
+                    }
+                    DispatchQueue.main.async {
+                        RootViewController.instance.currentPlayerController?.videoPlayer?.play()
+                    }
+                }
             } else {
                 setupFeedAudioSession()
             }

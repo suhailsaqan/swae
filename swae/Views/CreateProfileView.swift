@@ -655,6 +655,13 @@ struct CreateProfileView: View, EventCreating {
 
             hasCompletedOnboarding = true
             isCreating = false
+
+            // Auto-connect wallet in the background (existing onboarding UI stays as fallback)
+            if WalletModel.useSparkBackend {
+                appState.autoConnectSparkWallet(keypair: keypair)
+            } else {
+                appState.autoConnectCoinosWallet(keypair: keypair)
+            }
         } catch {
             isCreating = false
             print("Unable to publish or save MetadataEvent for new profile \(keypair.publicKey.npub).")

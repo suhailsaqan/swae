@@ -54,6 +54,7 @@ struct StreamSettingsView: View {
     @State private var errorMessage: String?
     @State private var cancellables = Set<AnyCancellable>()
     @State private var showTopUpSheet = false
+    @State private var showWalletReceiveSheet = false
     /// Persists the selected game name across renders. CategoryTagsHelper.parse()
     /// cannot derive the name from the tag string alone, so we keep it in @State.
     @State private var selectedGameName: String?
@@ -150,27 +151,28 @@ struct StreamSettingsView: View {
     // MARK: - Zap Stream Body (Card-based layout)
     private var zapStreamBody: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                // Name section
-                nameSection
-                
-                // Zap Stream header
-                zapStreamHeader
-                
-                // Connection status
+            VStack(spacing: 20) {
+                // Balance / skeleton / error / no-identity
                 connectionStatusView
                 
-                // Stream settings
+                // Stream settings (includes name)
                 streamSettingsCard
                 
                 // Media section
                 mediaSection
                 
-                // Other settings
-                otherSettingsSection
+                // Advanced settings
+                advancedSection
+                
+                // TOS acceptance for new users (shown at end of flow)
+                if let account = accountInfo,
+                   account.tos?.accepted == false,
+                   !model.zapStreamCoreTosAccepted {
+                    ZapStreamCoreTosView(stream: stream)
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
             .padding(.bottom, 40)
         }
         .background(Color(.systemGroupedBackground))
@@ -179,15 +181,26 @@ struct StreamSettingsView: View {
         .onAppear {
             connectToZapStreamCore()
             model.startBalancePolling()
+            // Load wallet balance if auto top-up is active and balance not yet loaded
+            if model.zapStreamCoreHasNwc, appState.wallet?.balance == nil {
+                Task { await appState.wallet?.refreshBalanceOnly() }
+            }
         }
         .onDisappear {
             model.stopBalancePolling()
+            // Persist any stream setting changes to disk
+            model.store()
         }
         .sheet(isPresented: $showTopUpSheet, onDismiss: {
             model.refreshZapStreamCoreBalance()
         }) {
             ZapStreamCorePaymentView()
                 .environmentObject(model)
+        }
+        .sheet(isPresented: $showWalletReceiveSheet) {
+            if let wallet = appState.wallet {
+                ReceiveView(walletModel: wallet)
+            }
         }
     }
 
@@ -382,48 +395,6 @@ struct StreamSettingsView: View {
 
 
     // MARK: - Zap Stream Components
-    
-    private var nameSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("NAME")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 4)
-            
-            HStack {
-                TextField("Stream Name", text: $stream.name)
-                    .font(.body)
-                Spacer()
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
-        }
-    }
-    
-    private var zapStreamHeader: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.yellow.opacity(0.15))
-                    .frame(width: 64, height: 64)
-                
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.yellow)
-            }
-            
-            Text("Zap Stream")
-                .font(.title3.bold())
-                .foregroundColor(.primary)
-            
-            Text("Stream to Nostr with your identity")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
 
     // MARK: - Connection Status View
     @ViewBuilder
@@ -435,7 +406,7 @@ struct StreamSettingsView: View {
         } else if let error = errorMessage {
             errorView(error)
         } else if let account = accountInfo {
-            connectedView(account)
+            balanceCard(account)
         }
     }
 
@@ -465,25 +436,26 @@ struct StreamSettingsView: View {
     }
 
     private var loadingView: some View {
-        HStack(spacing: 12) {
-            ProgressView()
-                .scaleEffect(0.9)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Connecting...")
-                    .font(.subheadline.weight(.medium))
-                Text("Setting up your stream")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        VStack(spacing: 10) {
+            HStack {
+                Capsule().fill(Color(.systemGray4)).frame(width: 100, height: 18)
+                Capsule().fill(Color(.systemGray5)).frame(width: 30, height: 14)
+                Spacer()
+                Capsule().fill(Color(.systemGray5)).frame(width: 60, height: 14)
             }
-            
-            Spacer()
+            Capsule().fill(Color(.systemGray5)).frame(height: 4)
+            HStack {
+                Capsule().fill(Color(.systemGray5)).frame(width: 100, height: 12)
+                Spacer()
+            }
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shimmer()
     }
 
     private func errorView(_ error: String) -> some View {
@@ -521,121 +493,171 @@ struct StreamSettingsView: View {
         )
     }
 
-    private func connectedView(_ account: ZapStreamCoreAccountResponse) -> some View {
+    private var walletConnected: Bool {
+        if let wallet = appState.wallet {
+            switch wallet.connect_state {
+            case .existing, .spark: return true
+            default: return false
+            }
+        }
+        return false
+        return false
+    }
+
+    private func balanceCard(_ account: ZapStreamCoreAccountResponse) -> some View {
         let cost = account.endpoints.first?.cost
         let rate = cost?.rate ?? 0
-        let balance = model.zapStreamCoreBalance ?? account.balance
-        let minutesLeft = rate > 0 ? Double(balance) / rate : Double.infinity
-        let hoursLeft = minutesLeft / 60.0
 
-        return VStack(spacing: 16) {
-            // Identity row
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.body)
-                    .foregroundColor(.green)
+        return Group {
+            if model.zapStreamCoreHasNwc {
+                // Auto top-up active — show wallet balance (what the server charges)
+                let walletMillisats = appState.wallet?.balance
+                let walletSats = walletMillisats != nil ? Int(walletMillisats! / 1000) : nil
+                let minutesLeft = (walletSats != nil && rate > 0) ? Double(walletSats!) / rate : Double.infinity
+                let hoursLeft = minutesLeft / 60.0
 
-                if let name = displayName {
-                    Text("@\(name)")
-                        .font(.subheadline.weight(.medium))
-                } else if let npub = appState.publicKey?.npub {
-                    Text(String(npub.prefix(16)) + "...")
-                        .font(.caption.monospaced())
-                }
-
-                Spacer()
-
-                if let cost {
-                    Text("\(Int(cost.rate)) sats/\(cost.unit)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            // Balance display
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "bolt.fill")
-                    .font(.title2)
-                    .foregroundColor(balanceColor(hoursLeft: hoursLeft))
-
-                Text(formatBalance(balance))
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-
-                Text("sats")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.secondary)
-                    .padding(.bottom, 2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Runway indicator
-            if rate > 0 {
-                VStack(spacing: 8) {
-                    // Progress bar
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.white.opacity(0.1))
-                                .frame(height: 6)
-
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(balanceColor(hoursLeft: hoursLeft))
-                                .frame(
-                                    width: min(geo.size.width, geo.size.width * CGFloat(min(hoursLeft / 10.0, 1.0))),
-                                    height: 6
-                                )
+                VStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bolt.fill")
+                            .foregroundColor(walletSats == nil ? .secondary : (walletSats! > 0 ? .green : .orange))
+                        if let sats = walletSats {
+                            Text(formatBalance(sats))
+                                .font(.title3.weight(.bold))
+                                .monospacedDigit()
+                            Text("sats in wallet")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("0,000")
+                                .font(.title3.weight(.bold))
+                                .monospacedDigit()
+                                .redacted(reason: .placeholder)
+                            Text("sats in wallet")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .redacted(reason: .placeholder)
+                        }
+                        Spacer()
+                        Button { showWalletReceiveSheet = true } label: {
+                            HStack(spacing: 4) {
+                                Text("Fund Wallet")
+                                Image(systemName: "chevron.right")
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.green)
                         }
                     }
-                    .frame(height: 6)
 
+                    if walletSats == nil {
+                        Capsule().fill(Color(.systemGray5)).frame(height: 4).shimmer()
+                    } else if walletSats == 0 {
+                        Text("Fund your wallet to stream")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if rate > 0 {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.1)).frame(height: 4)
+                                Capsule().fill(balanceColor(hoursLeft: hoursLeft))
+                                    .frame(width: min(geo.size.width,
+                                        geo.size.width * CGFloat(min(hoursLeft / 10.0, 1.0))),
+                                        height: 4)
+                            }
+                        }
+                        .frame(height: 4)
+
+                        HStack {
+                            Text(runwayText(minutesLeft: minutesLeft))
+                                .font(.caption)
+                                .foregroundColor(balanceColor(hoursLeft: hoursLeft))
+                            Text("•").font(.caption).foregroundColor(.secondary)
+                            Text("\(formatSatsRate(rate)) sats/min")
+                                .font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                        }
+                    }
+
+                    // Auto top-up controls (enable/disable)
+                    Divider()
+                    ZapStreamNWCAutoTopupView(stream: stream)
+                        .environmentObject(model)
+                        .environmentObject(appState)
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                )
+            } else {
+                // Show balance + auto top-up prompt
+                let balance = model.zapStreamCoreBalance ?? account.balance
+                let minutesLeft = rate > 0 ? Double(balance) / rate : Double.infinity
+                let hoursLeft = minutesLeft / 60.0
+
+                VStack(spacing: 12) {
+                    // Balance row
                     HStack {
-                        Text(runwayText(minutesLeft: minutesLeft))
-                            .font(.caption.weight(.medium))
+                        Image(systemName: "bolt.fill")
                             .foregroundColor(balanceColor(hoursLeft: hoursLeft))
+                        Text(formatBalance(balance))
+                            .font(.title3.weight(.bold))
+                            .monospacedDigit()
+                        Text("sats")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                         Spacer()
+                        Button { showTopUpSheet = true } label: {
+                            HStack(spacing: 4) {
+                                Text("Top Up")
+                                Image(systemName: "chevron.right")
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(balanceColor(hoursLeft: hoursLeft))
+                        }
+                    }
+
+                    // Runway bar
+                    if rate > 0 {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.1)).frame(height: 4)
+                                Capsule().fill(balanceColor(hoursLeft: hoursLeft))
+                                    .frame(width: min(geo.size.width,
+                                        geo.size.width * CGFloat(min(hoursLeft / 10.0, 1.0))),
+                                        height: 4)
+                            }
+                        }
+                        .frame(height: 4)
+
+                        HStack {
+                            Text(runwayText(minutesLeft: minutesLeft))
+                                .font(.caption)
+                                .foregroundColor(balanceColor(hoursLeft: hoursLeft))
+                            if let cost {
+                                Text("•").font(.caption).foregroundColor(.secondary)
+                                Text("\(cost.formattedRate) sats/\(cost.unit)")
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                    }
+
+                    // Auto top-up prompt when wallet is connected
+                    if walletConnected {
+                        Divider()
+                        ZapStreamNWCAutoTopupView(stream: stream)
+                            .environmentObject(model)
+                            .environmentObject(appState)
                     }
                 }
-            }
-
-            // Auto Top-Up section
-            ZapStreamNWCAutoTopupView(stream: stream)
-                .environmentObject(model)
-                .environmentObject(appState)
-
-            // Top Up button (secondary when auto-topup is active)
-            Button {
-                showTopUpSheet = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.body.weight(.semibold))
-                    Text(model.zapStreamCoreHasNwc ? "Manual Top Up" : "Top Up Balance")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .foregroundColor(model.zapStreamCoreHasNwc ? .white : .black)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(16)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(model.zapStreamCoreHasNwc ? Color.clear : balanceColor(hoursLeft: hoursLeft))
-                )
-                .overlay(
-                    model.zapStreamCoreHasNwc ?
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1) : nil
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(.secondarySystemGroupedBackground))
                 )
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(balanceColor(hoursLeft: hoursLeft).opacity(0.3), lineWidth: 1)
-        )
     }
 
     // MARK: - Balance Helpers
@@ -667,13 +689,28 @@ struct StreamSettingsView: View {
     // MARK: - Stream Settings Card
     private var streamSettingsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("STREAM SETTINGS")
+            Text("STREAM INFO")
                 .font(.caption.weight(.semibold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)
             
             VStack(alignment: .leading, spacing: 16) {
-                // Title field
+                // Name field (internal identifier)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Name")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Stream Name", text: $stream.name)
+                        .font(.body)
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.tertiarySystemGroupedBackground))
+                        )
+                }
+
+                // Title field (what viewers see)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Stream Title")
                         .font(.subheadline.weight(.medium))
@@ -715,15 +752,6 @@ struct StreamSettingsView: View {
                     additionalTags: additionalTagsBinding
                 )
 
-                // Content Warning toggle
-                HStack {
-                    Text("NSFW Content Warning")
-                        .font(.body)
-                    Spacer()
-                    Toggle("", isOn: contentWarningBinding)
-                        .labelsHidden()
-                }
-                
                 // Public toggle
                 HStack {
                     Text("Public Stream")
@@ -732,25 +760,13 @@ struct StreamSettingsView: View {
                     Toggle("", isOn: $stream.zapStreamCoreIsPublic)
                         .labelsHidden()
                 }
-                
-                // Protocol picker
-                HStack {
-                    Text("Protocol")
-                        .font(.body)
-                    Spacer()
-                    Picker("Protocol", selection: $stream.zapStreamCorePreferredProtocol) {
-                        Text("RTMP").tag(ZapStreamCoreProtocol.rtmp)
-                        Text("SRT").tag(ZapStreamCoreProtocol.srt)
-                    }
-                    .pickerStyle(.menu)
-                }
 
-                // Skip pre-stream review toggle
+                // Content Warning toggle
                 HStack {
-                    Text("Skip Pre-Stream Review")
+                    Text("NSFW Content Warning")
                         .font(.body)
                     Spacer()
-                    Toggle("", isOn: $database.skipPreStreamReview)
+                    Toggle("", isOn: contentWarningBinding)
                         .labelsHidden()
                 }
             }
@@ -868,15 +884,50 @@ struct StreamSettingsView: View {
         }
     }
     
-    // MARK: - Other Settings Section
-    private var otherSettingsSection: some View {
+    // MARK: - Advanced Section
+    private var advancedSection: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Text("ADVANCED")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
+            
             VStack(spacing: 0) {
+                // Protocol picker
+                HStack {
+                    Text("Protocol")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Picker("Protocol", selection: $stream.zapStreamCorePreferredProtocol) {
+                        Text("RTMP").tag(ZapStreamCoreProtocol.rtmp)
+                        Text("SRT").tag(ZapStreamCoreProtocol.srt)
+                    }
+                    .pickerStyle(.menu)
+                }
+                .padding(16)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Skip pre-stream review
+                HStack {
+                    Text("Skip Pre-Stream Review")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Toggle("", isOn: $database.skipPreStreamReview)
+                        .labelsHidden()
+                }
+                .padding(16)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // OBS remote control
                 NavigationLink {
                     StreamObsRemoteControlSettingsView(stream: stream)
                 } label: {
                     HStack {
-                        Text("OBS remote control")
+                        Text("OBS Remote Control")
                             .foregroundColor(.primary)
                         Spacer()
                         Toggle("", isOn: $stream.obsWebSocketEnabled)
@@ -892,6 +943,11 @@ struct StreamSettingsView: View {
                     }
                     .padding(16)
                 }
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // OBS remote control is the last item
             }
             .background(
                 RoundedRectangle(cornerRadius: 16)
@@ -943,6 +999,8 @@ struct StreamSettingsView: View {
                     // Seed the shared model balance
                     self.model.zapStreamCoreBalance = accountResponse.balance
                     self.model.zapStreamCoreHasNwc = accountResponse.hasNwc
+                    self.model.zapStreamCoreTosAccepted = accountResponse.tos?.accepted ?? false
+                    self.model.zapStreamCoreTosLink = accountResponse.tos?.link
                     if let cost = accountResponse.endpoints.first?.cost {
                         self.model.zapStreamCoreRate = cost.rate
                     }

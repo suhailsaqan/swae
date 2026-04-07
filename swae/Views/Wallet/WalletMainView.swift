@@ -61,7 +61,6 @@ struct WalletMainView: View {
             await walletModel.refreshWalletData()
         }
         .onAppear {
-            // Only load if we don't already have data and aren't already loading
             if walletModel.balance == nil && !walletModel.isLoading {
                 Task {
                     await walletModel.loadWalletData()
@@ -88,10 +87,14 @@ struct WalletMainView: View {
     // MARK: - Computed Properties
 
     private var lightningAddress: String? {
-        if case .existing(let nwc) = walletModel.connect_state {
+        switch walletModel.connect_state {
+        case .spark(let lud16):
+            return lud16
+        case .existing(let nwc):
             return nwc.lud16
+        default:
+            return nil
         }
-        return nil
     }
 
     // MARK: - Action Buttons Section
@@ -210,6 +213,13 @@ struct WalletSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showDisconnectAlert: Bool = false
     @State private var copiedField: String? = nil
+    @State private var showBackupSheet: Bool = false
+
+    #if DEBUG
+    enum NWCTestStatus { case idle, running, success, failed }
+    @State private var nwcTestStatus: NWCTestStatus = .idle
+    @State private var nwcTestMessage: String? = nil
+    #endif
     
     var body: some View {
         NavigationView {
@@ -222,8 +232,13 @@ struct WalletSettingsView: View {
                         connectionStatusSection
                         
                         // Wallet Details
-                        if case .existing(let nwc) = walletModel.connect_state {
+                        switch walletModel.connect_state {
+                        case .existing(let nwc):
                             walletDetailsSection(nwc: nwc)
+                        case .spark(let lud16):
+                            sparkDetailsSection(lud16: lud16)
+                        default:
+                            EmptyView()
                         }
                         
                         // Actions
@@ -258,6 +273,9 @@ struct WalletSettingsView: View {
             } message: {
                 Text("Are you sure you want to disconnect your wallet? You can reconnect anytime.")
             }
+            .sheet(isPresented: $showBackupSheet) {
+                BackupWalletView(walletModel: walletModel)
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -265,10 +283,12 @@ struct WalletSettingsView: View {
     // MARK: - Connection Status
     
     private var isConnected: Bool {
-        if case .existing = walletModel.connect_state {
+        switch walletModel.connect_state {
+        case .existing, .spark:
             return true
+        default:
+            return false
         }
-        return false
     }
     
     private var connectionStatusSection: some View {
@@ -288,7 +308,13 @@ struct WalletSettingsView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
                 
-                Text("Nostr Wallet Connect")
+                Text({
+                    switch walletModel.connect_state {
+                    case .spark: return "Spark Wallet"
+                    case .existing: return "Nostr Wallet Connect"
+                    default: return "Not Connected"
+                    }
+                }())
                     .font(.system(size: 13))
                     .foregroundColor(.gray)
             }
@@ -353,6 +379,39 @@ struct WalletSettingsView: View {
         }
     }
     
+    private func sparkDetailsSection(lud16: String?) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("WALLET DETAILS")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.gray)
+                .tracking(0.5)
+            
+            VStack(spacing: 0) {
+                settingsRow(
+                    icon: "bolt.shield.fill",
+                    title: "Wallet Type",
+                    value: "Self-custodial (Spark)",
+                    fullValue: "Self-custodial Spark wallet via Breez SDK"
+                )
+                
+                Divider().background(Color.gray.opacity(0.3))
+                
+                if let lud16 {
+                    settingsRow(
+                        icon: "at",
+                        title: "Lightning Address",
+                        value: lud16,
+                        fullValue: lud16
+                    )
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.05))
+            )
+        }
+    }
+
     private func settingsRow(icon: String, title: String, value: String, fullValue: String) -> some View {
         Button(action: {
             UIPasteboard.general.string = fullValue
@@ -437,6 +496,76 @@ struct WalletSettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(walletModel.isLoading)
+
+                // Backup recovery phrase (Spark wallets only)
+                if case .spark = walletModel.connect_state {
+                    Divider().background(Color.gray.opacity(0.3))
+
+                    Button(action: { showBackupSheet = true }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "key.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(.orange)
+                                .frame(width: 24)
+
+                            Text("Backup Recovery Phrase")
+                                .font(.system(size: 15))
+                                .foregroundColor(.white)
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14))
+                                .foregroundColor(.gray)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Debug: Test NWC Responder (Spark wallets only)
+                #if DEBUG
+                Divider().background(Color.gray.opacity(0.3))
+
+                Button(action: { runNWCResponderTest() }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.system(size: 16))
+                            .foregroundColor(nwcTestStatus == .success ? .green : nwcTestStatus == .failed ? .red : .purple)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Test NWC Responder")
+                                .font(.system(size: 15))
+                                .foregroundColor(.white)
+                            if let msg = nwcTestMessage {
+                                Text(msg)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(nwcTestStatus == .success ? .green : nwcTestStatus == .failed ? .red : .gray)
+                                    .lineLimit(2)
+                            }
+                        }
+
+                        Spacer()
+
+                        if nwcTestStatus == .running {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: nwcTestStatus == .success ? "checkmark.circle.fill" : nwcTestStatus == .failed ? "xmark.circle.fill" : "chevron.right")
+                                .font(.system(size: 14))
+                                .foregroundColor(nwcTestStatus == .success ? .green : nwcTestStatus == .failed ? .red : .gray)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(nwcTestStatus == .running)
+                #endif
             }
             .background(
                 RoundedRectangle(cornerRadius: 12)
@@ -445,6 +574,50 @@ struct WalletSettingsView: View {
         }
     }
     
+    // MARK: - Debug NWC Responder Test
+
+    #if DEBUG
+    private func runNWCResponderTest() {
+        guard case .spark = walletModel.connect_state,
+              let spark = walletModel.sparkService else {
+            nwcTestStatus = .failed
+            nwcTestMessage = "Spark wallet not connected"
+            return
+        }
+
+        nwcTestStatus = .running
+        nwcTestMessage = "Starting responder..."
+
+        Task {
+            do {
+                let responder = NWCResponder()
+                await MainActor.run { nwcTestMessage = "Connecting to relay..." }
+
+                let nwcURL = try await responder.start(sparkService: spark)
+                await MainActor.run { nwcTestMessage = "Responder running. Sending test request..." }
+
+                let result = try await responder.selfTest()
+                responder.stop()
+
+                await MainActor.run {
+                    nwcTestStatus = .success
+                    // Parse to show a clean message
+                    if result.contains("alias") || result.contains("methods") {
+                        nwcTestMessage = "Round-trip OK. get_info responded."
+                    } else {
+                        nwcTestMessage = "Response: \(String(result.prefix(80)))"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    nwcTestStatus = .failed
+                    nwcTestMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+    #endif
+
     // MARK: - Disconnect Button
     
     private var disconnectButton: some View {

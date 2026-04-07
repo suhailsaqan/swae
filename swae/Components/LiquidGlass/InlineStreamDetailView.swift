@@ -37,6 +37,9 @@ class InlineStreamDetailView: UIView {
         let isAdaptiveResolution: Bool
         let isLowLightBoostAvailable: Bool
         let isLowLightBoostEnabled: Bool
+        // Video bitrate sub-page data
+        let bitrateIndex: Int
+        let availableBitrates: [String]
         // Audio sub-page data
         let audioBitrateKbps: Int
         // Hub page toggle data
@@ -416,19 +419,16 @@ class InlineStreamDetailView: UIView {
         // Skeleton overlays for loading state
         balanceSkeleton.translatesAutoresizingMaskIntoConstraints = false
         balanceSkeleton.layer.cornerRadius = 4
-        balanceSkeleton.useDarkStyle()
         balanceSkeleton.isHidden = true
         balanceSection.addSubview(balanceSkeleton)
 
         runwaySkeleton.translatesAutoresizingMaskIntoConstraints = false
         runwaySkeleton.layer.cornerRadius = 2
-        runwaySkeleton.useDarkStyle()
         runwaySkeleton.isHidden = true
         balanceSection.addSubview(runwaySkeleton)
 
         runwayTextSkeleton.translatesAutoresizingMaskIntoConstraints = false
         runwayTextSkeleton.layer.cornerRadius = 3
-        runwayTextSkeleton.useDarkStyle()
         runwayTextSkeleton.isHidden = true
         balanceSection.addSubview(runwayTextSkeleton)
 
@@ -637,7 +637,6 @@ class InlineStreamDetailView: UIView {
         // Rate skeleton overlay
         rateSkeleton.translatesAutoresizingMaskIntoConstraints = false
         rateSkeleton.layer.cornerRadius = 3
-        rateSkeleton.useDarkStyle()
         rateSkeleton.isHidden = true
         rRow.addSubview(rateSkeleton)
         NSLayoutConstraint.activate([
@@ -748,7 +747,7 @@ class InlineStreamDetailView: UIView {
         streamTypeValueLabel.text = data.protocolString
         if data.isZapStream {
             if data.rate > 0 {
-                rateValueLabel.text = "\(Int(data.rate)) sats/min"
+                rateValueLabel.text = "\(formatSatsRate(data.rate)) sats/min"
                 rateValueLabel.isHidden = false
                 rateSkeleton.isHidden = true
                 rateSkeleton.stopAnimating()
@@ -910,9 +909,9 @@ class InlineStreamDetailView: UIView {
                     if minutesLeft >= 60 {
                         let hours = Int(minutesLeft / 60)
                         let mins = Int(minutesLeft.truncatingRemainder(dividingBy: 60))
-                        runwayLabel.text = "~\(hours)h \(mins)m • \(Int(rate)) sats/min"
+                        runwayLabel.text = "~\(hours)h \(mins)m • \(formatSatsRate(rate)) sats/min"
                     } else {
-                        runwayLabel.text = "~\(Int(minutesLeft))m • \(Int(rate)) sats/min"
+                        runwayLabel.text = "~\(Int(minutesLeft))m • \(formatSatsRate(rate)) sats/min"
                     }
                 } else {
                     runwayBar.isHidden = true
@@ -925,6 +924,7 @@ class InlineStreamDetailView: UIView {
 
         // Standard balance display when no auto top-up
         runwayBar.isHidden = false
+        runwayLabel.isHidden = false
         balanceIcon.tintColor = .systemYellow
 
         if let balance {
@@ -1226,8 +1226,14 @@ class InlineStreamDetailView: UIView {
 
     /// Update the auto-topup UI state without a full reconfigure.
     /// Call after enable/disable API calls succeed.
-    func updateAutoTopupState(hasNwc: Bool, hasWallet: Bool) {
+    func updateAutoTopupState(hasNwc: Bool, hasWallet: Bool, balance: Int? = nil, rate: Double? = nil, walletBalance: Int64? = nil) {
         currentHasNwc = hasNwc
+        currentHasWallet = hasWallet
+
+        // Update wallet balance if provided (e.g., when enabling auto-pay)
+        if let walletBalance {
+            currentWalletBalance = walletBalance
+        }
 
         autoTopupIndicator.isHidden = !hasNwc
         enableAutoTopupButton.isHidden = hasNwc || !hasWallet
@@ -1235,9 +1241,11 @@ class InlineStreamDetailView: UIView {
         // Reset loading state (stops spinner, restores button title)
         endAutoTopupLoading()
 
-        // Reset disable label back to normal
-        autoTopupLabel.text = "Auto-paying from your wallet"
-        autoTopupLabel.textColor = .systemGreen
+        // Reset disable label — only relevant when auto-pay is active
+        if hasNwc {
+            autoTopupLabel.text = "Auto-paying from your wallet"
+            autoTopupLabel.textColor = .systemGreen
+        }
 
         // When auto top-up is active, hide the top-up button entirely
         // and show a small "Manage" style button instead
@@ -1260,6 +1268,11 @@ class InlineStreamDetailView: UIView {
             topUpButton.setTitleColor(.white, for: .normal)
             let boltCfg = UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
             topUpButton.setImage(UIImage(systemName: "bolt.fill", withConfiguration: boltCfg), for: .normal)
+        }
+
+        // Refresh the balance display with the new NWC/wallet state
+        if let balance, let rate {
+            updateBalanceDisplay(balance: balance, rate: rate)
         }
     }
 

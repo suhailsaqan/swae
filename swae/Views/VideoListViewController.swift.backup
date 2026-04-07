@@ -1,0 +1,1970 @@
+//
+//  VideoListViewController.swift
+//  swae
+//
+//  Created by Suhail Saqan on 11/24/24.
+//
+
+import AVKit
+import Combine
+import Kingfisher
+import NostrSDK
+import UIKit
+
+/// A modern, engaging video discovery interface with a hero section and horizontal carousels
+final class VideoListViewController: UIViewController {
+
+    // MARK: - Dependencies
+    private let appState: AppState
+    private let orientationMonitor: OrientationMonitor
+
+    // MARK: - UI Components
+    private let collectionView: UICollectionView
+    private let refreshControl = UIRefreshControl()
+    private let heroGradientView = UIView()
+    private let headerView = AmbientHeader()
+
+    // MARK: - Scroll Tracking
+    private var topBarHeight: CGFloat = 100
+    private var barsMaxTransform: CGFloat { topBarHeight }
+    private var prevPosition: CGFloat = 0
+    private var prevTransform: CGFloat = 0
+
+    // MARK: - Data
+    private var cancellables = Set<AnyCancellable>()
+    private var sections: [ContentSection] = []
+    private var isLoading = false
+    private var hasSetInitialInset = false
+
+    // MARK: - Layout
+    private enum LayoutMetrics {
+        static var heroHeight: CGFloat {
+            // Dynamic hero height based on screen size - reduced for better proportions
+            let screenWidth = UIScreen.main.bounds.width
+
+            // Calculate height as a ratio of screen width for good proportions
+            // Use 0.85:1 ratio (more compact, less dominant)
+            let calculatedHeight = screenWidth * 0.85
+
+            // Apply constraints - reduced max height
+            let minHeight: CGFloat = 250
+            let maxHeight: CGFloat = 320
+
+            return min(max(calculatedHeight, minHeight), maxHeight)
+        }
+
+        static let carouselHeight: CGFloat = 240
+        static let sectionHeaderHeight: CGFloat = 60
+        static let spacing: CGFloat = 16
+        static let cardCornerRadius: CGFloat = 16
+    }
+
+    // MARK: - Data Models
+    struct ContentSection {
+        let title: String
+        let subtitle: String?
+        let events: [LiveActivitiesEvent]
+        let style: SectionStyle
+
+        enum SectionStyle {
+            case hero  // Large featured content at the top
+            case carousel  // Horizontal scrolling cards
+            case grid  // Grid layout for more content
+        }
+    }
+
+    // MARK: - Initialization
+    init(appState: AppState, orientationMonitor: OrientationMonitor) {
+        self.appState = appState
+        self.orientationMonitor = orientationMonitor
+
+        // Setup collection view layout
+        let layout = UICollectionViewCompositionalLayout { sectionIndex, environment in
+            return VideoListViewController.createLayout(for: sectionIndex, environment: environment)
+        }
+
+        self.collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - Lifecycle
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupUI()
+        setupHeader()
+        setupCollectionView()
+        setupObservers()
+        rebuildSections()
+
+        // Add a subtle entrance animation
+        collectionView.alpha = 0
+        headerView.alpha = 0
+        UIView.animate(withDuration: 0.4, delay: 0.1, options: .curveEaseOut) {
+            self.collectionView.alpha = 1
+            self.headerView.alpha = 1
+        }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        // Calculate header height based on safe area
+        let safeAreaTop = view.safeAreaInsets.top
+        topBarHeight = safeAreaTop + 60 - 12 
+
+        // Override any additionalSafeAreaInsets that might be set by parent controllers
+        if additionalSafeAreaInsets != .zero {
+            additionalSafeAreaInsets = .zero
+        }
+
+        // FIXED: Add top content inset to push content below header
+        // This creates space for the header so content starts right below it
+        if !hasSetInitialInset {
+            // Add top inset equal to header height
+            collectionView.contentInset = .init(
+                top: topBarHeight,  // ← FIXED: Push content below header
+                left: 0,
+                bottom: 150,  // Bottom padding for tab bar
+                right: 0
+            )
+
+            // Set initial offset to negative of top inset
+            // This makes content appear to start at top, but actually starts below header
+            collectionView.contentOffset = .init(x: 0, y: -topBarHeight)
+
+            // Scroll indicators account for header space
+            collectionView.scrollIndicatorInsets = .init(
+                top: topBarHeight,  // ← FIXED: Account for header
+                left: 0,
+                bottom: 150,
+                right: 0
+            )
+
+            hasSetInitialInset = true
+        }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+
+        // Always show bars when leaving
+        if prevTransform != 0 {
+            if animated {
+                animateBarsToVisible()
+            } else {
+                setBarsToTransform(0)
+            }
+        }
+    }
+
+    // MARK: - UI Setup
+    private func setupUI() {
+        view.backgroundColor = .systemBackground
+
+        // Setup collection view
+        collectionView.backgroundColor = .systemBackground
+        collectionView.showsVerticalScrollIndicator = false
+        collectionView.contentInsetAdjustmentBehavior = .never
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        collectionView.delegate = self
+        collectionView.dataSource = self
+
+        // Setup refresh control
+        refreshControl.tintColor = .label
+        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        collectionView.refreshControl = refreshControl
+
+        view.addSubview(collectionView)
+
+        NSLayoutConstraint.activate([
+            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+    }
+
+    private func setupHeader() {
+        // Add header above collection view
+        view.addSubview(headerView)
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            headerView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerView.heightAnchor.constraint(equalToConstant: topBarHeight),
+        ])
+
+        // Bring header to front
+        view.bringSubviewToFront(headerView)
+
+        // Configure callbacks
+        headerView.onSearchTapped = { [weak self] in
+            self?.showSearch()
+        }
+
+        headerView.onLogoTapped = { [weak self] in
+            self?.scrollToTopAndRefresh()
+        }
+
+        headerView.onLiveIndicatorTapped = { [weak self] in
+            self?.scrollToLiveSection()
+        }
+
+        // Update live count
+        let liveCount = appState.liveActivitiesEvents.values.flatMap { $0 }.filter { $0.isLive }
+            .count
+        headerView.setLiveCount(liveCount)
+    }
+
+    private func setupCollectionView() {
+        // Register cells
+        collectionView.register(HeroCell.self, forCellWithReuseIdentifier: HeroCell.reuseIdentifier)
+        collectionView.register(
+            CarouselCell.self, forCellWithReuseIdentifier: CarouselCell.reuseIdentifier)
+        collectionView.register(
+            SectionHeaderView.self,
+            forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+            withReuseIdentifier: SectionHeaderView.reuseIdentifier)
+    }
+
+    // MARK: - Compositional Layout
+    private static func createLayout(
+        for sectionIndex: Int, environment: NSCollectionLayoutEnvironment
+    ) -> NSCollectionLayoutSection {
+        // This will be called per section, but we need to know the section style
+        // For now, we'll use a more flexible approach
+
+        if sectionIndex == 0 {
+            // Hero section - full width, large height
+            return createHeroSection()
+        } else {
+            // Carousel section - horizontal scrolling
+            return createCarouselSection()
+        }
+    }
+
+    private static func createHeroSection() -> NSCollectionLayoutSection {
+        let itemSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .fractionalHeight(1.0)
+        )
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+        let groupSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .absolute(LayoutMetrics.heroHeight)
+        )
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+        let section = NSCollectionLayoutSection(group: group)
+        section.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 20, trailing: 0)
+
+        return section
+    }
+
+    private static func createCarouselSection() -> NSCollectionLayoutSection {
+        let itemSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .fractionalHeight(1.0)
+        )
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+        let groupSize = NSCollectionLayoutSize(
+            widthDimension: .absolute(280),
+            heightDimension: .absolute(LayoutMetrics.carouselHeight)
+        )
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+        let section = NSCollectionLayoutSection(group: group)
+        section.orthogonalScrollingBehavior = .continuousGroupLeadingBoundary
+        section.interGroupSpacing = 12
+        section.contentInsets = NSDirectionalEdgeInsets(
+            top: 0, leading: 16, bottom: 24, trailing: 16)
+
+        // Add section header
+        let headerSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .absolute(LayoutMetrics.sectionHeaderHeight)
+        )
+        let header = NSCollectionLayoutBoundarySupplementaryItem(
+            layoutSize: headerSize,
+            elementKind: UICollectionView.elementKindSectionHeader,
+            alignment: .top
+        )
+        section.boundarySupplementaryItems = [header]
+
+        return section
+    }
+
+    // MARK: - Observers
+    private func setupObservers() {
+        // Observe live activities changes
+        appState.$liveActivitiesEvents
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.rebuildSections()
+            }
+            .store(in: &cancellables)
+
+        // Observe followed pubkeys changes
+        appState.$followedPubkeys
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.rebuildSections()
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Data Management
+    private func rebuildSections() {
+        let allEvents = appState.liveActivitiesEvents.values.flatMap { $0 }
+        let liveEvents = allEvents.filter { $0.isLive }
+        let replayEvents = allEvents.filter { $0.isReplay }
+
+        var newSections: [ContentSection] = []
+
+        // 1. Hero Section - Top live stream
+        if let topLiveEvent = liveEvents.sorted(by: {
+            $0.currentParticipants > $1.currentParticipants
+        }).first {
+            newSections.append(
+                ContentSection(
+                    title: "Featured Live",
+                    subtitle: nil,
+                    events: [topLiveEvent],
+                    style: .hero
+                ))
+        }
+
+        // 2. Live Now - Top live streams
+        if liveEvents.count > 1 {
+            let topLive = Array(
+                liveEvents.sorted { $0.currentParticipants > $1.currentParticipants }.prefix(10))
+            newSections.append(
+                ContentSection(
+                    title: "Live Now",
+                    subtitle: "\(liveEvents.count) streams",
+                    events: topLive,
+                    style: .carousel
+                ))
+        }
+
+        // 3. Following
+        if let publicKey = appState.publicKey {
+            let followedPubkeys = appState.followedPubkeys
+            let followedEvents = liveEvents.filter { event in
+                if followedPubkeys.contains(event.pubkey) { return true }
+                let hostHex = event.participants.first(where: { $0.role?.lowercased() == "host" })?
+                    .pubkey?.hex
+                return hostHex != nil && followedPubkeys.contains(hostHex!)
+            }
+
+            if !followedEvents.isEmpty {
+                newSections.append(
+                    ContentSection(
+                        title: "Following",
+                        subtitle: "\(followedEvents.count) live",
+                        events: followedEvents.sorted {
+                            $0.currentParticipants > $1.currentParticipants
+                        },
+                        style: .carousel
+                    ))
+            }
+        }
+
+        // 4. Category Sections
+        var tagMap: [String: [LiveActivitiesEvent]] = [:]
+        for event in liveEvents {
+            for rawTag in event.internalTags {
+                let tagName = rawTag.replacingOccurrences(of: "internal:", with: "")
+                tagMap[tagName, default: []].append(event)
+            }
+        }
+
+        let categorySections = tagMap.compactMap { tagName, events -> ContentSection? in
+            guard !events.isEmpty else { return nil }
+            let sorted = events.sorted { $0.currentParticipants > $1.currentParticipants }
+            return ContentSection(
+                title: tagName.capitalized,
+                subtitle: "\(sorted.count) streams",
+                events: sorted,
+                style: .carousel
+            )
+        }.sorted { lhs, rhs in
+            (lhs.events.first?.currentParticipants ?? 0)
+                > (rhs.events.first?.currentParticipants ?? 0)
+        }
+
+        newSections.append(contentsOf: categorySections)
+
+        // 5. Recent Replays
+        if !replayEvents.isEmpty {
+            let sortedReplays = Array(
+                replayEvents.sorted { $0.createdAt > $1.createdAt }.prefix(10))
+            newSections.append(
+                ContentSection(
+                    title: "Recent Replays",
+                    subtitle: "\(replayEvents.count) available",
+                    events: sortedReplays,
+                    style: .carousel
+                ))
+        }
+
+        sections = newSections
+
+        UIView.transition(with: collectionView, duration: 0.3, options: .transitionCrossDissolve) {
+            self.collectionView.reloadData()
+        }
+    }
+
+    // MARK: - Actions
+    @objc private func handleRefresh() {
+        appState.refresh(hardRefresh: true)
+
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.refreshControl.endRefreshing()
+        }
+    }
+
+    private func didSelectEvent(_ event: LiveActivitiesEvent) {
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+
+        // Set up and show the player
+        appState.playerConfig.selectedLiveActivitiesEvent = event
+        appState.playerConfig.setupSharedVideoPlayer(for: event)
+        appState.playerConfig.showMiniPlayer = true
+
+        // Subtle animation feedback
+        UIView.animate(
+            withDuration: 0.2,
+            animations: {
+                // Could add a subtle scale animation here if desired
+            })
+    }
+
+    // MARK: - Header Actions
+
+    private func showSearch() {
+        // TODO: Implement search view
+        print("🔍 Search tapped")
+
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
+    private func scrollToTopAndRefresh() {
+        // Scroll to top with animation
+        collectionView.setContentOffset(.zero, animated: true)
+
+        // Trigger refresh
+        appState.refresh(hardRefresh: true)
+
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    private func scrollToLiveSection() {
+        // Find "Live Now" section and scroll to it
+        if let liveSection = sections.firstIndex(where: { $0.title == "Live Now" }) {
+            let indexPath = IndexPath(item: 0, section: liveSection)
+            collectionView.scrollToItem(at: indexPath, at: .top, animated: true)
+        }
+
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
+    // MARK: - Transform Methods
+
+    private func setBarsToTransform(_ transform: CGFloat) {
+        prevTransform = transform
+
+        // Transform header up
+        headerView.transform = .init(translationX: 0, y: transform)
+
+        // Transform tab bar down (NEGATIVE transform to move down)
+        mainTabBarController?.vStack.transform = .init(translationX: 0, y: -transform)
+
+        // Update header visibility
+        let percent = abs(transform / barsMaxTransform)
+        headerView.updateVisibility(percent: percent)
+    }
+
+    private func animateBarsToTransform(_ transform: CGFloat) {
+        UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseOut]) {
+            self.setBarsToTransform(transform)
+        }
+    }
+
+    private func animateBarsToVisible() {
+        animateBarsToTransform(0)
+    }
+
+    private func animateBarsToInvisible() {
+        animateBarsToTransform(-barsMaxTransform)
+    }
+
+    private func setBarsDependingOnPosition() {
+        // Snap to hidden if more than 50% hidden and not at top
+        if prevTransform < -(barsMaxTransform / 2) && collectionView.contentOffset.y > 0 {
+            animateBarsToInvisible()
+        } else {
+            animateBarsToVisible()
+        }
+    }
+}
+
+// MARK: - UICollectionViewDataSource
+extension VideoListViewController: UICollectionViewDataSource {
+    func numberOfSections(in collectionView: UICollectionView) -> Int {
+        return sections.count
+    }
+
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int)
+        -> Int
+    {
+        let sectionData = sections[section]
+        return sectionData.style == .hero ? 1 : sectionData.events.count
+    }
+
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath)
+        -> UICollectionViewCell
+    {
+        let section = sections[indexPath.section]
+
+        switch section.style {
+        case .hero:
+            let cell =
+                collectionView.dequeueReusableCell(
+                    withReuseIdentifier: HeroCell.reuseIdentifier, for: indexPath) as! HeroCell
+            if let event = section.events.first {
+                cell.configure(with: event, appState: appState)
+                cell.onTap = { [weak self] in
+                    self?.didSelectEvent(event)
+                }
+            }
+            return cell
+
+        case .carousel, .grid:
+            let cell =
+                collectionView.dequeueReusableCell(
+                    withReuseIdentifier: CarouselCell.reuseIdentifier, for: indexPath)
+                as! CarouselCell
+            let event = section.events[indexPath.item]
+            cell.configure(with: event, appState: appState)
+            cell.onTap = { [weak self] in
+                self?.didSelectEvent(event)
+            }
+            return cell
+        }
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String,
+        at indexPath: IndexPath
+    ) -> UICollectionReusableView {
+        guard kind == UICollectionView.elementKindSectionHeader else {
+            return UICollectionReusableView()
+        }
+
+        let header =
+            collectionView.dequeueReusableSupplementaryView(
+                ofKind: kind,
+                withReuseIdentifier: SectionHeaderView.reuseIdentifier,
+                for: indexPath
+            ) as! SectionHeaderView
+
+        let section = sections[indexPath.section]
+        header.configure(title: section.title, subtitle: section.subtitle)
+
+        return header
+    }
+}
+
+// MARK: - UICollectionViewDelegate
+extension VideoListViewController: UICollectionViewDelegate {
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        let section = sections[indexPath.section]
+        let event = section.style == .hero ? section.events[0] : section.events[indexPath.item]
+        didSelectEvent(event)
+    }
+
+    // MARK: - Scroll Handling
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let offset = scrollView.contentOffset.y
+
+        // EXISTING: Update hero cell blur
+        if let heroCell = collectionView.cellForItem(at: IndexPath(item: 0, section: 0))
+            as? HeroCell
+        {
+            heroCell.updateBlurForScrollOffset(offset)
+        }
+
+        // NEW: Bar transforms
+        let newPosition = scrollView.contentOffset.y
+        let delta = newPosition - prevPosition
+        prevPosition = newPosition
+
+        // Guard 1: Ignore large jumps
+        if abs(delta) > 50 { return }
+
+        // Calculate transform
+        let theoreticalNewTransform = (prevTransform - delta).clamped(to: -barsMaxTransform...0)
+
+        // Guard 2: Pull-to-refresh override - force visible when at or above top
+        // When contentOffset.y <= -topBarHeight, user is at or above resting position
+        // This prevents bars from bouncing when user pulls down at top!
+        let newTransform = newPosition <= -topBarHeight ? 0 : theoreticalNewTransform
+
+        setBarsToTransform(newTransform)
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        // EXISTING: Reset hero blur
+        if !decelerate {
+            if let heroCell = collectionView.cellForItem(at: IndexPath(item: 0, section: 0))
+                as? HeroCell
+            {
+                heroCell.resetBlurPosition()
+            }
+        }
+
+        // NEW: Snap bars to position
+        if !decelerate {
+            setBarsDependingOnPosition()
+        }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        // EXISTING: Reset hero blur
+        if let heroCell = collectionView.cellForItem(at: IndexPath(item: 0, section: 0))
+            as? HeroCell
+        {
+            heroCell.resetBlurPosition()
+        }
+
+        // NEW: Snap bars to position
+        setBarsDependingOnPosition()
+    }
+
+    func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
+        // Always show bars when tapping status bar to scroll to top
+        animateBarsToVisible()
+        return true
+    }
+}
+
+// MARK: - Hero Cell with Spotify-Style Album View
+private final class HeroCell: UICollectionViewCell {
+    static let reuseIdentifier = "HeroCell"
+
+    // MARK: - Background Blur Components (Spotify-style)
+    private let backgroundBlurContainer = UIView()
+    private let backgroundBlurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+    private let colorOverlayView = UIView()
+    private let ambientGradientLayer = CAGradientLayer()
+    private let fadeOutMask = CAGradientLayer()
+    
+    // MARK: - Centered Video/Thumbnail (Album Cover Style)
+    private let videoContainerView = UIView()
+    private var playerLayer: AVPlayerLayer!
+    private var videoPlayerModel: VideoPlayerModel?
+    private var currentEvent: LiveActivitiesEvent?
+    private var cancellables = Set<AnyCancellable>()
+    private let thumbnailImageView = UIImageView()
+    
+    // MARK: - Video Properties
+    private var videoAspectRatio: CGFloat = 1.0  // Square aspect ratio like album covers
+    private var videoSize: CGFloat = 280  // Fixed size for album cover style
+    
+    // MARK: - Color Extraction
+    private var dominantColors: [UIColor] = []
+    private var colorExtractionTimer: Timer?
+    
+    // MARK: - UI Overlay Components
+    private let gradientLayer = CAGradientLayer()
+    private let liveBadge = LiveBadgeView()
+    private let viewerCountLabel = UILabel()
+    private let titleLabel = UILabel()
+    private let hostLabel = UILabel()
+    private let hostImageView = UIImageView()
+    private let errorView = UIView()
+    private let errorLabel = UILabel()
+
+    // MARK: - Interaction
+    var onTap: (() -> Void)?
+    private var isPlaying = false
+    private var hasSetupVideo = false
+    private var isMuted = true
+    private var doubleTapGesture: UITapGestureRecognizer?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
+        setupVideoPlayer()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+// MARK: - Carousel Cell
+private final class CarouselCell: UICollectionViewCell {
+
+        // Thumbnail image view - shows while video loads
+        thumbnailImageView.contentMode = .scaleAspectFill
+        thumbnailImageView.clipsToBounds = true
+        thumbnailImageView.backgroundColor = .systemGray6
+        thumbnailImageView.translatesAutoresizingMaskIntoConstraints = false
+        videoContainerView.addSubview(thumbnailImageView)
+
+        // Dynamic blur container - positioned above video
+        blurContainerView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(blurContainerView)
+
+        // Gradient blend layer - smooth transition from content to blur
+        gradientBlendLayer.colors = [
+            UIColor.clear.cgColor, UIColor.black.withAlphaComponent(0.3).cgColor,
+        ]
+        gradientBlendLayer.locations = [0.0, 1.0]
+        gradientBlendLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
+        gradientBlendLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
+        blurContainerView.layer.addSublayer(gradientBlendLayer)
+
+        // Blur fade-out mask - creates smooth, gradual alpha transition
+        // Multi-stop gradient for silky-smooth blending with video
+        blurFadeOutMask.colors = [
+            UIColor.white.cgColor,  // Fully opaque at very top
+            UIColor.white.withAlphaComponent(0.95).cgColor,  // Start gentle fade
+            UIColor.white.withAlphaComponent(0.85).cgColor,  // Progressive fade
+            UIColor.white.withAlphaComponent(0.65).cgColor,  // More transparent
+            UIColor.white.withAlphaComponent(0.35).cgColor,  // Significantly faded
+            UIColor.white.withAlphaComponent(0.10).cgColor,  // Nearly transparent
+            UIColor.clear.cgColor,  // Fully transparent
+        ]
+        blurFadeOutMask.locations = [0.0, 0.15, 0.35, 0.55, 0.75, 0.9, 1.0]
+        blurFadeOutMask.startPoint = CGPoint(x: 0.5, y: 0.0)
+        blurFadeOutMask.endPoint = CGPoint(x: 0.5, y: 1.0)
+        blurContainerView.layer.mask = blurFadeOutMask
+
+        // Video no longer needs a fade mask since it starts below the blur
+        // The blur's fade-out mask handles the smooth transition
+        // Removed: videoContainerView.layer.mask = videoGradientMask
+
+        // Gradient overlay for better text readability
+        gradientLayer.colors = [
+            UIColor.clear.cgColor,
+            UIColor.black.withAlphaComponent(0.3).cgColor,
+            UIColor.black.withAlphaComponent(0.8).cgColor,
+        ]
+        gradientLayer.locations = [0.0, 0.6, 1.0]
+        videoContainerView.layer.addSublayer(gradientLayer)
+
+        // Live badge with enhanced styling
+        liveBadge.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(liveBadge)
+
+        // Viewer count with enhanced styling
+        viewerCountLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        viewerCountLabel.textColor = .white
+        viewerCountLabel.layer.shadowColor = UIColor.black.cgColor
+        viewerCountLabel.layer.shadowOffset = CGSize(width: 0, height: 1)
+        viewerCountLabel.layer.shadowRadius = 2
+        viewerCountLabel.layer.shadowOpacity = 0.8
+        viewerCountLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(viewerCountLabel)
+
+        // Host image with enhanced styling
+        hostImageView.contentMode = .scaleAspectFill
+        hostImageView.clipsToBounds = true
+        hostImageView.backgroundColor = .systemGray5
+        hostImageView.layer.cornerRadius = 20
+        hostImageView.layer.borderWidth = 2
+        hostImageView.layer.borderColor = UIColor.white.cgColor
+        hostImageView.layer.shadowColor = UIColor.black.cgColor
+        hostImageView.layer.shadowOffset = CGSize(width: 0, height: 2)
+        hostImageView.layer.shadowRadius = 4
+        hostImageView.layer.shadowOpacity = 0.3
+        hostImageView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(hostImageView)
+
+        // Title with enhanced styling
+        titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        titleLabel.textColor = .white
+        titleLabel.numberOfLines = 2
+        titleLabel.layer.shadowColor = UIColor.black.cgColor
+        titleLabel.layer.shadowOffset = CGSize(width: 0, height: 1)
+        titleLabel.layer.shadowRadius = 2
+        titleLabel.layer.shadowOpacity = 0.8
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(titleLabel)
+
+        // Host name with enhanced styling
+        hostLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        hostLabel.textColor = .white.withAlphaComponent(0.95)
+        hostLabel.layer.shadowColor = UIColor.black.cgColor
+        hostLabel.layer.shadowOffset = CGSize(width: 0, height: 1)
+        hostLabel.layer.shadowRadius = 2
+        hostLabel.layer.shadowOpacity = 0.8
+        hostLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(hostLabel)
+
+        // Play/Pause button - removed for cleaner hero experience
+        // playPauseButton.setImage(UIImage(systemName: "play.fill"), for: .normal)
+        // playPauseButton.tintColor = .white
+        // playPauseButton.backgroundColor = UIColor.black.withAlphaComponent(0.6)
+        // playPauseButton.layer.cornerRadius = 30
+        // playPauseButton.layer.shadowColor = UIColor.black.cgColor
+        // playPauseButton.layer.shadowOffset = CGSize(width: 0, height: 2)
+        // playPauseButton.layer.shadowRadius = 4
+        // playPauseButton.layer.shadowOpacity = 0.3
+        // playPauseButton.translatesAutoresizingMaskIntoConstraints = false
+        // playPauseButton.addTarget(self, action: #selector(playPauseTapped), for: .touchUpInside)
+        // playPauseButton.alpha = 0
+        // contentView.addSubview(playPauseButton)
+
+        // Loading indicator - removed for smoother thumbnail experience
+        // loadingIndicator.color = .white
+        // loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        // loadingIndicator.hidesWhenStopped = true
+        // contentView.addSubview(loadingIndicator)
+
+        // Error view
+        errorView.backgroundColor = UIColor.black.withAlphaComponent(0.8)
+        errorView.layer.cornerRadius = 12
+        errorView.translatesAutoresizingMaskIntoConstraints = false
+        errorView.isHidden = true
+        contentView.addSubview(errorView)
+
+        // Double tap gesture for mute/unmute
+        doubleTapGesture = UITapGestureRecognizer(
+            target: self, action: #selector(doubleTapGestureRecognized))
+        doubleTapGesture?.numberOfTapsRequired = 2
+        contentView.addGestureRecognizer(doubleTapGesture!)
+
+        errorLabel.text = "Unable to load video"
+        errorLabel.font = .systemFont(ofSize: 16, weight: .medium)
+        errorLabel.textColor = .white
+        errorLabel.textAlignment = .center
+        errorLabel.translatesAutoresizingMaskIntoConstraints = false
+        errorView.addSubview(errorLabel)
+
+    private func setupUI() {
+        // MARK: - Background Blur Container (Spotify-style)
+        backgroundBlurContainer.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(backgroundBlurContainer)
+        
+        // Background blur view
+        backgroundBlurView.translatesAutoresizingMaskIntoConstraints = false
+        backgroundBlurContainer.addSubview(backgroundBlurView)
+        
+        // Color overlay for ambient colors
+        colorOverlayView.translatesAutoresizingMaskIntoConstraints = false
+        backgroundBlurContainer.addSubview(colorOverlayView)
+        
+        // Ambient gradient layer
+        ambientGradientLayer.startPoint = CGPoint(x: 0.0, y: 0.0)
+        ambientGradientLayer.endPoint = CGPoint(x: 1.0, y: 1.0)
+        colorOverlayView.layer.addSublayer(ambientGradientLayer)
+        
+        // Fade out mask for smooth transition
+        fadeOutMask.colors = [
+            UIColor.white.cgColor,
+            UIColor.white.withAlphaComponent(0.8).cgColor,
+            UIColor.white.withAlphaComponent(0.4).cgColor,
+            UIColor.white.withAlphaComponent(0.1).cgColor,
+            UIColor.clear.cgColor
+        ]
+        fadeOutMask.locations = [0.0, 0.3, 0.6, 0.8, 1.0]
+        fadeOutMask.startPoint = CGPoint(x: 0.5, y: 0.0)
+        fadeOutMask.endPoint = CGPoint(x: 0.5, y: 1.0)
+        backgroundBlurContainer.layer.mask = fadeOutMask
+
+        // MARK: - Centered Video Container (Album Cover Style)
+        videoContainerView.backgroundColor = .black
+        videoContainerView.layer.cornerRadius = 12
+        videoContainerView.layer.shadowColor = UIColor.black.cgColor
+        videoContainerView.layer.shadowOffset = CGSize(width: 0, height: 8)
+        videoContainerView.layer.shadowRadius = 20
+        videoContainerView.layer.shadowOpacity = 0.3
+        videoContainerView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(videoContainerView)
+
+        // Thumbnail image view
+        thumbnailImageView.contentMode = .scaleAspectFill
+        thumbnailImageView.clipsToBounds = true
+        thumbnailImageView.layer.cornerRadius = 12
+        thumbnailImageView.backgroundColor = .systemGray6
+        thumbnailImageView.translatesAutoresizingMaskIntoConstraints = false
+        videoContainerView.addSubview(thumbnailImageView)
+
+        // Gradient overlay for better text readability
+        gradientLayer.colors = [
+            UIColor.clear.cgColor,
+            UIColor.black.withAlphaComponent(0.2).cgColor,
+            UIColor.black.withAlphaComponent(0.6).cgColor,
+        ]
+        gradientLayer.locations = [0.0, 0.7, 1.0]
+        videoContainerView.layer.addSublayer(gradientLayer)
+
+        // MARK: - UI Overlay Components
+        // Live badge
+        liveBadge.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(liveBadge)
+
+        // Viewer count
+        viewerCountLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        viewerCountLabel.textColor = .white
+        viewerCountLabel.layer.shadowColor = UIColor.black.cgColor
+        viewerCountLabel.layer.shadowOffset = CGSize(width: 0, height: 1)
+        viewerCountLabel.layer.shadowRadius = 2
+        viewerCountLabel.layer.shadowOpacity = 0.8
+        viewerCountLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(viewerCountLabel)
+
+        // Host image
+        hostImageView.contentMode = .scaleAspectFill
+        hostImageView.clipsToBounds = true
+        hostImageView.backgroundColor = .systemGray5
+        hostImageView.layer.cornerRadius = 20
+        hostImageView.layer.borderWidth = 2
+        hostImageView.layer.borderColor = UIColor.white.cgColor
+        hostImageView.layer.shadowColor = UIColor.black.cgColor
+        hostImageView.layer.shadowOffset = CGSize(width: 0, height: 2)
+        hostImageView.layer.shadowRadius = 4
+        hostImageView.layer.shadowOpacity = 0.3
+        hostImageView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(hostImageView)
+
+        // Title
+        titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
+        titleLabel.textColor = .white
+        titleLabel.numberOfLines = 2
+        titleLabel.textAlignment = .center
+        titleLabel.layer.shadowColor = UIColor.black.cgColor
+        titleLabel.layer.shadowOffset = CGSize(width: 0, height: 1)
+        titleLabel.layer.shadowRadius = 2
+        titleLabel.layer.shadowOpacity = 0.8
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(titleLabel)
+
+        // Host name
+        hostLabel.font = .systemFont(ofSize: 16, weight: .medium)
+        hostLabel.textColor = .white.withAlphaComponent(0.9)
+        hostLabel.textAlignment = .center
+        hostLabel.layer.shadowColor = UIColor.black.cgColor
+        hostLabel.layer.shadowOffset = CGSize(width: 0, height: 1)
+        hostLabel.layer.shadowRadius = 2
+        hostLabel.layer.shadowOpacity = 0.8
+        hostLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(hostLabel)
+
+        // Error view
+        errorView.backgroundColor = UIColor.black.withAlphaComponent(0.8)
+        errorView.layer.cornerRadius = 12
+        errorView.translatesAutoresizingMaskIntoConstraints = false
+        errorView.isHidden = true
+        contentView.addSubview(errorView)
+
+        errorLabel.text = "Unable to load video"
+        errorLabel.font = .systemFont(ofSize: 16, weight: .medium)
+        errorLabel.textColor = .white
+        errorLabel.textAlignment = .center
+        errorLabel.translatesAutoresizingMaskIntoConstraints = false
+        errorView.addSubview(errorLabel)
+
+        // MARK: - Layout Constraints
+        NSLayoutConstraint.activate([
+            // Background blur container fills entire content view
+            backgroundBlurContainer.topAnchor.constraint(equalTo: contentView.topAnchor),
+            backgroundBlurContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            backgroundBlurContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            backgroundBlurContainer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
+            // Background blur view fills container
+            backgroundBlurView.topAnchor.constraint(equalTo: backgroundBlurContainer.topAnchor),
+            backgroundBlurView.leadingAnchor.constraint(equalTo: backgroundBlurContainer.leadingAnchor),
+            backgroundBlurView.trailingAnchor.constraint(equalTo: backgroundBlurContainer.trailingAnchor),
+            backgroundBlurView.bottomAnchor.constraint(equalTo: backgroundBlurContainer.bottomAnchor),
+            
+            // Color overlay fills container
+            colorOverlayView.topAnchor.constraint(equalTo: backgroundBlurContainer.topAnchor),
+            colorOverlayView.leadingAnchor.constraint(equalTo: backgroundBlurContainer.leadingAnchor),
+            colorOverlayView.trailingAnchor.constraint(equalTo: backgroundBlurContainer.trailingAnchor),
+            colorOverlayView.bottomAnchor.constraint(equalTo: backgroundBlurContainer.bottomAnchor),
+
+            // Centered video container (album cover style)
+            videoContainerView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            videoContainerView.topAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.topAnchor, constant: 40),
+            videoContainerView.widthAnchor.constraint(equalToConstant: videoSize),
+            videoContainerView.heightAnchor.constraint(equalToConstant: videoSize),
+
+            // Thumbnail fills video container
+            thumbnailImageView.topAnchor.constraint(equalTo: videoContainerView.topAnchor),
+            thumbnailImageView.leadingAnchor.constraint(equalTo: videoContainerView.leadingAnchor),
+            thumbnailImageView.trailingAnchor.constraint(equalTo: videoContainerView.trailingAnchor),
+            thumbnailImageView.bottomAnchor.constraint(equalTo: videoContainerView.bottomAnchor),
+
+            // Live badge positioned above video
+            liveBadge.topAnchor.constraint(equalTo: videoContainerView.topAnchor, constant: 12),
+            liveBadge.leadingAnchor.constraint(equalTo: videoContainerView.leadingAnchor, constant: 12),
+
+            viewerCountLabel.centerYAnchor.constraint(equalTo: liveBadge.centerYAnchor),
+            viewerCountLabel.leadingAnchor.constraint(equalTo: liveBadge.trailingAnchor, constant: 12),
+
+            // Title positioned below video
+            titleLabel.topAnchor.constraint(equalTo: videoContainerView.bottomAnchor, constant: 24),
+            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 32),
+            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -32),
+
+            // Host image positioned below title
+            hostImageView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
+            hostImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            hostImageView.widthAnchor.constraint(equalToConstant: 40),
+            hostImageView.heightAnchor.constraint(equalToConstant: 40),
+
+            // Host name positioned below host image
+            hostLabel.topAnchor.constraint(equalTo: hostImageView.bottomAnchor, constant: 8),
+            hostLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 32),
+            hostLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -32),
+
+            // Error view centered
+            errorView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            errorView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            errorView.widthAnchor.constraint(equalToConstant: 200),
+            errorView.heightAnchor.constraint(equalToConstant: 60),
+
+            errorLabel.centerXAnchor.constraint(equalTo: errorView.centerXAnchor),
+            errorLabel.centerYAnchor.constraint(equalTo: errorView.centerYAnchor),
+            errorLabel.leadingAnchor.constraint(equalTo: errorView.leadingAnchor, constant: 16),
+            errorLabel.trailingAnchor.constraint(equalTo: errorView.trailingAnchor, constant: -16),
+        ])
+
+        // MARK: - Gestures
+        // Double tap gesture for mute/unmute
+        doubleTapGesture = UITapGestureRecognizer(
+            target: self, action: #selector(doubleTapGestureRecognized))
+        doubleTapGesture?.numberOfTapsRequired = 2
+        contentView.addGestureRecognizer(doubleTapGesture!)
+
+        // Single tap gesture
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        contentView.addGestureRecognizer(tapGesture)
+
+        // Make single tap wait for double tap
+        if let doubleTap = doubleTapGesture {
+            tapGesture.require(toFail: doubleTap)
+        }
+    }
+
+    // MARK: - Aspect Ratio Management
+
+    private func updateVideoAspectRatio(_ aspectRatio: CGFloat) {
+        videoAspectRatio = aspectRatio
+
+        // Update height constraint
+        videoContainerView.constraints.forEach { constraint in
+            if constraint.firstAttribute == .height && constraint.secondAttribute == .width {
+                constraint.isActive = false
+            }
+        }
+
+        // Add new constraint with updated aspect ratio
+        let newHeightConstraint = videoContainerView.heightAnchor.constraint(
+            equalTo: videoContainerView.widthAnchor,
+            multiplier: aspectRatio
+        )
+        newHeightConstraint.priority = .defaultHigh
+        newHeightConstraint.isActive = true
+
+        // Animate the layout change
+        UIView.animate(
+            withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.2
+        ) {
+            self.layoutIfNeeded()
+        }
+    }
+
+    private func detectVideoAspectRatio(from player: AVPlayer) {
+        guard let currentItem = player.currentItem else { return }
+
+        // Get video tracks
+        let videoTracks = currentItem.tracks.filter { $0.assetTrack?.mediaType == .video }
+
+        if let videoTrack = videoTracks.first,
+            let assetTrack = videoTrack.assetTrack
+        {
+
+            let size = assetTrack.naturalSize
+            let aspectRatio = size.width / size.height
+
+            // Update aspect ratio on main thread
+            DispatchQueue.main.async {
+                self.updateVideoAspectRatio(aspectRatio)
+            }
+        }
+    }
+
+    private func setupVideoPlayer() {
+        // Create AVPlayerLayer
+        playerLayer = AVPlayerLayer()
+        playerLayer.videoGravity = .resizeAspect  // ← FIXED: Never crop video
+        playerLayer.backgroundColor = UIColor.black.cgColor
+        videoContainerView.layer.addSublayer(playerLayer)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        // Update gradient layers
+        gradientLayer.frame = videoContainerView.bounds
+        ambientGradientLayer.frame = colorOverlayView.bounds
+        fadeOutMask.frame = backgroundBlurContainer.bounds
+        
+        // Update player layer
+        playerLayer.frame = videoContainerView.bounds
+    }
+
+    @objc private func handleTap() {
+        // Haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+
+        onTap?()
+    }
+
+    @objc private func handleDoubleTap() {
+        // This method is no longer needed - using doubleTapGestureRecognized instead
+    }
+
+    @objc private func doubleTapGestureRecognized() {
+        // Toggle mute/unmute
+        isMuted.toggle()
+        videoPlayerModel?.player.isMuted = isMuted
+
+        // Provide haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
+        // Show brief visual feedback
+        showMuteFeedback()
+    }
+
+    private func showMuteFeedback() {
+        // Create temporary mute indicator
+        let muteLabel = UILabel()
+        muteLabel.text = isMuted ? "🔇 Muted" : "🔊 Unmuted"
+        muteLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+        muteLabel.textColor = .white
+        muteLabel.textAlignment = .center
+        muteLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        muteLabel.layer.cornerRadius = 8
+        muteLabel.clipsToBounds = true
+        muteLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        contentView.addSubview(muteLabel)
+
+        // Position and animate
+        NSLayoutConstraint.activate([
+            muteLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            muteLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            muteLabel.widthAnchor.constraint(equalToConstant: 120),
+            muteLabel.heightAnchor.constraint(equalToConstant: 40),
+        ])
+
+        // Animate in and out
+        muteLabel.alpha = 0
+        UIView.animate(
+            withDuration: 0.2,
+            animations: {
+                muteLabel.alpha = 1
+            }
+        ) { _ in
+            UIView.animate(
+                withDuration: 0.3, delay: 1.0, options: [],
+                animations: {
+                    muteLabel.alpha = 0
+                }
+            ) { _ in
+                muteLabel.removeFromSuperview()
+            }
+        }
+    }
+
+    // MARK: - Scroll Handling (Simplified for Spotify-style)
+
+    func updateBlurForScrollOffset(_ offset: CGFloat) {
+        // Spotify-style: keep blur background stable during scroll
+        // The blur background stays in place while content scrolls over it
+        backgroundBlurContainer.transform = .identity
+        backgroundBlurContainer.alpha = 1.0
+    }
+
+    func resetBlurPosition() {
+        // Spotify-style: no complex blur animations needed
+        backgroundBlurContainer.transform = .identity
+        backgroundBlurContainer.alpha = 1.0
+    }
+
+    private func extractSpotifyStyleColors(from image: UIImage) -> [UIColor] {
+        guard let cgImage = image.cgImage else { return [] }
+
+        // Create a smaller version for faster processing
+        let targetSize = CGSize(width: 200, height: 200)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resizedImage = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+
+        guard let resizedCGImage = resizedImage.cgImage else { return [] }
+
+        // Extract pixel data
+        let width = resizedCGImage.width
+        let height = resizedCGImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = bytesPerPixel * width
+        let bitsPerComponent = 8
+
+        var pixelData = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+
+        guard
+            let context = CGContext(
+                data: &pixelData,
+                width: width,
+                height: height,
+                bitsPerComponent: bitsPerComponent,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { return [] }
+
+        context.draw(resizedCGImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        // Spotify-style color sampling - focus on vibrant, warm colors
+        var colors: [UIColor] = []
+        let samplePoints = [
+            // Center region (most important)
+            CGPoint(x: Double(width) * 0.5, y: Double(height) * 0.4),
+            CGPoint(x: Double(width) * 0.4, y: Double(height) * 0.5),
+            CGPoint(x: Double(width) * 0.6, y: Double(height) * 0.5),
+            CGPoint(x: Double(width) * 0.5, y: Double(height) * 0.6),
+            
+            // Corner regions for variety
+            CGPoint(x: Double(width) * 0.2, y: Double(height) * 0.2),
+            CGPoint(x: Double(width) * 0.8, y: Double(height) * 0.2),
+            CGPoint(x: Double(width) * 0.2, y: Double(height) * 0.8),
+            CGPoint(x: Double(width) * 0.8, y: Double(height) * 0.8),
+            
+            // Edge regions
+            CGPoint(x: Double(width) * 0.1, y: Double(height) * 0.5),
+            CGPoint(x: Double(width) * 0.9, y: Double(height) * 0.5),
+            CGPoint(x: Double(width) * 0.5, y: Double(height) * 0.1),
+            CGPoint(x: Double(width) * 0.5, y: Double(height) * 0.9),
+        ]
+
+        for point in samplePoints {
+            let x = Int(point.x)
+            let y = Int(point.y)
+            let pixelIndex = (y * width + x) * bytesPerPixel
+
+            if pixelIndex + 2 < pixelData.count {
+                let r = CGFloat(pixelData[pixelIndex]) / 255.0
+                let g = CGFloat(pixelData[pixelIndex + 1]) / 255.0
+                let b = CGFloat(pixelData[pixelIndex + 2]) / 255.0
+
+                let color = UIColor(red: r, green: g, blue: b, alpha: 1.0)
+                colors.append(color)
+            }
+        }
+
+        // Spotify-style filtering - prioritize warm, vibrant colors
+        let filteredColors = colors.filter { color in
+            var hue: CGFloat = 0
+            var saturation: CGFloat = 0
+            var brightness: CGFloat = 0
+            var alpha: CGFloat = 0
+
+            color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+
+            // Prefer warm colors (reds, oranges, yellows) and avoid grays
+            let isWarmColor = (hue < 0.2 || hue > 0.8) // Red to yellow range
+            let isVibrant = saturation > 0.3 && brightness > 0.2 && brightness < 0.9
+            let isNotGray = saturation > 0.15 // Avoid grays
+            
+            return isVibrant && isNotGray
+        }
+
+        // Sort by saturation and brightness for best colors first
+        let sortedColors = filteredColors.sorted { color1, color2 in
+            var h1: CGFloat = 0, s1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+            var h2: CGFloat = 0, s2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+            
+            color1.getHue(&h1, saturation: &s1, brightness: &b1, alpha: &a1)
+            color2.getHue(&h2, saturation: &s2, brightness: &b2, alpha: &a2)
+            
+            // Prioritize higher saturation and moderate brightness
+            let score1 = s1 * (1.0 - abs(b1 - 0.6)) // Penalize too dark/light
+            let score2 = s2 * (1.0 - abs(b2 - 0.6))
+            
+            return score1 > score2
+        }
+
+        return Array(sortedColors.prefix(3)) // Return top 3 colors
+    }
+
+    private func createSpotifyStyleGradient(from colors: [UIColor]) -> CAGradientLayer {
+        let gradient = CAGradientLayer()
+
+        if colors.count >= 2 {
+            // Use the extracted colors with Spotify-style enhancements
+            let enhancedColors = colors.map { color in
+                var hue: CGFloat = 0
+                var saturation: CGFloat = 0
+                var brightness: CGFloat = 0
+                var alpha: CGFloat = 0
+
+                color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+
+                // Spotify-style color enhancement
+                let enhancedSaturation = min(saturation * 1.3, 1.0)
+                let enhancedBrightness = max(min(brightness * 0.7, 0.6), 0.3)
+                
+                // Create warmer, more ambient version
+                return UIColor(
+                    hue: hue,
+                    saturation: enhancedSaturation,
+                    brightness: enhancedBrightness,
+                    alpha: 0.6
+                )
+            }
+
+            gradient.colors = enhancedColors.map { $0.cgColor }
+            gradient.locations = (0..<enhancedColors.count).map {
+                NSNumber(value: Double($0) / Double(enhancedColors.count - 1))
+            }
+        } else if let firstColor = colors.first {
+            // Single color - create variations
+            var hue: CGFloat = 0
+            var saturation: CGFloat = 0
+            var brightness: CGFloat = 0
+            var alpha: CGFloat = 0
+
+            firstColor.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+
+            let lighter = UIColor(
+                hue: hue,
+                saturation: min(saturation * 1.2, 1.0),
+                brightness: max(min(brightness * 0.5, 0.4), 0.2),
+                alpha: 0.4
+            )
+            let darker = UIColor(
+                hue: hue,
+                saturation: min(saturation * 1.4, 1.0),
+                brightness: max(min(brightness * 0.8, 0.7), 0.5),
+                alpha: 0.7
+            )
+
+            gradient.colors = [lighter.cgColor, darker.cgColor]
+            gradient.locations = [0.0, 1.0]
+        } else {
+            // Fallback to Spotify-like default colors
+            gradient.colors = [
+                UIColor.systemOrange.withAlphaComponent(0.4).cgColor,
+                UIColor.systemRed.withAlphaComponent(0.5).cgColor,
+                UIColor.systemPink.withAlphaComponent(0.6).cgColor,
+            ]
+            gradient.locations = [0.0, 0.5, 1.0]
+        }
+
+        // Spotify-style gradient direction
+        gradient.startPoint = CGPoint(x: 0.0, y: 0.0)
+        gradient.endPoint = CGPoint(x: 1.0, y: 1.0)
+
+        return gradient
+    }
+
+    private func updateSpotifyStyleBlur(with colors: [UIColor]) {
+        // Create Spotify-style gradient for ambient background
+        let spotifyGradient = createSpotifyStyleGradient(from: colors)
+        spotifyGradient.frame = colorOverlayView.bounds
+
+        // Remove existing gradient layers
+        colorOverlayView.layer.sublayers?.removeAll { $0 is CAGradientLayer }
+
+        // Add new gradient
+        colorOverlayView.layer.addSublayer(spotifyGradient)
+
+        // Animate the transition
+        UIView.animate(
+            withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.2
+        ) {
+            self.colorOverlayView.alpha = 1.0
+        }
+    }
+
+    private func startColorExtractionTimer() {
+        colorExtractionTimer?.invalidate()
+        colorExtractionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) {
+            [weak self] _ in
+            self?.extractColorsFromCurrentContent()
+        }
+    }
+
+    private func stopColorExtractionTimer() {
+        colorExtractionTimer?.invalidate()
+        colorExtractionTimer = nil
+    }
+
+    private func extractColorsFromVideoFrame() -> [UIColor] {
+        guard let player = videoPlayerModel?.player,
+            let currentItem = player.currentItem
+        else { return [] }
+
+        // For now, we'll use the thumbnail as video frame extraction requires more complex implementation
+        // In production, you'd use AVAssetImageGenerator to extract actual video frames
+        if let thumbnail = thumbnailImageView.image {
+            return extractSpotifyStyleColors(from: thumbnail)
+        }
+
+        return []
+    }
+
+    private func extractColorsFromCurrentContent() {
+        var colors: [UIColor] = []
+
+        // Try to extract from video frame first
+        if isPlaying,
+            let videoColors = videoPlayerModel?.player.currentItem?.asset != nil
+                ? extractColorsFromVideoFrame() : nil
+        {
+            colors = videoColors
+        }
+
+        // Fallback to thumbnail if no video colors or not playing
+        if colors.isEmpty, let thumbnail = thumbnailImageView.image {
+            colors = extractSpotifyStyleColors(from: thumbnail)
+        }
+
+        // Update blur with extracted colors
+        if !colors.isEmpty {
+            dominantColors = colors
+            updateSpotifyStyleBlur(with: colors)
+        }
+    }
+
+    func configure(with event: LiveActivitiesEvent, appState: AppState) {
+        // Store current event
+        currentEvent = event
+
+        // Configure UI elements
+        titleLabel.text = event.title ?? "Untitled Stream"
+        viewerCountLabel.text = formatViewerCount(event.currentParticipants)
+        liveBadge.setLive(event.isLive)
+
+        // Configure host info
+        if let metadata = appState.metadataEvents[event.pubkey] {
+            hostLabel.text =
+                metadata.userMetadata?.displayName ?? metadata.userMetadata?.name ?? "Unknown Host"
+            if let pictureURL = metadata.userMetadata?.pictureURL {
+                hostImageView.kf.setImage(with: pictureURL, options: [.transition(.fade(0.3))])
+            }
+        } else {
+            hostLabel.text = "Loading..."
+        }
+
+        // Load thumbnail image for smooth loading experience
+        if let imageURL = event.image {
+            thumbnailImageView.kf.setImage(with: imageURL) { [weak self] result in
+                switch result {
+                case .success(_):
+                    // Thumbnail loaded successfully, extract colors and setup video
+                    self?.extractColorsFromCurrentContent()
+                    self?.startColorExtractionTimer()
+                    if let streamingURL = event.streaming ?? event.recording {
+                        self?.setupVideoStream(url: streamingURL)
+                    } else {
+                        self?.showErrorState()
+                    }
+                case .failure(_):
+                    // Thumbnail failed, setup video directly
+                    if let streamingURL = event.streaming ?? event.recording {
+                        self?.setupVideoStream(url: streamingURL)
+                    } else {
+                        self?.showErrorState()
+                    }
+                }
+            }
+        } else {
+            // No thumbnail available, setup video directly
+            if let streamingURL = event.streaming ?? event.recording {
+                setupVideoStream(url: streamingURL)
+            } else {
+                showErrorState()
+            }
+        }
+    }
+
+    private func setupVideoStream(url: URL) {
+        // Only setup once per event
+        guard !hasSetupVideo else { return }
+        hasSetupVideo = true
+
+        // Show loading
+        // loadingIndicator.startAnimating() // Removed for smoother thumbnail experience
+        errorView.isHidden = true
+
+        // Create video player model
+        videoPlayerModel = VideoPlayerModel(url: url)
+
+        // Configure player layer
+        playerLayer.player = videoPlayerModel?.player
+
+        // Detect video aspect ratio after player is set up
+        if let player = videoPlayerModel?.player {
+            detectVideoAspectRatio(from: player)
+        }
+
+        // Setup observers
+        setupPlayerObservers()
+
+        // Start playing automatically for live streams
+        if currentEvent?.isLive == true {
+            videoPlayerModel?.player.play()
+            isPlaying = true
+        }
+    }
+
+    private func setupPlayerObservers() {
+        guard let playerModel = videoPlayerModel else { return }
+
+        // Observe player status
+        playerModel.player.currentItem?.publisher(for: \.status)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                self?.handlePlayerStatusChange(status)
+            }
+            .store(in: &cancellables)
+
+        // Observe playback state
+        playerModel.player.publisher(for: \.timeControlStatus)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                self?.handlePlaybackStatusChange(status)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handlePlayerStatusChange(_ status: AVPlayerItem.Status) {
+        switch status {
+        case .readyToPlay:
+            // loadingIndicator.stopAnimating() // Removed for smoother thumbnail experience
+            errorView.isHidden = true
+
+            // Detect aspect ratio when video is ready
+            if let player = videoPlayerModel?.player {
+                detectVideoAspectRatio(from: player)
+            }
+
+            // Hide thumbnail with smooth transition when video is ready
+            UIView.animate(withDuration: 0.3) {
+                self.thumbnailImageView.alpha = 0
+            }
+        case .failed:
+            // loadingIndicator.stopAnimating() // Removed for smoother thumbnail experience
+            showErrorState()
+        case .unknown:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func handlePlaybackStatusChange(_ status: AVPlayer.TimeControlStatus) {
+        switch status {
+        case .playing:
+            isPlaying = true
+            playPauseButton.setImage(UIImage(systemName: "pause.fill"), for: .normal)
+            playPauseButton.alpha = 0
+        case .paused:
+            isPlaying = false
+            playPauseButton.setImage(UIImage(systemName: "play.fill"), for: .normal)
+            playPauseButton.alpha = 1
+        case .waitingToPlayAtSpecifiedRate:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func showErrorState() {
+        loadingIndicator.stopAnimating()
+        errorView.isHidden = false
+    }
+
+    private func formatViewerCount(_ count: Int) -> String {
+        if count >= 1000 {
+            return String(format: "%.1fK watching", Double(count) / 1000.0)
+        }
+        return "\(count) watching"
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+
+        // Cleanup video
+        videoPlayerModel?.player.pause()
+        videoPlayerModel = nil
+        playerLayer.player = nil
+
+        // Clear observers
+        cancellables.removeAll()
+
+        // Reset UI
+        titleLabel.text = nil
+        hostLabel.text = nil
+        hostImageView.image = nil
+        viewerCountLabel.text = nil
+        thumbnailImageView.image = nil
+        thumbnailImageView.alpha = 1
+        errorView.isHidden = true
+        isPlaying = false
+        isMuted = true
+        hasSetupVideo = false
+        onTap = nil
+
+        // Cleanup Spotify-style blur effects
+        stopColorExtractionTimer()
+        dominantColors.removeAll()
+        colorOverlayView.layer.sublayers?.removeAll { $0 is CAGradientLayer }
+        colorOverlayView.alpha = 0
+
+        // Reset blur position
+        resetBlurPosition()
+    }
+}
+
+// MARK: - Carousel Cell
+private final class CarouselCell: UICollectionViewCell {
+    static let reuseIdentifier = "CarouselCell"
+
+    private let containerView = UIView()
+    private let imageView = UIImageView()
+    private let liveBadge = LiveBadgeView()
+    private let viewerCountLabel = UILabel()
+    private let titleLabel = UILabel()
+    private let hostLabel = UILabel()
+    private let hostImageView = UIImageView()
+
+    var onTap: (() -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupUI() {
+        // Container for shadow
+        containerView.backgroundColor = .clear
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(containerView)
+
+        // Image view
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.backgroundColor = .systemGray6
+        imageView.layer.cornerRadius = 12
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(imageView)
+
+        // Add shadow to container
+        containerView.layer.shadowColor = UIColor.black.cgColor
+        containerView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        containerView.layer.shadowRadius = 12
+        containerView.layer.shadowOpacity = 0.15
+
+        // Live badge
+        liveBadge.translatesAutoresizingMaskIntoConstraints = false
+        imageView.addSubview(liveBadge)
+
+        // Viewer count
+        viewerCountLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        viewerCountLabel.textColor = .white
+        viewerCountLabel.translatesAutoresizingMaskIntoConstraints = false
+        imageView.addSubview(viewerCountLabel)
+
+        // Info container
+        let infoContainer = UIView()
+        infoContainer.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(infoContainer)
+
+        // Host image
+        hostImageView.contentMode = .scaleAspectFill
+        hostImageView.clipsToBounds = true
+        hostImageView.backgroundColor = .systemGray5
+        hostImageView.layer.cornerRadius = 16
+        hostImageView.translatesAutoresizingMaskIntoConstraints = false
+        infoContainer.addSubview(hostImageView)
+
+        // Title
+        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        titleLabel.textColor = .label
+        titleLabel.numberOfLines = 2
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        infoContainer.addSubview(titleLabel)
+
+        // Host name
+        hostLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        hostLabel.textColor = .secondaryLabel
+        hostLabel.translatesAutoresizingMaskIntoConstraints = false
+        infoContainer.addSubview(hostLabel)
+
+        NSLayoutConstraint.activate([
+            containerView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+
+            imageView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            imageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            imageView.heightAnchor.constraint(
+                equalTo: containerView.heightAnchor, multiplier: 0.62),
+
+            liveBadge.topAnchor.constraint(equalTo: imageView.topAnchor, constant: 8),
+            liveBadge.leadingAnchor.constraint(equalTo: imageView.leadingAnchor, constant: 8),
+
+            viewerCountLabel.centerYAnchor.constraint(equalTo: liveBadge.centerYAnchor),
+            viewerCountLabel.leadingAnchor.constraint(
+                equalTo: liveBadge.trailingAnchor, constant: 8),
+
+            infoContainer.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 8),
+            infoContainer.leadingAnchor.constraint(
+                equalTo: containerView.leadingAnchor, constant: 8),
+            infoContainer.trailingAnchor.constraint(
+                equalTo: containerView.trailingAnchor, constant: -8),
+            infoContainer.bottomAnchor.constraint(
+                lessThanOrEqualTo: containerView.bottomAnchor, constant: -8),
+
+            hostImageView.topAnchor.constraint(equalTo: infoContainer.topAnchor),
+            hostImageView.leadingAnchor.constraint(equalTo: infoContainer.leadingAnchor),
+            hostImageView.widthAnchor.constraint(equalToConstant: 32),
+            hostImageView.heightAnchor.constraint(equalToConstant: 32),
+
+            titleLabel.topAnchor.constraint(equalTo: infoContainer.topAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: hostImageView.trailingAnchor, constant: 8),
+            titleLabel.trailingAnchor.constraint(equalTo: infoContainer.trailingAnchor),
+
+            hostLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+            hostLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            hostLabel.trailingAnchor.constraint(equalTo: infoContainer.trailingAnchor),
+            hostLabel.bottomAnchor.constraint(lessThanOrEqualTo: infoContainer.bottomAnchor),
+        ])
+
+        // Add tap gesture
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        contentView.addGestureRecognizer(tapGesture)
+    }
+
+    @objc private func handleTap() {
+        // Add scale animation
+        UIView.animate(
+            withDuration: 0.1,
+            animations: {
+                self.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+            },
+            completion: { _ in
+                UIView.animate(withDuration: 0.1) {
+                    self.transform = .identity
+                }
+                self.onTap?()
+            })
+    }
+
+    func configure(with event: LiveActivitiesEvent, appState: AppState) {
+        // Image
+        if let imageURLString = event.image {
+            imageView.kf.setImage(
+                with: imageURLString,
+                options: [
+                    .transition(.fade(0.2)),
+                    .cacheOriginalImage,
+                ])
+        }
+
+        // Title
+        titleLabel.text = event.title ?? "Untitled Stream"
+
+        // Viewer count
+        viewerCountLabel.text = "\(event.currentParticipants)"
+
+        // Host name
+        if let metadata = appState.metadataEvents[event.pubkey] {
+            hostLabel.text =
+                metadata.userMetadata?.displayName ?? metadata.userMetadata?.name ?? "Unknown"
+            // Load host image if available
+            if let pictureURL = metadata.userMetadata?.pictureURL {
+                hostImageView.kf.setImage(with: pictureURL, options: [.transition(.fade(0.2))])
+            }
+        } else {
+            hostLabel.text = "Loading..."
+        }
+
+        // Live badge
+        liveBadge.setLive(event.isLive)
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        imageView.image = nil
+        hostImageView.image = nil
+        titleLabel.text = nil
+        hostLabel.text = nil
+        onTap = nil
+    }
+}
+
+// MARK: - Section Header View
+private final class SectionHeaderView: UICollectionReusableView {
+    static let reuseIdentifier = "SectionHeaderView"
+
+    private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupUI() {
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        titleLabel.textColor = .label
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+
+        subtitleLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        subtitleLabel.textColor = .secondaryLabel
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(subtitleLabel)
+
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+
+            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+            subtitleLabel.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -8),
+        ])
+    }
+
+    func configure(title: String, subtitle: String?) {
+        titleLabel.text = title
+        subtitleLabel.text = subtitle
+        subtitleLabel.isHidden = subtitle == nil
+    }
+}
+
+// MARK: - Live Badge View
+private final class LiveBadgeView: UIView {
+    private let dotView = UIView()
+    private let label = UILabel()
+    private var isLive = true
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupUI() {
+        backgroundColor = UIColor.systemRed.withAlphaComponent(0.9)
+        layer.cornerRadius = 12
+
+        // Pulsing dot
+        dotView.backgroundColor = .white
+        dotView.layer.cornerRadius = 3
+        dotView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(dotView)
+
+        // Label
+        label.text = "LIVE"
+        label.font = .systemFont(ofSize: 11, weight: .bold)
+        label.textColor = .white
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            dotView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            dotView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            dotView.widthAnchor.constraint(equalToConstant: 6),
+            dotView.heightAnchor.constraint(equalToConstant: 6),
+
+            label.leadingAnchor.constraint(equalTo: dotView.trailingAnchor, constant: 6),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            heightAnchor.constraint(equalToConstant: 24),
+        ])
+
+        startPulseAnimation()
+    }
+
+    func setLive(_ live: Bool) {
+        isLive = live
+        if live {
+            backgroundColor = UIColor.systemRed.withAlphaComponent(0.9)
+            label.text = "LIVE"
+            startPulseAnimation()
+        } else {
+            backgroundColor = UIColor.systemGray.withAlphaComponent(0.9)
+            label.text = "ENDED"
+            dotView.layer.removeAllAnimations()
+        }
+    }
+
+    private func startPulseAnimation() {
+        guard isLive else { return }
+
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = 1.0
+        animation.toValue = 0.3
+        animation.duration = 1.0
+        animation.autoreverses = true
+        animation.repeatCount = .infinity
+        dotView.layer.add(animation, forKey: "pulse")
+    }
+}

@@ -409,8 +409,7 @@ final class CategoryDetailViewController: UIViewController {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.prepare()
         generator.impactOccurred()
-        appState.playerConfig.selectedLiveActivitiesEvent = event
-        appState.playerConfig.showMiniPlayer = true
+        appState.openStream(event)
     }
 
     private func navigateToProfile(pubkeyHex: String) {

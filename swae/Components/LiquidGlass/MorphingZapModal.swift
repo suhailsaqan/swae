@@ -24,6 +24,7 @@ class MorphingZapModal: UIView {
         case quick
         case custom
         case noWallet
+        case confirm
     }
     
     private(set) var currentState: State = .collapsed
@@ -66,12 +67,19 @@ class MorphingZapModal: UIView {
     private var noWalletModeHeight: CGFloat {
         return headerTopPadding + noWalletContentHeight + contentBottomPadding
     }
+
+    /// Confirm mode height — fee details + balance + confirm button + back button
+    private let confirmContentHeight: CGFloat = 260
+    private var confirmModeHeight: CGFloat {
+        return headerHeight + amountToContentSpacing + confirmContentHeight + contentBottomPadding
+    }
     
     private var currentModalHeight: CGFloat {
         switch currentMode {
         case .quick: return quickModeHeight
         case .custom: return customModeHeight
         case .noWallet: return noWalletModeHeight
+        case .confirm: return confirmModeHeight
         }
     }
     
@@ -122,6 +130,30 @@ class MorphingZapModal: UIView {
     private let sendingOverlay = UIView()
     private let sendingSpinner = UIActivityIndicatorView(style: .large)
     private let sendingStatusLabel = UILabel()
+
+    // Confirmation overlay views
+    private let confirmOverlay = UIView()
+    private let confirmDetailsBg = UIView()
+    private let confirmFeeLabel = UILabel()
+    private let confirmTotalLabel = UILabel()
+    private let confirmBalanceLabel = UILabel()
+    private let confirmInsufficientLabel = UILabel()
+    private let confirmSendButton = UIButton()
+    private let confirmBackButton = UIButton()
+    private let confirmSpinner = UIActivityIndicatorView(style: .medium)
+    private let confirmLoadingSpinner = UIActivityIndicatorView(style: .large)
+
+    // Fee/balance state
+    private var feeSats: UInt64 = 0
+    private var balanceSats: Int64 = 0
+    private var preparedPaymentBolt11: String?
+
+    /// Callback to prepare a zap payment and get the fee. Returns (bolt11, feeSats) or throws.
+    /// Set this to enable the confirmation flow.
+    var onPrepareZap: ((Int64) async throws -> (bolt11: String, feeSats: UInt64))?
+
+    /// Callback to get the current wallet balance in sats
+    var onGetBalance: (() async -> Int64)?
     private let sendingResultIcon = UIImageView()
     
     // No-wallet views
@@ -220,6 +252,7 @@ class MorphingZapModal: UIView {
         setupQuickAmounts()
         setupNumberPad()
         setupSendingOverlay()
+        setupConfirmOverlay()
         setupNoWalletView()
         setupGestures()
         
@@ -469,6 +502,150 @@ class MorphingZapModal: UIView {
             sendingStatusLabel.topAnchor.constraint(equalTo: sendingSpinner.bottomAnchor, constant: 12),
             sendingStatusLabel.centerXAnchor.constraint(equalTo: sendingOverlay.centerXAnchor),
         ])
+    }
+
+    private func setupConfirmOverlay() {
+        confirmOverlay.translatesAutoresizingMaskIntoConstraints = false
+        confirmOverlay.alpha = 0
+        confirmOverlay.isHidden = true
+        contentScrollView.addSubview(confirmOverlay)
+
+        // Fee row
+        let feeRow = makeDetailRow(leftLabel: "Network fee", rightLabel: confirmFeeLabel)
+        confirmFeeLabel.text = "0 sats"
+        confirmFeeLabel.textColor = .systemOrange
+
+        // Total row
+        let totalRow = makeDetailRow(leftLabel: "Total", rightLabel: confirmTotalLabel)
+        confirmTotalLabel.text = "0 sats"
+        confirmTotalLabel.textColor = .white
+        confirmTotalLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+
+        // Separator
+        let separator = UIView()
+        separator.backgroundColor = UIColor(white: 0.3, alpha: 0.5)
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        separator.heightAnchor.constraint(equalToConstant: 0.5).isActive = true
+
+        // Balance row
+        let balanceRow = makeDetailRow(leftLabel: "Your balance", rightLabel: confirmBalanceLabel)
+        confirmBalanceLabel.text = "0 sats"
+        confirmBalanceLabel.textColor = .systemGreen
+
+        // Insufficient funds label
+        confirmInsufficientLabel.text = "Not enough funds"
+        confirmInsufficientLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        confirmInsufficientLabel.textColor = .systemRed
+        confirmInsufficientLabel.textAlignment = .center
+        confirmInsufficientLabel.translatesAutoresizingMaskIntoConstraints = false
+        confirmInsufficientLabel.isHidden = true
+
+        // Details stack
+        let detailsStack = UIStackView(arrangedSubviews: [feeRow, totalRow, separator, balanceRow])
+        detailsStack.axis = .vertical
+        detailsStack.spacing = 10
+        detailsStack.translatesAutoresizingMaskIntoConstraints = false
+        detailsStack.layoutMargins = UIEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
+        detailsStack.isLayoutMarginsRelativeArrangement = true
+
+        let detailsBg = confirmDetailsBg
+        detailsBg.backgroundColor = UIColor(white: 1, alpha: 0.06)
+        detailsBg.layer.cornerRadius = 14
+        detailsBg.translatesAutoresizingMaskIntoConstraints = false
+        detailsBg.addSubview(detailsStack)
+        NSLayoutConstraint.activate([
+            detailsStack.topAnchor.constraint(equalTo: detailsBg.topAnchor),
+            detailsStack.leadingAnchor.constraint(equalTo: detailsBg.leadingAnchor),
+            detailsStack.trailingAnchor.constraint(equalTo: detailsBg.trailingAnchor),
+            detailsStack.bottomAnchor.constraint(equalTo: detailsBg.bottomAnchor),
+        ])
+
+        // Confirm send button
+        confirmSendButton.setTitle("Send Zap", for: .normal)
+        confirmSendButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        confirmSendButton.setTitleColor(.black, for: .normal)
+        confirmSendButton.setTitleColor(.gray, for: .disabled)
+        confirmSendButton.backgroundColor = .systemOrange
+        confirmSendButton.layer.cornerRadius = 16
+        confirmSendButton.translatesAutoresizingMaskIntoConstraints = false
+        confirmSendButton.addTarget(self, action: #selector(confirmSendTapped), for: .touchUpInside)
+
+        // Loading spinner on the confirm button
+        confirmSpinner.color = .black
+        confirmSpinner.translatesAutoresizingMaskIntoConstraints = false
+        confirmSpinner.hidesWhenStopped = true
+        confirmSendButton.addSubview(confirmSpinner)
+
+        // Back button
+        confirmBackButton.setTitle("← Back", for: .normal)
+        confirmBackButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+        confirmBackButton.setTitleColor(.gray, for: .normal)
+        confirmBackButton.translatesAutoresizingMaskIntoConstraints = false
+        confirmBackButton.addTarget(self, action: #selector(confirmBackTapped), for: .touchUpInside)
+
+        confirmOverlay.addSubview(detailsBg)
+        confirmOverlay.addSubview(confirmInsufficientLabel)
+        confirmOverlay.addSubview(confirmSendButton)
+        confirmOverlay.addSubview(confirmBackButton)
+
+        // Centered loading spinner (shown while preparing)
+        confirmLoadingSpinner.color = .systemOrange
+        confirmLoadingSpinner.hidesWhenStopped = true
+        confirmLoadingSpinner.translatesAutoresizingMaskIntoConstraints = false
+        confirmOverlay.addSubview(confirmLoadingSpinner)
+
+        NSLayoutConstraint.activate([
+            confirmOverlay.topAnchor.constraint(equalTo: contentScrollView.topAnchor, constant: amountToContentSpacing),
+            confirmOverlay.leadingAnchor.constraint(equalTo: contentScrollView.frameLayoutGuide.leadingAnchor, constant: contentHorizontalPadding),
+            confirmOverlay.trailingAnchor.constraint(equalTo: contentScrollView.frameLayoutGuide.trailingAnchor, constant: -contentHorizontalPadding),
+            confirmOverlay.heightAnchor.constraint(greaterThanOrEqualToConstant: confirmContentHeight),
+
+            detailsBg.topAnchor.constraint(equalTo: confirmOverlay.topAnchor),
+            detailsBg.leadingAnchor.constraint(equalTo: confirmOverlay.leadingAnchor),
+            detailsBg.trailingAnchor.constraint(equalTo: confirmOverlay.trailingAnchor),
+
+            confirmInsufficientLabel.topAnchor.constraint(equalTo: detailsBg.bottomAnchor, constant: 10),
+            confirmInsufficientLabel.centerXAnchor.constraint(equalTo: confirmOverlay.centerXAnchor),
+
+            confirmSendButton.topAnchor.constraint(equalTo: detailsBg.bottomAnchor, constant: 36),
+            confirmSendButton.leadingAnchor.constraint(equalTo: confirmOverlay.leadingAnchor),
+            confirmSendButton.trailingAnchor.constraint(equalTo: confirmOverlay.trailingAnchor),
+            confirmSendButton.heightAnchor.constraint(equalToConstant: 50),
+
+            confirmSpinner.centerXAnchor.constraint(equalTo: confirmSendButton.centerXAnchor),
+            confirmSpinner.centerYAnchor.constraint(equalTo: confirmSendButton.centerYAnchor),
+
+            confirmBackButton.topAnchor.constraint(equalTo: confirmSendButton.bottomAnchor, constant: 8),
+            confirmBackButton.centerXAnchor.constraint(equalTo: confirmOverlay.centerXAnchor),
+
+            confirmLoadingSpinner.centerXAnchor.constraint(equalTo: confirmOverlay.centerXAnchor),
+            confirmLoadingSpinner.centerYAnchor.constraint(equalTo: confirmOverlay.centerYAnchor, constant: -10),
+        ])
+    }
+
+    private func makeDetailRow(leftLabel leftText: String, rightLabel: UILabel) -> UIView {
+        let row = UIView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let left = UILabel()
+        left.text = leftText
+        left.font = .systemFont(ofSize: 14)
+        left.textColor = .gray
+        left.translatesAutoresizingMaskIntoConstraints = false
+
+        rightLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        rightLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        row.addSubview(left)
+        row.addSubview(rightLabel)
+        NSLayoutConstraint.activate([
+            left.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            left.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            rightLabel.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            rightLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            row.heightAnchor.constraint(equalToConstant: 22),
+        ])
+        return row
     }
     
     private func setupGestures() {
@@ -747,8 +924,11 @@ class MorphingZapModal: UIView {
     private func confirmAmount() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         
-        if let onSendZap = onSendZap {
-            // Async send mode — show loading, send, show result, then dismiss
+        if onPrepareZap != nil {
+            // Two-step flow: show confirmation with fee
+            switchToConfirmMode()
+        } else if let onSendZap = onSendZap {
+            // Legacy one-step flow
             showSendingState()
             Task {
                 let success = await onSendZap(selectedAmount)
@@ -757,9 +937,216 @@ class MorphingZapModal: UIView {
                 }
             }
         } else {
-            // Default mode — just fire callback (chat input bar flow)
             onAmountSelected?(selectedAmount)
         }
+    }
+
+    // MARK: - Confirm Mode
+
+    private func switchToConfirmMode() {
+        currentMode = .confirm
+
+        // Show loading state — hide details, show centered spinner
+        confirmOverlay.isHidden = false
+        confirmOverlay.alpha = 0
+        confirmSendButton.isHidden = true
+        confirmBackButton.isHidden = true
+        confirmInsufficientLabel.isHidden = true
+        confirmDetailsBg.alpha = 0
+        confirmLoadingSpinner.startAnimating()
+
+        let amountSats = selectedAmount / 1000
+
+        // Animate transition
+        let desiredHeight = confirmModeHeight
+        let cappedHeight = min(desiredHeight, availableHeight)
+        let targetCenterY = calculateExpandedCenterY(for: cappedHeight)
+
+        UIView.animate(withDuration: 0.15, animations: {
+            self.quickAmountsView.alpha = 0
+            self.numberPadView.alpha = 0
+        }) { _ in
+            self.quickAmountsView.isHidden = true
+            self.numberPadView.isHidden = true
+            self.contentScrollView.isScrollEnabled = cappedHeight < desiredHeight
+            self.contentScrollView.contentOffset = .zero
+
+            UIView.animate(
+                withDuration: 0.35,
+                delay: 0,
+                usingSpringWithDamping: 0.85,
+                initialSpringVelocity: 0,
+                options: [],
+                animations: {
+                    self.glassHeightConstraint.constant = cappedHeight
+                    self.glassCenterYConstraint.constant = targetCenterY
+                    self.confirmOverlay.alpha = 1
+                    self.layoutIfNeeded()
+                }
+            )
+        }
+
+        // Fetch balance and prepare payment in parallel
+        Task {
+            // Get balance
+            if let getBalance = onGetBalance {
+                let bal = await getBalance()
+                await MainActor.run {
+                    self.balanceSats = bal
+                    self.confirmBalanceLabel.text = "\(self.formatNumber(bal)) sats"
+                }
+            }
+
+            // Prepare payment to get fee
+            guard let prepareZap = onPrepareZap else { return }
+            do {
+                let result = try await prepareZap(self.selectedAmount)
+                await MainActor.run {
+                    self.feeSats = result.feeSats
+                    self.preparedPaymentBolt11 = result.bolt11
+                    let amountSats = self.selectedAmount / 1000
+                    let total = Int64(amountSats) + Int64(result.feeSats)
+                    self.confirmFeeLabel.text = "\(result.feeSats) sats"
+                    self.confirmTotalLabel.text = "\(self.formatNumber(total)) sats"
+
+                    let insufficient = total > self.balanceSats
+                    self.confirmInsufficientLabel.isHidden = !insufficient
+                    self.confirmBalanceLabel.textColor = insufficient ? .systemRed : .systemGreen
+
+                    self.confirmLoadingSpinner.stopAnimating()
+                    self.confirmSendButton.isEnabled = !insufficient
+                    self.confirmSendButton.setTitle("Send Zap", for: .normal)
+                    self.confirmSendButton.backgroundColor = insufficient
+                        ? UIColor(white: 0.3, alpha: 0.5)
+                        : .systemOrange
+
+                    // Fade in details, buttons
+                    UIView.animate(withDuration: 0.25) {
+                        self.confirmDetailsBg.alpha = 1
+                        self.confirmSendButton.isHidden = false
+                        self.confirmBackButton.isHidden = false
+                        self.confirmSendButton.alpha = 1
+                        self.confirmBackButton.alpha = 1
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.confirmLoadingSpinner.stopAnimating()
+                    self.confirmSendButton.isHidden = false
+                    self.confirmSendButton.isEnabled = true
+                    self.confirmSendButton.setTitle("Retry", for: .normal)
+                    self.confirmSendButton.backgroundColor = .systemOrange
+                    self.confirmBackButton.isHidden = false
+
+                    UIView.animate(withDuration: 0.25) {
+                        self.confirmSendButton.alpha = 1
+                        self.confirmBackButton.alpha = 1
+                    }
+                }
+            }
+        }
+    }
+
+    @objc private func confirmSendTapped() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+        // If we don't have a prepared payment yet, this is a retry
+        if preparedPaymentBolt11 == nil {
+            confirmSendButton.isHidden = true
+            confirmBackButton.isHidden = true
+            confirmLoadingSpinner.startAnimating()
+            confirmDetailsBg.alpha = 0
+
+            Task {
+                guard let prepareZap = onPrepareZap else { return }
+                do {
+                    let result = try await prepareZap(self.selectedAmount)
+                    await MainActor.run {
+                        self.feeSats = result.feeSats
+                        self.preparedPaymentBolt11 = result.bolt11
+                        let amountSats = self.selectedAmount / 1000
+                        let total = Int64(amountSats) + Int64(result.feeSats)
+                        self.confirmFeeLabel.text = "\(result.feeSats) sats"
+                        self.confirmTotalLabel.text = "\(self.formatNumber(total)) sats"
+
+                        let insufficient = total > self.balanceSats
+                        self.confirmInsufficientLabel.isHidden = !insufficient
+                        self.confirmBalanceLabel.textColor = insufficient ? .systemRed : .systemGreen
+
+                        self.confirmLoadingSpinner.stopAnimating()
+                        self.confirmSendButton.isHidden = false
+                        self.confirmSendButton.isEnabled = !insufficient
+                        self.confirmSendButton.setTitle("Send Zap", for: .normal)
+                        self.confirmSendButton.backgroundColor = insufficient
+                            ? UIColor(white: 0.3, alpha: 0.5) : .systemOrange
+                        self.confirmBackButton.isHidden = false
+
+                        UIView.animate(withDuration: 0.25) {
+                            self.confirmDetailsBg.alpha = 1
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.confirmLoadingSpinner.stopAnimating()
+                        self.confirmSendButton.isHidden = false
+                        self.confirmSendButton.setTitle("Retry", for: .normal)
+                        self.confirmBackButton.isHidden = false
+                    }
+                }
+            }
+            return
+        }
+
+        guard let onSendZap = onSendZap else { return }
+        showSendingState()
+        Task {
+            let success = await onSendZap(selectedAmount)
+            await MainActor.run {
+                self.showResultState(success: success)
+            }
+        }
+    }
+
+    @objc private func confirmBackTapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        preparedPaymentBolt11 = nil
+        feeSats = 0
+
+        // Animate back to quick mode
+        currentMode = .quick
+        let desiredHeight = quickModeHeight
+        let cappedHeight = min(desiredHeight, availableHeight)
+        let targetCenterY = calculateExpandedCenterY(for: cappedHeight)
+
+        UIView.animate(withDuration: 0.15, animations: {
+            self.confirmOverlay.alpha = 0
+        }) { _ in
+            self.confirmOverlay.isHidden = true
+            self.quickAmountsView.isHidden = false
+            self.quickAmountsView.alpha = 0
+            self.contentScrollView.isScrollEnabled = false
+            self.contentScrollView.contentOffset = .zero
+
+            UIView.animate(
+                withDuration: 0.35,
+                delay: 0,
+                usingSpringWithDamping: 0.85,
+                initialSpringVelocity: 0,
+                options: [],
+                animations: {
+                    self.glassHeightConstraint.constant = cappedHeight
+                    self.glassCenterYConstraint.constant = targetCenterY
+                    self.quickAmountsView.alpha = 1
+                    self.layoutIfNeeded()
+                }
+            )
+        }
+    }
+
+    private func formatNumber(_ value: Int64) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
     
     // MARK: - Sending States
@@ -776,6 +1163,7 @@ class MorphingZapModal: UIView {
         UIView.animate(withDuration: 0.25) {
             self.quickAmountsView.alpha = 0
             self.numberPadView.alpha = 0
+            self.confirmOverlay.alpha = 0
             self.sendingOverlay.alpha = 1
         }
     }
@@ -917,6 +1305,8 @@ class MorphingZapModal: UIView {
             
             if currentMode == .quick {
                 quickAmountsView.alpha = contentAlpha
+            } else if currentMode == .confirm {
+                confirmOverlay.alpha = contentAlpha
             } else {
                 numberPadView.alpha = contentAlpha
             }
@@ -987,6 +1377,7 @@ class MorphingZapModal: UIView {
             self.satsLabel.alpha = 0
             self.quickAmountsView.alpha = 0
             self.numberPadView.alpha = 0
+            self.confirmOverlay.alpha = 0
             self.dimmingView.alpha = 0
             self.boltIcon.alpha = 0
             

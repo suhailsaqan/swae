@@ -113,7 +113,7 @@ struct StreamVideoSettingsView: View {
                 Gives better image quality at low bitrates.
                 """)
             }
-            if database.showAllSettings {
+            // if database.showAllSettings {
                 Section {
                     HStack {
                         Text("Codec")
@@ -209,7 +209,7 @@ struct StreamVideoSettingsView: View {
                     RIST.
                     """)
                 }
-            }
+            // }
         }
         .navigationTitle("Video")
     }

@@ -190,27 +190,30 @@ class RtmpConnection {
             let password = uri.password,
             let description = data["description"] as? String
         else {
+            // No credentials or description — can't authenticate, report failure
+            socket.close(isDisconnected: true)
             return
         }
         socket.close()
         switch true {
-        case description.contains("reason=nosuchuser"):
-            break
-        case description.contains("reason=authfailed"):
-            break
+        case description.contains("reason=nosuchuser"),
+             description.contains("reason=authfailed"):
+            // Auth failed permanently — report as connection failure
+            socket.close(isDisconnected: true)
         case description.contains("reason=needauth"):
             let command = Self.makeSanJoseAuthCommand(uri, description: description)
             connect(command)
         case description.contains("authmod=adobe"):
             if user.isEmpty || password.isEmpty {
-                disconnect()
+                socket.close(isDisconnected: true)
                 break
             }
             let query = uri.query ?? ""
             let command = uri.absoluteString + (query.isEmpty ? "?" : "&") + "authmod=adobe&user=\(user)"
             connect(command)
         default:
-            break
+            // Unknown rejection reason — report failure
+            socket.close(isDisconnected: true)
         }
     }
 

@@ -1079,16 +1079,33 @@ class CameraViewController: UIViewController {
                 .sink(receiveCompletion: { _ in
                     _ = cancellable // prevent dealloc
                 }, receiveValue: { [weak self] _ in
+                    // Set local state immediately — don't let refreshZapStreamCoreBalance
+                    // overwrite this until the server has had time to process the removal.
                     model.zapStreamCoreHasNwc = false
-                    model.refreshZapStreamCoreBalance()
+                    // Stop the on-device NWC responder if running (Spark wallet)
+                    model.nwcResponder?.stop()
+                    model.nwcResponder = nil
                     let hasWallet: Bool = {
-                        if let wallet = AppCoordinator.shared.appState.wallet,
-                           case .existing = wallet.connect_state { return true }
+                        if let wallet = AppCoordinator.shared.appState.wallet {
+                            switch wallet.connect_state {
+                            case .existing, .spark: return true
+                            default: return false
+                            }
+                        }
                         return false
                     }()
+                    // Update UI immediately with current balance/rate so the display
+                    // switches from wallet balance to zap stream balance right away.
                     self?.morphingGlassModal?.expandedControls.updateStreamDetailAutoTopupState(
-                        hasNwc: false, hasWallet: hasWallet
+                        hasNwc: false, hasWallet: hasWallet,
+                        balance: model.zapStreamCoreBalance,
+                        rate: model.zapStreamCoreRate
                     )
+                    // Defer the server refresh slightly so the server has time to
+                    // process the NWC removal before we query the account again.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        model.refreshZapStreamCoreBalance()
+                    }
                 })
         }
 
@@ -1096,34 +1113,44 @@ class CameraViewController: UIViewController {
         morphingModal.onStreamDetailAutoTopupEnable = { [weak self] in
             guard let self = self, let model = self.model,
                   let appState = model.appState,
-                  let wallet = appState.wallet,
-                  case .existing(let nwc) = wallet.connect_state else {
+                  let wallet = appState.wallet else {
                 self?.morphingGlassModal?.expandedControls.endStreamDetailAutoTopupLoading()
                 return
             }
-            let nwcUri = nwc.to_url().absoluteString
-            let config = ZapStreamCoreConfig(baseUrl: model.stream.zapStreamCoreBaseUrl)
-            let client = ZapStreamCoreApiClient(config: config)
-            var cancellable: AnyCancellable?
-            cancellable = client.updateAccount(appState: appState, nwcUri: nwcUri)
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { [weak self] completion in
-                    _ = cancellable
-                    if case .failure = completion {
-                        self?.morphingGlassModal?.expandedControls.endStreamDetailAutoTopupLoading()
+
+            // Determine the NWC URI based on wallet type
+            switch wallet.connect_state {
+            case .existing(let nwc):
+                // Coinos path — use NWC URL directly
+                let nwcUri = nwc.to_url().absoluteString
+                self.sendNwcUriToServer(nwcUri, model: model)
+
+            case .spark:
+                // Spark path — start on-device NWC responder
+                guard let spark = wallet.sparkService else {
+                    self.morphingGlassModal?.expandedControls.endStreamDetailAutoTopupLoading()
+                    return
+                }
+                Task { [weak self] in
+                    do {
+                        let responder = NWCResponder()
+                        let nwcURL = try await responder.start(sparkService: spark)
+                        let uri = nwcURL.to_url().absoluteString
+                        model.nwcResponder = responder
+                        await MainActor.run {
+                            self?.sendNwcUriToServer(uri, model: model)
+                        }
+                    } catch {
+                        print("❌ NWCResponder start failed: \(error)")
+                        await MainActor.run {
+                            self?.morphingGlassModal?.expandedControls.endStreamDetailAutoTopupLoading()
+                        }
                     }
-                }, receiveValue: { [weak self] _ in
-                    model.zapStreamCoreHasNwc = true
-                    model.refreshZapStreamCoreBalance()
-                    let hasWallet: Bool = {
-                        if let wallet = AppCoordinator.shared.appState.wallet,
-                           case .existing = wallet.connect_state { return true }
-                        return false
-                    }()
-                    self?.morphingGlassModal?.expandedControls.updateStreamDetailAutoTopupState(
-                        hasNwc: true, hasWallet: hasWallet
-                    )
-                })
+                }
+
+            default:
+                self.morphingGlassModal?.expandedControls.endStreamDetailAutoTopupLoading()
+            }
         }
 
         // Stream detail: Metadata edit callbacks
@@ -1181,6 +1208,15 @@ class CameraViewController: UIViewController {
             guard let model = self?.model, !model.isLive, !model.isRecording else { return }
             model.stream.fps = fpss[index]
             model.reloadStreamIfEnabled(stream: model.stream)
+        }
+        morphingModal.onStreamDetailBitrateChanged = { [weak self] index in
+            guard let model = self?.model else { return }
+            let presets = model.database.bitratePresets
+            guard index >= 0, index < presets.count else { return }
+            model.stream.bitrate = presets[index].bitrate
+            if model.stream.enabled {
+                model.setStreamBitrate(stream: model.stream)
+            }
         }
         morphingModal.onStreamDetailAdaptiveResolutionChanged = { [weak self] enabled in
             guard let model = self?.model, !model.isLive else { return }
@@ -1659,7 +1695,8 @@ class CameraViewController: UIViewController {
                 hasNwc: false, hasWallet: false, walletBalance: nil,
                 resolutionIndex: 2, availableResolutions: [], fpsIndex: 4, availableFps: [],
                 isAdaptiveResolution: false, isLowLightBoostAvailable: false,
-                isLowLightBoostEnabled: false, audioBitrateKbps: 128,
+                isLowLightBoostEnabled: false, bitrateIndex: 0, availableBitrates: [],
+                audioBitrateKbps: 128,
                 isPortrait: true, isBackgroundStreaming: false, isAutoRecord: false,
                 isLiveOrRecording: false
             )
@@ -1677,8 +1714,12 @@ class CameraViewController: UIViewController {
             return display.joined(separator: ", ")
         }()
         let hasWallet: Bool = {
-            if let wallet = AppCoordinator.shared.appState.wallet,
-               case .existing = wallet.connect_state { return true }
+            if let wallet = AppCoordinator.shared.appState.wallet {
+                switch wallet.connect_state {
+                case .existing, .spark: return true
+                default: return false
+                }
+            }
             return false
         }()
         return InlineStreamDetailView.StreamDetailData(
@@ -1715,6 +1756,8 @@ class CameraViewController: UIViewController {
                 return false
             }(),
             isLowLightBoostEnabled: model.stream.autoFps,
+            bitrateIndex: model.database.bitratePresets.firstIndex(where: { $0.bitrate == model.stream.bitrate }) ?? 0,
+            availableBitrates: model.database.bitratePresets.map { formatBytesPerSecond(speed: Int64($0.bitrate)) },
             audioBitrateKbps: model.stream.audioBitrate / 1000,
             isPortrait: model.stream.portrait,
             isBackgroundStreaming: model.stream.backgroundStreaming,
@@ -1798,6 +1841,47 @@ class CameraViewController: UIViewController {
         
         // Portrait pill state
         morphingGlassModal?.expandedControls.portraitPill.isActive = model.database.portrait
+    }
+
+    /// Sends an NWC URI to the zap.stream server and updates UI on success.
+    /// Shared by both Coinos (direct NWC URL) and Spark (on-device responder URL) paths.
+    private func sendNwcUriToServer(_ nwcUri: String, model: Model) {
+        guard let appState = model.appState else { return }
+        let config = ZapStreamCoreConfig(baseUrl: model.stream.zapStreamCoreBaseUrl)
+        let client = ZapStreamCoreApiClient(config: config)
+        var cancellable: AnyCancellable?
+        cancellable = client.updateAccount(appState: appState, nwcUri: nwcUri)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] completion in
+                _ = cancellable
+                if case .failure = completion {
+                    // Stop responder on failure (if Spark)
+                    model.nwcResponder?.stop()
+                    model.nwcResponder = nil
+                    self?.morphingGlassModal?.expandedControls.endStreamDetailAutoTopupLoading()
+                }
+            }, receiveValue: { [weak self] _ in
+                model.zapStreamCoreHasNwc = true
+                let hasWallet: Bool = {
+                    if let wallet = AppCoordinator.shared.appState.wallet {
+                        switch wallet.connect_state {
+                        case .existing, .spark: return true
+                        default: return false
+                        }
+                    }
+                    return false
+                }()
+                self?.morphingGlassModal?.expandedControls.updateStreamDetailAutoTopupState(
+                    hasNwc: true, hasWallet: hasWallet,
+                    balance: model.zapStreamCoreBalance,
+                    rate: model.zapStreamCoreRate,
+                    walletBalance: AppCoordinator.shared.appState.wallet?.balance
+                )
+                model.refreshWalletBalanceIfNeeded()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    model.refreshZapStreamCoreBalance()
+                }
+            })
     }
 
     /// Lightweight Zone 3-only update. Safe to call every second.
